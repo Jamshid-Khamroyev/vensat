@@ -14,6 +14,24 @@ export interface ParsedTest {
   questions: ParsedQuestion[];
 }
 
+function cleanText(text: string): string {
+  if (!text) return "";
+  // Remove markdown artifacts like \n*, \r, etc. and normalize spacing
+  return text.replace(/\\n\*/g, " ").replace(/\n\*/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function cleanTest(test: ParsedTest): ParsedTest {
+  return {
+    ...test,
+    title: cleanText(test.title),
+    questions: test.questions.map(q => ({
+      ...q,
+      text: cleanText(q.text),
+      options: q.options.map(cleanText)
+    }))
+  };
+}
+
 export async function parseTestContent(testText: string, keyText: string): Promise<ParsedTest> {
   const model = "gemini-3-flash-preview";
   
@@ -28,6 +46,7 @@ export async function parseTestContent(testText: string, keyText: string): Promi
     4. Options should be extracted as an array of strings.
     5. correctAnswerIndex should be 0-based.
     6. Return a title for the test based on the content.
+    7. CRITICAL: Clean all text from artifacts like "\\n*" or weird formatting characters.
   `;
 
   const response = await ai.models.generateContent({
@@ -59,22 +78,30 @@ export async function parseTestContent(testText: string, keyText: string): Promi
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  return cleanTest(JSON.parse(response.text || "{}"));
 }
 
-export async function generateSATTest(type: string, count: number): Promise<ParsedTest> {
+export async function generateSATTest(category: string, difficulty: string, count: number, words?: string): Promise<ParsedTest> {
   const model = "gemini-3-flash-preview";
   const systemInstruction = `
-    You are an expert SAT tutor. Create a high-quality SAT-style practice test.
-    The test should focus on: ${type}.
-    Create exactly ${count} questions.
-    Questions must be rigorous, with one clear correct answer and three plausible distractors.
-    For Reading/Writing, include relevant passages.
+    You are an expert Digital SAT (DSAT) instructor. Create a high-quality practice test for the category: ${category}.
+    
+    Difficulty: ${difficulty}
+    Question Count: ${count}.
+    ${words ? `INTEGRATION OBJECTIVE: You MUST integrate these specific vocabulary words/concepts into the questions and passages: ${words}. Let them be the focus of the question or essential context within the DSAT style passage.` : 'Generate standard high-rigor DSAT questions for this category.'}
+
+    Rules for DSAT Questions:
+    - For Reading & Writing: Every question MUST feature a high-level passage (paragraphs/sentences). Use authentic DSAT language.
+    - For Math: Provide clean, logical problems. Distractors must be mathematically plausible. (Note: Math questions do not typically use specific vocabulary lists).
+    - CRITICAL: Do NOT include any formatting artifacts like "\\n*" or markdown bullets in the text fields.
+    
+    Structure:
+    Return a structured JSON match schema.
   `;
 
   const response = await ai.models.generateContent({
     model,
-    contents: [{ text: `Generate a ${count} question SAT practice test for ${type}.` }],
+    contents: [{ text: `Generate a ${difficulty} difficulty practice test for ${category} with ${count} questions.${words ? ` Focus on these words: ${words}` : ''}` }],
     config: {
       systemInstruction,
       responseMimeType: "application/json",
@@ -101,20 +128,38 @@ export async function generateSATTest(type: string, count: number): Promise<Pars
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  return cleanTest(JSON.parse(response.text || "{}"));
 }
 
-export async function generateWordsTest(words: string, count: number): Promise<ParsedTest> {
+export async function chatWithAI(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) {
+  const model = "gemini-3-flash-preview";
+  const systemInstruction = "You are AeroBot, a sleek and helpful SAT coach. Keep your responses concise, visually structured with bullet points or bold text, and encouraging. Use simple language but high-value tips. If asked about a problem, break it down step-by-step.";
+  
+  const response = await ai.models.generateContent({
+    model,
+    contents: [...history, { role: 'user', parts: [{ text: message }] }],
+    config: { systemInstruction }
+  });
+  
+  return response.text;
+}
+
+export async function generateWordsTest(category: string, words: string, count: number): Promise<ParsedTest> {
   const model = "gemini-3-flash-preview";
   const systemInstruction = `
-    You are a language teacher. Create a test focused on these specific words: ${words}.
+    You are a language teacher. Create a high-level vocabulary test.
+    Focus on these specific words: ${words}.
+    Target Category/Context: ${category}.
+    
     Create ${count} questions. 
-    Use various formats like fill-in-the-blank (with options), definition matching, or sentence completion.
+    Every question MUST be context-based (sentence completion or passage analysis) within the ${category} field.
+    Use the provided words as the primary focus for correct answers or essential context.
+    CRITICAL: Clean all text from artifacts like "\\n*".
   `;
 
   const response = await ai.models.generateContent({
     model,
-    contents: [{ text: `Create a ${count} question test based on these words: ${words}` }],
+    contents: [{ text: `Create a ${count} question ${category} test using these words: ${words}` }],
     config: {
       systemInstruction,
       responseMimeType: "application/json",
@@ -141,5 +186,5 @@ export async function generateWordsTest(words: string, count: number): Promise<P
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  return cleanTest(JSON.parse(response.text || "{}"));
 }

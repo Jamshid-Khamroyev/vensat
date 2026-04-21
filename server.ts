@@ -15,6 +15,7 @@ const MONGODB_URI = "mongodb+srv://coder0811:qsFzq0wzfwwwbWcz@cluster0.3cvwpzs.m
 const TestSchema = new mongoose.Schema({
   title: String,
   creatorId: String,
+  timeLimit: { type: Number, default: 30 }, // in minutes
   questions: [{
     text: String,
     options: [String],
@@ -26,6 +27,8 @@ const TestSchema = new mongoose.Schema({
 const SessionSchema = new mongoose.Schema({
   testId: String,
   userId: String,
+  title: String,
+  total: Number,
   answers: Object,
   score: Number,
   startTime: Date,
@@ -35,6 +38,16 @@ const SessionSchema = new mongoose.Schema({
 
 const Test = mongoose.model("Test", TestSchema);
 const Session = mongoose.model("Session", SessionSchema);
+
+const WordSchema = new mongoose.Schema({
+  userId: String,
+  term: String,
+  definition: String,
+  category: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Word = mongoose.model("Word", WordSchema);
 
 async function startServer() {
   await mongoose.connect(MONGODB_URI);
@@ -55,6 +68,17 @@ async function startServer() {
     res.status(201).json(newTest);
   });
 
+  app.patch("/api/tests/:id", async (req, res) => {
+    const updatedTest = await Test.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedTest);
+  });
+
+  app.delete("/api/tests/:id", async (req, res) => {
+    await Test.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  });
+
+  // Sessions
   app.get("/api/sessions/:userId", async (req, res) => {
     const sessions = await Session.find({ userId: req.params.userId }).sort({ startTime: -1 });
     res.json(sessions);
@@ -64,6 +88,33 @@ async function startServer() {
     const newSession = new Session(req.body);
     await newSession.save();
     res.status(201).json(newSession);
+  });
+
+  app.patch("/api/sessions/:id", async (req, res) => {
+    const updatedSession = await Session.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(updatedSession);
+  });
+
+  app.delete("/api/sessions/:id", async (req, res) => {
+    await Session.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  });
+
+  // Words
+  app.get("/api/words/:userId", async (req, res) => {
+    const words = await Word.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json(words);
+  });
+
+  app.post("/api/words", async (req, res) => {
+    const newWord = new Word(req.body);
+    await newWord.save();
+    res.status(201).json(newWord);
+  });
+
+  app.delete("/api/words/:id", async (req, res) => {
+    await Word.findByIdAndDelete(req.params.id);
+    res.status(204).send();
   });
 
   // Vite middleware for development
