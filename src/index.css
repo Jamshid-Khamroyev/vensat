@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bluebook-navy: #002B5B;
+  --color-bluebook-blue: #0066CC;
+  --color-bluebook-bg: #F8F9FA;
+  --color-bluebook-border: #E2E8F0;
+  
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-bluebook-bg text-bluebook-navy antialiased text-sm sm:text-base;
+  }
+}
+
+.bluebook-card {
+  @apply bg-white border border-bluebook-border rounded-lg sm:rounded-xl shadow-sm transition-all duration-300;
+}
+
+.bluebook-button {
+  @apply px-4 py-2 sm:px-6 sm:py-3 bg-bluebook-navy text-white rounded-lg font-medium hover:bg-blue-900 transition-colors disabled:opacity-50 text-sm sm:text-base cursor-pointer;
+}
+
+.bluebook-input {
+  @apply w-full p-2 sm:p-4 bg-white border border-bluebook-border rounded-lg outline-none focus:border-bluebook-blue transition-colors text-sm sm:text-base;
+}
+
+/* Deep Work Focus Mode */
+.focus-mode {
+  @apply w-full max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-12;
+}
+
+h1 { @apply text-xl sm:text-2xl font-bold tracking-tight; }
+h2 { @apply text-lg sm:text-xl font-bold; }
+h3 { @apply text-base sm:text-lg font-medium; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+

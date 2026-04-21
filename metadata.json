@@ -1,0 +1,6 @@
+{
+  "name": "AeroTest",
+  "description": "Full-stack SAT practice platform with AI-powered test generation, MongoDB persistence, and an immersive Bluebook-styled test environment.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

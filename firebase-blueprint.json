@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "test": {
+      "title": "Test Definition",
+      "description": "Represents a structured test with questions and answers.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "options": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "correctAnswerIndex": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "required": ["title", "creatorId", "questions"]
+    },
+    "session": {
+      "title": "Test Session",
+      "description": "Results and progress of a user taking a test.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "testId": { "type": "string" },
+        "status": { "type": "string", "enum": ["in-progress", "completed"] },
+        "answers": {
+          "type": "object",
+          "description": "Mapping of question index to user's selected option index."
+        },
+        "score": { "type": "number" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "testId", "status", "startTime"]
+    }
+  },
+  "firestore": {
+    "/tests/{testId}": {
+      "schema": "test",
+      "description": "Storage for exam definitions."
+    },
+    "/sessions/{sessionId}": {
+      "schema": "session",
+      "description": "Storage for user test attempts."
+    }
+  }
+}
