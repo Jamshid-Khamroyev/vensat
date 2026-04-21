@@ -33,16 +33,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
 import Markdown from 'react-markdown';
 import { 
-  auth 
-} from './lib/firebase';
-import { 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut,
-  User
-} from 'firebase/auth';
-import { 
   parseTestContent, 
   generateSATTest, 
   generateWordsTest,
@@ -51,6 +41,12 @@ import {
 } from './services/geminiService';
 
 // --- Types ---
+interface AppUser {
+  _id: string;
+  email: string;
+  displayName: string;
+  isAdmin?: boolean;
+}
 interface TestRecord {
   _id: string;
   title: string;
@@ -93,8 +89,9 @@ interface Session {
 // --- App ---
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authEmail, setAuthEmail] = useState('');
   const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [dbTests, setDbTests] = useState<TestRecord[]>([]);
@@ -128,17 +125,14 @@ export default function App() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const savedUser = localStorage.getItem('aero_user');
+    if (savedUser) {
+      const u = JSON.parse(savedUser);
       setUser(u);
-      setLoading(false);
-      if (u) {
-        fetchAll(u.uid);
-        setView('dashboard');
-      } else {
-        setView('landing');
-      }
-    });
-    return () => unsubscribe();
+      fetchAll(u._id);
+      setView('dashboard');
+    }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -156,12 +150,12 @@ export default function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, timeLeft]);
 
-  const fetchAll = async (uid: string) => {
+  const fetchAll = async (id: string) => {
     try {
       const [testsRes, sessionsRes, wordsRes] = await Promise.all([
         fetch("/api/tests"),
-        fetch(`/api/sessions/${uid}`),
-        fetch(`/api/words/${uid}`)
+        fetch(`/api/sessions/${id}`),
+        fetch(`/api/words/${id}`)
       ]);
       setDbTests(await testsRes.json());
       setDbSessions(await sessionsRes.json());
@@ -174,7 +168,7 @@ export default function App() {
       const res = await fetch("/api/words", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...word, userId: user?.uid })
+        body: JSON.stringify({ ...word, userId: user?._id })
       });
       const saved = await res.json();
       setUserWords([saved, ...userWords]);
@@ -188,12 +182,30 @@ export default function App() {
     } catch (e) { alert("Delete failed."); }
   };
 
-  const handleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+  const handleLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!authEmail) return;
+    setIsProcessing(true);
+    try {
+       const res = await fetch("/api/auth/login", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ email: authEmail })
+       });
+       const userData = await res.json();
+       setUser(userData);
+       localStorage.setItem('aero_user', JSON.stringify(userData));
+       fetchAll(userData._id);
+       setView('dashboard');
+    } catch (e) { alert("Login failed."); }
+    finally { setIsProcessing(false); }
   };
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => {
+    setUser(null);
+    localStorage.removeItem('aero_user');
+    setView('landing');
+  };
 
   const startTest = (test: ParsedTest) => {
     setCurrentTest(test);
@@ -202,7 +214,7 @@ export default function App() {
     setIsHighlighterActive(false);
     setCurrentSession({
       testId: 'active',
-      userId: user?.uid || 'guest',
+      userId: user?._id || 'guest',
       answers: {},
       score: 0,
       startTime: Date.now(),
@@ -220,7 +232,7 @@ export default function App() {
       const res = await fetch("/api/tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...parsed, creatorId: user?.uid })
+        body: JSON.stringify({ ...parsed, creatorId: user?._id })
       });
       const saved = await res.json();
       setDbTests([saved, ...dbTests]);
@@ -244,7 +256,7 @@ export default function App() {
       const res = await fetch("/api/tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...parsed, creatorId: user?.uid, timeLimit: selectedTime })
+        body: JSON.stringify({ ...parsed, creatorId: user?._id, timeLimit: selectedTime })
       });
       const saved = await res.json();
       setDbTests([saved, ...dbTests]);
@@ -262,7 +274,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle })
       });
-      if (user) fetchAll(user.uid);
+      if (user) fetchAll(user._id);
     } catch (e) { alert("Rename failed."); }
   };
 
@@ -275,7 +287,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timeLimit: Number(newTime) })
       });
-      if (user) fetchAll(user.uid);
+      if (user) fetchAll(user._id);
     } catch (e) { alert("Update failed."); }
   };
 
@@ -283,7 +295,7 @@ export default function App() {
     if (!confirm("Delete this test permanently?")) return;
     try {
       await fetch(`/api/tests/${id}`, { method: "DELETE" });
-      if (user) fetchAll(user.uid);
+      if (user) fetchAll(user._id);
     } catch (e) { alert("Delete failed."); }
   };
 
@@ -291,7 +303,7 @@ export default function App() {
     if (!confirm("Delete this history record?")) return;
     try {
       await fetch(`/api/sessions/${id}`, { method: "DELETE" });
-      if (user) fetchAll(user.uid);
+      if (user) fetchAll(user._id);
     } catch (e) { alert("Delete failed."); }
   };
 
@@ -304,7 +316,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: newTitle })
       });
-      if (user) fetchAll(user.uid);
+      if (user) fetchAll(user._id);
     } catch (e) { alert("Rename failed."); }
   };
 
@@ -412,7 +424,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(final)
       });
-      fetchAll(user.uid);
+      fetchAll(user._id);
     }
 
     setCurrentSession(final as Session);
@@ -466,7 +478,30 @@ export default function App() {
                 <div className="inline-flex p-3 bg-white rounded-2xl shadow-xl transform rotate-3"><Sparkles className="w-10 h-10 text-blue-600" /></div>
                 <h2 className="text-3xl sm:text-5xl font-extrabold leading-tight">Elite SAT Preparation & Test Management</h2>
                 <p className="text-slate-500 text-base sm:text-lg">Structured learning environment for standardized testing. Powered by Gemini AI and optimized for peak performance.</p>
-                <button onClick={handleLogin} className="bluebook-button flex items-center gap-2 mx-auto scale-110 shadow-xl"><Lock className="w-5 h-5" /> Sign In with Google</button>
+                <form onSubmit={handleLogin} className="max-w-sm mx-auto p-6 bg-white rounded-3xl shadow-2xl border border-slate-100 space-y-4">
+                   <div className="space-y-2 text-left">
+                      <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Universal Email Access</label>
+                      <input 
+                        type="email" 
+                        required 
+                        value={authEmail} 
+                        onChange={e => setAuthEmail(e.target.value)} 
+                        placeholder="Enter your email" 
+                        className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner"
+                      />
+                   </div>
+                   <button 
+                     type="submit" 
+                     disabled={isProcessing}
+                     className="w-full bluebook-button py-4 flex items-center justify-center gap-3 relative overflow-hidden group shadow-lg shadow-blue-600/20 active:scale-[0.98]"
+                   >
+                     {isProcessing ? (
+                       <div className="flex items-center gap-2 font-black uppercase text-[10px] tracking-widest"><RotateCcw className="w-4 h-4 animate-spin" /> Verifying...</div>
+                     ) : (
+                       <span className="relative z-10 flex items-center gap-3 font-black uppercase text-[10px] tracking-widest"><Lock className="w-4 h-4" /> Start Preparing</span>
+                     )}
+                   </button>
+                </form>
               </div>
             </motion.div>
           )}
@@ -737,7 +772,7 @@ export default function App() {
                   {/* Stats & Identity */}
                   <div className="bluebook-card p-8 bg-gradient-to-br from-bluebook-navy to-slate-900 text-white border-none shadow-xl">
                     <div className="flex items-center gap-4 mb-6">
-                       <img src={user?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.displayName}`} className="w-16 h-16 rounded-full border-2 border-blue-400 shadow-lg p-0.5 bg-white" referrerPolicy="no-referrer" />
+                       <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.displayName}`} className="w-16 h-16 rounded-full border-2 border-blue-400 shadow-lg p-0.5 bg-white" referrerPolicy="no-referrer" />
                        <div>
                           <h3 className="text-xl font-black">{user?.displayName}</h3>
                           <p className="text-blue-300 text-sm font-medium">{user?.email}</p>

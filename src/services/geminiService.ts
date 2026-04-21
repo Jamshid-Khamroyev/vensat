@@ -7,6 +7,8 @@ export interface ParsedQuestion {
   text: string;
   options: string[];
   correctAnswerIndex: number;
+  difficulty?: string;
+  category?: string;
 }
 
 export interface ParsedTest {
@@ -67,9 +69,11 @@ export async function parseTestContent(testText: string, keyText: string): Promi
                 id: { type: Type.STRING },
                 text: { type: Type.STRING },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER }
+                correctAnswerIndex: { type: Type.INTEGER },
+                difficulty: { type: Type.STRING, description: "Infer from content (Easy, Medium, Hard)" },
+                category: { type: Type.STRING, description: "Infer from content (SAT Category)" }
               },
-              required: ["id", "text", "options", "correctAnswerIndex"]
+              required: ["id", "text", "options", "correctAnswerIndex", "difficulty", "category"]
             }
           }
         },
@@ -92,7 +96,8 @@ export async function generateSATTest(category: string, difficulty: string, coun
 
     Rules for DSAT Questions:
     - For Reading & Writing: Every question MUST feature a high-level passage (paragraphs/sentences). Use authentic DSAT language.
-    - For Math: Provide clean, logical problems. Distractors must be mathematically plausible. (Note: Math questions do not typically use specific vocabulary lists).
+    - For Math: Provide clean, logical problems. Distractors must be mathematically plausible.
+    - Metdata: For every question, include its "difficulty" (matching ${difficulty}) and "category" (matching ${category}).
     - CRITICAL: Do NOT include any formatting artifacts like "\\n*" or markdown bullets in the text fields.
     
     Structure:
@@ -117,9 +122,11 @@ export async function generateSATTest(category: string, difficulty: string, coun
                 id: { type: Type.STRING },
                 text: { type: Type.STRING },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER }
+                correctAnswerIndex: { type: Type.INTEGER },
+                difficulty: { type: Type.STRING },
+                category: { type: Type.STRING }
               },
-              required: ["id", "text", "options", "correctAnswerIndex"]
+              required: ["id", "text", "options", "correctAnswerIndex", "difficulty", "category"]
             }
           }
         },
@@ -154,6 +161,7 @@ export async function generateWordsTest(category: string, words: string, count: 
     Create ${count} questions. 
     Every question MUST be context-based (sentence completion or passage analysis) within the ${category} field.
     Use the provided words as the primary focus for correct answers or essential context.
+    Metdata: For every question, include its "difficulty" (assign based on complexity) and "category" (matching Vocabulary: ${category}).
     CRITICAL: Clean all text from artifacts like "\\n*".
   `;
 
@@ -175,9 +183,11 @@ export async function generateWordsTest(category: string, words: string, count: 
                 id: { type: Type.STRING },
                 text: { type: Type.STRING },
                 options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER }
+                correctAnswerIndex: { type: Type.INTEGER },
+                difficulty: { type: Type.STRING },
+                category: { type: Type.STRING }
               },
-              required: ["id", "text", "options", "correctAnswerIndex"]
+              required: ["id", "text", "options", "correctAnswerIndex", "difficulty", "category"]
             }
           }
         },

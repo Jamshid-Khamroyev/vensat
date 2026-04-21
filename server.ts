@@ -9,9 +9,17 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-const MONGODB_URI = "mongodb+srv://coder0811:qsFzq0wzfwwwbWcz@cluster0.3cvwpzs.mongodb.net/?appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://coder0811:qsFzq0wzfwwwbWcz@cluster0.3cvwpzs.mongodb.net/?appName=Cluster0";
 
 // MongoDB schemas
+const UserSchema = new mongoose.Schema({
+  email: { type: String, unique: true },
+  displayName: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model("User", UserSchema);
+
 const TestSchema = new mongoose.Schema({
   title: String,
   creatorId: String,
@@ -19,7 +27,9 @@ const TestSchema = new mongoose.Schema({
   questions: [{
     text: String,
     options: [String],
-    correctAnswerIndex: Number
+    correctAnswerIndex: Number,
+    difficulty: String,
+    category: String
   }],
   createdAt: { type: Date, default: Date.now }
 });
@@ -57,6 +67,18 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
+  app.post("/api/auth/login", async (req, res) => {
+    const { email, displayName } = req.body;
+    if (!email) return res.status(400).json({ error: "Email required" });
+    
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({ email, displayName: displayName || email.split('@')[0] });
+      await user.save();
+    }
+    res.json(user);
+  });
+
   app.get("/api/tests", async (req, res) => {
     const tests = await Test.find().sort({ createdAt: -1 });
     res.json(tests);
