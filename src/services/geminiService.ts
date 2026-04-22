@@ -139,7 +139,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
 }
 
 export async function generateStory(category: string, topic: string, length: 'short' | 'medium' | 'long', words?: string): Promise<{ title: string, content: string }> {
-  const model = "gemini-1.5-flash";
+  const model = "gemini-3-flash-preview";
   const systemInstruction = `
     You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
     ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.` : ''}
@@ -154,7 +154,7 @@ export async function generateStory(category: string, topic: string, length: 'sh
 
   const response = await ai.models.generateContent({
     model,
-    contents: [{ role: 'user', parts: [{ text: "Write the story now." }] }],
+    contents: [{ text: "Write the story now." }],
     config: { 
       systemInstruction,
       responseMimeType: "application/json",

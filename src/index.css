@@ -61,3 +61,12 @@ h3 { @apply text-base sm:text-lg font-medium; }
 .markdown-body ol { @apply list-decimal list-inside space-y-1; }
 .markdown-body strong { @apply font-bold text-bluebook-navy; }
 
+
+::-webkit-scrollbar{
+  height: 2px;
+  width: 2px;
+}
+
+::-webkit-scrollbar-thumb{
+  background-color: navy;
+}

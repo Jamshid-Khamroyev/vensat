@@ -27,7 +27,10 @@ import {
   Lightbulb,
   Highlighter,
   Strikethrough,
-  Flag
+  Flag,
+  Home,
+  Book,
+  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
@@ -40,63 +43,10 @@ import {
   generateStory,
   ParsedTest 
 } from './services/geminiService';
+import { AppUser, Session, SessionRecord, StoryRecord, TestRecord, WordRecord } from './types';
 
-// --- Types ---
-interface AppUser {
-  _id: string;
-  email: string;
-  displayName: string;
-  isAdmin?: boolean;
-}
-interface TestRecord {
-  _id: string;
-  title: string;
-  timeLimit?: number;
-  questions: any[];
-  createdAt: string;
-}
-
-interface SessionRecord {
-  _id: string;
-  testId: string;
-  title?: string;
-  score: number;
-  total?: number;
-  startTime: string;
-  endTime?: string;
-  status: string;
-}
-
-interface WordRecord {
-  _id: string;
-  term: string;
-  definition: string;
-  category: string;
-  createdAt: string;
-}
-
-interface StoryRecord {
-  _id: string;
-  title: string;
-  content: string;
-  category: string;
-  createdAt: string;
-}
-
-interface Session {
-  testId: string;
-  userId: string;
-  title?: string;
-  total?: number;
-  answers: Record<string, number>;
-  score: number;
-  startTime: number;
-  endTime?: number;
-  status: 'in-progress' | 'completed';
-}
 
 // --- App ---
-
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -497,13 +447,14 @@ export default function App() {
     const sec = s % 60;
     return `${m}:${sec < 10 ? '0' : ''}${sec}`;
   };
+  const [menuOpen, setMenuOpen] = useState<boolean>(false);
 
   if (loading) return <div className="h-screen flex items-center justify-center"><RotateCcw className="animate-spin" /></div>;
 
   return (
     <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
       {/* Navbar */}
-      <header className="h-14 sm:h-16 px-4 sm:px-8 bg-bluebook-navy text-white flex items-center justify-between sticky top-0 z-50 shadow-lg">
+      <header className="h-14 sm:h-16 px-1 sm:px-8 bg-bluebook-navy text-white flex items-center justify-between sticky top-0 z-50 shadow-lg">
         <div className="flex items-center gap-2 sm:gap-3 cursor-pointer" onClick={() => user && setView('dashboard')}>
           <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
           <h1 className="text-lg sm:text-xl font-bold tracking-tight">AeroTest</h1>
@@ -521,12 +472,43 @@ export default function App() {
 
         {user && view !== 'testing' && (
           <div className="flex items-center gap-1 sm:gap-2 no-scrollbar">
-             <button onClick={() => setView('dashboard')} className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${view === 'dashboard' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>Home</button>
-             <button onClick={() => setView('words')} className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${view === 'words' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>My Words</button>
-             <button onClick={() => setView('profile')} className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all ${view === 'profile' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>Analysis</button>
-             <div className="w-[1px] h-4 bg-white/10 mx-2 hidden sm:block" />
-             <button onClick={handleLogout} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-red-400" title="Sign Out"><LogOut className="w-4 h-4 sm:w-5 h-5" /></button>
-          </div>
+  
+          <button onClick={() => setView('dashboard')}
+            className={`md:px-3 px-1 max-sm:m-0 py-1.5 rounded-lg text-[10px] sm:text-xs transition-all ${
+              view === 'dashboard' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}>
+            Dashboard
+          </button>
+        
+          <button onClick={() => setView('words')}
+            className={`md:px-3 px-1 max-sm:m-0 py-1.5 rounded-lg text-[10px] sm:text-xs transition-all ${
+              view === 'words' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}>
+              So'zlar
+          </button>
+        
+          <button onClick={() => setView('stories')}
+            className={`md:px-3 px-1 max-sm:m-0 py-1.5 rounded-lg text-[10px] sm:text-xs transition-all ${
+              view === 'stories' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}>
+            Stories
+          </button>
+        
+          <button onClick={() => setView('profile')}
+            className={`md:px-3 px-1 max-sm:m-0 py-1.5 rounded-lg text-[10px] sm:text-xs transition-all ${
+              view === 'profile' ? 'bg-blue-600/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}>
+            Tahlil
+          </button>
+        
+          <div className="w-[1px] h-4 bg-white/10 mx-2 hidden sm:block" />
+        
+          <button onClick={handleLogout}
+            className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-red-400"
+            title="Sign Out">
+            <LogOut className="w-4 h-4 sm:w-5 h-5" />
+          </button>
+        </div>
         )}
       </header>
 

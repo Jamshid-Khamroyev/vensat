@@ -9,7 +9,7 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://coder0811:qsFzq0wzfwwwbWcz@cluster0.3cvwpzs.mongodb.net/?appName=Cluster0";
+const MONGODB_URI = process.env.MONGODB_URI
 
 // MongoDB schemas
 const UserSchema = new mongoose.Schema({
