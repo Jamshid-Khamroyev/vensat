@@ -138,6 +138,40 @@ export async function generateSATTest(category: string, difficulty: string, coun
   return cleanTest(JSON.parse(response.text || "{}"));
 }
 
+export async function generateStory(category: string, topic: string, length: 'short' | 'medium' | 'long', words?: string): Promise<{ title: string, content: string }> {
+  const model = "gemini-1.5-flash";
+  const systemInstruction = `
+    You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
+    ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.` : ''}
+    
+    Structure:
+    - Title: Attractive and relevant.
+    - Content: Polished prose, well-structured paragraphs.
+    - Length Guidelines: Short (~250 words), Medium (~500 words), Long (~1000 words).
+    
+    Format the output as a JSON object with 'title' and 'content' keys.
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ role: 'user', parts: [{ text: "Write the story now." }] }],
+    config: { 
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          content: { type: "string" }
+        },
+        required: ["title", "content"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text || "{}");
+}
+
 export async function chatWithAI(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) {
   const model = "gemini-3-flash-preview";
   const systemInstruction = "You are AeroBot, a sleek and helpful SAT coach. Keep your responses concise, visually structured with bullet points or bold text, and encouraging. Use simple language but high-value tips. If asked about a problem, break it down step-by-step.";

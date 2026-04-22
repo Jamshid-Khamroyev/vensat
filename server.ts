@@ -63,8 +63,22 @@ async function startServer() {
   await mongoose.connect(MONGODB_URI);
   console.log("Connected to MongoDB");
 
-  app.use(cors());
+  app.use(cors({
+    origin: ["https://aerotest.onrender.com", "http://localhost:3000"],
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: true
+  }));
   app.use(express.json());
+
+  // Story Schema & Model
+  const StorySchema = new mongoose.Schema({
+    userId: String,
+    title: String,
+    content: String,
+    category: String,
+    createdAt: { type: Date, default: Date.now }
+  });
+  const Story = mongoose.model("Story", StorySchema);
 
   // API Routes
   app.post("/api/auth/login", async (req, res) => {
@@ -136,6 +150,23 @@ async function startServer() {
 
   app.delete("/api/words/:id", async (req, res) => {
     await Word.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  });
+
+  // Stories
+  app.get("/api/stories/:userId", async (req, res) => {
+    const stories = await Story.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json(stories);
+  });
+
+  app.post("/api/stories", async (req, res) => {
+    const newStory = new Story(req.body);
+    await newStory.save();
+    res.status(201).json(newStory);
+  });
+
+  app.delete("/api/stories/:id", async (req, res) => {
+    await Story.findByIdAndDelete(req.params.id);
     res.status(204).send();
   });
 

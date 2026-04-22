@@ -37,6 +37,7 @@ import {
   generateSATTest, 
   generateWordsTest,
   chatWithAI,
+  generateStory,
   ParsedTest 
 } from './services/geminiService';
 
@@ -74,6 +75,14 @@ interface WordRecord {
   createdAt: string;
 }
 
+interface StoryRecord {
+  _id: string;
+  title: string;
+  content: string;
+  category: string;
+  createdAt: string;
+}
+
 interface Session {
   testId: string;
   userId: string;
@@ -92,10 +101,12 @@ export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [authEmail, setAuthEmail] = useState('');
-  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [dbTests, setDbTests] = useState<TestRecord[]>([]);
   const [dbSessions, setDbSessions] = useState<SessionRecord[]>([]);
+  const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
+  const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
   const [userWords, setUserWords] = useState<WordRecord[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -120,6 +131,9 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
+  const [storyOptions, setStoryOptions] = useState({ topic: '', category: 'General', length: 'medium' as 'short' | 'medium' | 'long', words: '' });
+  const [definition, setDefinition] = useState<{ word: string, meaning: string } | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -152,15 +166,20 @@ export default function App() {
 
   const fetchAll = async (id: string) => {
     try {
-      const [testsRes, sessionsRes, wordsRes] = await Promise.all([
+      const [testsRes, sessionsRes, wordsRes, storiesRes] = await Promise.all([
         fetch("/api/tests"),
         fetch(`/api/sessions/${id}`),
-        fetch(`/api/words/${id}`)
+        fetch(`/api/words/${id}`),
+        fetch(`/api/stories/${id}`)
       ]);
-      setDbTests(await testsRes.json());
-      setDbSessions(await sessionsRes.json());
-      setUserWords(await wordsRes.json());
-    } catch (e) { console.error("Fetch failed", e); }
+      
+      if (testsRes.ok) setDbTests(await testsRes.json());
+      if (sessionsRes.ok) setDbSessions(await sessionsRes.json());
+      if (wordsRes.ok) setUserWords(await wordsRes.json());
+      if (storiesRes.ok) setDbStories(await storiesRes.json());
+    } catch (e) { 
+      console.error("Fetch failed", e);
+    }
   };
 
   const handleAddWord = async (word: { term: string, definition: string, category: string }) => {
@@ -318,6 +337,48 @@ export default function App() {
       });
       if (user) fetchAll(user._id);
     } catch (e) { alert("Rename failed."); }
+  };
+
+  const handleLookup = async (word: string) => {
+    if (!word.trim()) return;
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.trim().toLowerCase().replace(/[.,!?;:()]/g, '')}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const meaning = data[0].meanings[0].definitions[0].definition;
+      setDefinition({ word, meaning });
+    } catch (e) {
+      setDefinition({ word, meaning: "Definition unavailable for this word." });
+    }
+  };
+
+  const handleCreateStory = async () => {
+    if (!storyOptions.topic || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      const result = await generateStory(storyOptions.category, storyOptions.topic, storyOptions.length, storyOptions.words);
+      const res = await fetch("/api/stories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...result, userId: user?._id, category: storyOptions.category })
+      });
+      const saved = await res.json();
+      setDbStories([saved, ...dbStories]);
+      setCurrentStory(saved);
+      setView('story-reader');
+    } catch (e) {
+      alert("Story generation failed.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteStory = async (id: string) => {
+    if (!confirm("Delete this story?")) return;
+    try {
+      await fetch(`/api/stories/${id}`, { method: "DELETE" });
+      setDbStories(dbStories.filter(s => s._id !== id));
+    } catch (e) { alert("Delete failed."); }
   };
 
   const handleSendMessage = async () => {
@@ -618,6 +679,191 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {view === 'stories' && (
+            <motion.div key="stories" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="focus-mode space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Narrative Archives</h2>
+                  <p className="text-slate-500 text-sm">Read AI-generated stories customized for your learning.</p>
+                </div>
+                <button onClick={() => setView('story-gen')} className="bluebook-button flex items-center gap-3 active:scale-95 shadow-lg"><Plus className="w-4 h-4" /> Create Story</button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {dbStories.length === 0 ? (
+                  <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
+                    <BookOpen className="text-slate-200 w-12 h-12 mx-auto mb-4" />
+                    <p className="text-slate-400 font-medium">No stories found. Create one to begin reading!</p>
+                  </div>
+                ) : (
+                  dbStories.map(s => (
+                    <div 
+                      key={s._id} 
+                      onClick={() => { setCurrentStory(s); setView('story-reader'); }}
+                      className="group bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative"
+                    >
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteStory(s._id); }} className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 rounded-xl hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4" /></button>
+                      <div className="space-y-4">
+                         <div className="inline-flex px-3 py-1 bg-blue-50 text-[10px] font-black uppercase text-blue-600 rounded-full tracking-widest">{s.category}</div>
+                         <h3 className="text-xl font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{s.title}</h3>
+                         <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed">{s.content.substring(0, 150)}...</p>
+                         <div className="flex items-center gap-4 pt-2">
+                           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400"><Clock className="w-3.5 h-3.5" /> {Math.ceil(s.content.split(' ').length / 200)} min read</div>
+                           <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-all" />
+                         </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {view === 'story-gen' && (
+            <motion.div key="story-gen" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="focus-mode max-w-2xl mx-auto">
+              <div className="bluebook-card p-8 sm:p-12 space-y-8">
+                <div className="flex items-center gap-4 mb-4">
+                   <button onClick={() => setView('stories')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronLeft className="w-5 h-5" /></button>
+                   <div>
+                     <h2 className="text-2xl font-black">AI Story Weaver</h2>
+                     <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Personalized Content Generation</p>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-2 text-left">
+                     <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Learning Context / Topic</label>
+                     <input 
+                       value={storyOptions.topic} 
+                       onChange={e => setStoryOptions({...storyOptions, topic: e.target.value})} 
+                       placeholder="e.g. Life in Victorian London, Quantum Physics Basics" 
+                       className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner"
+                     />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2 text-left">
+                       <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Category</label>
+                       <select 
+                         value={storyOptions.category} 
+                         onChange={e => setStoryOptions({...storyOptions, category: e.target.value})}
+                         className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner appearance-none cursor-pointer"
+                       >
+                         <option>General</option>
+                         <option>History</option>
+                         <option>Science</option>
+                         <option>Art & Humanities</option>
+                         <option>Politics</option>
+                       </select>
+                    </div>
+                    <div className="space-y-2 text-left">
+                       <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Narrative Depth</label>
+                       <select 
+                         value={storyOptions.length} 
+                         onChange={e => setStoryOptions({...storyOptions, length: e.target.value as any})}
+                         className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner appearance-none cursor-pointer"
+                       >
+                         <option value="short">Short Flash (~250 words)</option>
+                         <option value="medium">Medium Story (~500 words)</option>
+                         <option value="long">Long Dive (~1000 words)</option>
+                       </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-left">
+                     <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1 flex items-center gap-2">
+                       <BrainCircuit className="w-3.5 h-3.5 text-blue-500" /> Focus Vocabulary (Optional)
+                     </label>
+                     <textarea 
+                       value={storyOptions.words} 
+                       onChange={e => setStoryOptions({...storyOptions, words: e.target.value})} 
+                       placeholder="Enter words to weave into the story..." 
+                       className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner h-24 resize-none"
+                     />
+                     <div className="flex gap-2 items-center">
+                        <button onClick={() => setStoryOptions({...storyOptions, words: userWords.slice(0, 5).map(w => w.term).join(', ')})} className="text-[9px] font-bold text-blue-500 hover:underline">Use My Lexicon</button>
+                        <span className="text-[9px] text-slate-300">|</span>
+                        <button onClick={() => setStoryOptions({...storyOptions, words: ''})} className="text-[9px] font-bold text-slate-400 hover:underline">Clear</button>
+                     </div>
+                  </div>
+
+                  <button 
+                    onClick={handleCreateStory}
+                    disabled={isProcessing || !storyOptions.topic}
+                    className="bluebook-button w-full !py-5 flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all mt-4"
+                  >
+                    {isProcessing ? <RotateCcw className="animate-spin w-5 h-5" /> : <><Sparkles className="w-5 h-5" /> Weave Story</>}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {view === 'story-reader' && currentStory && (
+            <motion.div key="story-reader" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="focus-mode min-h-[calc(100vh-64px)] bg-white">
+              {/* Reader Header */}
+              <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 py-4 px-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                   <button onClick={() => setView('stories')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronLeft className="w-5 h-5" /></button>
+                   <div>
+                     <h2 className="text-lg font-bold text-slate-800 leading-none">{currentStory.title}</h2>
+                     <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1.5">{currentStory.category} • {Math.ceil(currentStory.content.split(' ').length / 200)} min read</p>
+                   </div>
+                </div>
+                <div className="text-[10px] font-bold text-slate-300 flex items-center gap-2">
+                  <Lightbulb className="w-3 h-3 text-amber-400" /> Click any word for definition
+                </div>
+              </div>
+
+              {/* Reader Content */}
+              <div className="max-w-3xl mx-auto py-16 px-6 sm:px-12 relative group/reader">
+                <article className="prose prose-slate lg:prose-lg mx-auto">
+                   <div 
+                     className="text-slate-700 leading-[2.2] text-xl font-serif space-y-8 select-auto"
+                     onClick={(e) => {
+                        const selection = window.getSelection()?.toString().trim();
+                        if (selection && selection.length > 1 && selection.length < 25) {
+                          handleLookup(selection);
+                        }
+                     }}
+                   >
+                     {currentStory.content.split('\n\n').map((para, i) => (
+                       <p key={i} className="first-letter:text-5xl first-letter:font-black first-letter:mr-3 first-letter:float-left first-letter:text-blue-600 first-letter:leading-none">
+                         {para}
+                       </p>
+                     ))}
+                   </div>
+                </article>
+
+                {/* Popover Definition */}
+                <AnimatePresence>
+                  {definition && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] bg-white rounded-3xl shadow-2xl border border-blue-100 p-6 z-50 text-center space-y-4 ring-8 ring-blue-50/50"
+                    >
+                       <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto text-blue-600"><BrainCircuit className="w-6 h-6" /></div>
+                       <div>
+                          <h4 className="text-xl font-black text-slate-800 capitalize leading-none mb-2">{definition.word}</h4>
+                          <div className="w-8 h-1 bg-blue-200 mx-auto rounded-full" />
+                       </div>
+                       <p className="text-sm text-slate-500 leading-relaxed italic">{definition.meaning}</p>
+                       <div className="flex gap-2">
+                          <button onClick={() => { handleAddWord({ term: definition.word, definition: definition.meaning, category: currentStory.category }); setDefinition(null); }} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-200">Add to Lexicon</button>
+                          <button onClick={() => setDefinition(null)} className="py-3 px-5 bg-slate-100 text-slate-400 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all">Dismiss</button>
+                       </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           )}
