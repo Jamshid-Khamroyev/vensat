@@ -44,6 +44,7 @@ import {
   ParsedTest 
 } from './services/geminiService';
 import { AppUser, Session, SessionRecord, StoryRecord, TestRecord, WordRecord } from './types';
+import PasteWord from './components/paste-word';
 
 
 // --- App ---
@@ -737,11 +738,12 @@ export default function App() {
                          onChange={e => setStoryOptions({...storyOptions, category: e.target.value})}
                          className="bluebook-input bg-slate-50 border-none !py-4 shadow-inner appearance-none cursor-pointer"
                        >
-                         <option>General</option>
-                         <option>History</option>
-                         <option>Science</option>
-                         <option>Art & Humanities</option>
-                         <option>Politics</option>
+                         <option>Business</option>
+                         <option>Startup</option>
+                         <option>Bilionares biography</option>
+                         <option>Personal growth</option>
+                         <option>Motivation</option>
+                         <option>Useful research</option>
                        </select>
                     </div>
                     <div className="space-y-2 text-left">
@@ -952,38 +954,7 @@ export default function App() {
           {view === 'words' && (
             <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
               className="focus-mode space-y-8">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Lexicon Manager</h2>
-                  <p className="text-slate-500 text-sm">Store private vocabulary for AI-enhanced test generation.</p>
-                </div>
-                <button onClick={() => {
-                  const term = prompt("Enter word/phrase:");
-                  const definition = prompt("Enter definition/context:");
-                  const category = prompt("Category (e.g. Science, Literature):", "General");
-                  if (term && definition) handleAddWord({ term, definition, category: category || 'General' });
-                }} className="bluebook-button flex items-center gap-3 active:scale-95"><Plus className="w-4 h-4" /> Add Word</button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userWords.length === 0 ? (
-                  <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
-                    <div className="bg-slate-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"><BookOpen className="text-slate-300 w-8 h-8" /></div>
-                    <p className="text-slate-400 font-medium">Your lexicon is empty.</p>
-                  </div>
-                ) : (
-                  userWords.map(w => (
-                    <div key={w._id} className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative">
-                      <button onClick={() => handleDeleteWord(w._id)} className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
-                      <div className="space-y-3">
-                         <div className="inline-flex px-2 py-0.5 bg-blue-50 text-[9px] font-black uppercase text-blue-600 rounded tracking-widest">{w.category}</div>
-                         <h3 className="text-lg font-bold text-slate-800">{w.term}</h3>
-                         <p className="text-xs text-slate-500 leading-relaxed italic">"{w.definition}"</p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <PasteWord handleAddWord={handleAddWord} handleDeleteWord={handleDeleteWord} userWords={userWords} />
             </motion.div>
           )}
 
