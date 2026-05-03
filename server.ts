@@ -27,6 +27,7 @@ const TestSchema = new mongoose.Schema({
   questions: [{
     text: String,
     options: [String],
+    question: String,
     correctAnswerIndex: Number,
     difficulty: String,
     category: String

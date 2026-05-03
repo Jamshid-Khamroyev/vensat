@@ -1,7 +1,7 @@
 import { BookOpen, FileText, Plus, Trash2, Calendar, ChevronDown, ChevronUp, Search, X, Volume2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from 'framer-motion';
-
+import { formatRelative, subDays } from 'date-fns'
 
 interface Word {
   _id: string;
@@ -118,17 +118,6 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
                     >
                         <FileText className="w-4 h-4" /> Batch Paste
                     </button>
-                    <button 
-                        onClick={() => {
-                            const term = prompt("Enter word/phrase:");
-                            const definition = prompt("Enter definition/context:");
-                            const category = prompt("Category (e.g. Science, Literature):", "General");
-                            if (term && definition) handleAddWord({ term, definition, category: category || 'General' });
-                        }} 
-                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium flex items-center gap-2 shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-105 transition-all duration-200"
-                    >
-                        <Plus className="w-4 h-4" /> Add Word
-                    </button>
                 </div>
             </div>
 
@@ -179,7 +168,7 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
                             >
                                 <div className="flex items-center gap-3">
                                     <Calendar className="w-5 h-5 text-slate-500" />
-                                    <span className="font-semibold text-slate-700">{groupKey}</span>
+                                    <span className="font-semibold text-slate-700">Group-{groupKey}</span>
                                     <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
                                         {words.length} words
                                     </span>
@@ -192,7 +181,7 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
 
                             {/* Group Content */}
                             {expandedGroups.has(groupKey) && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 md:gap-4 gap-2 md:p-6">
                                     {words.map((w, idx) => (
                                         <motion.div
                                             key={w._id}
@@ -200,7 +189,7 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: idx * 0.05 }}
                                             onClick={() => setSelectedWord(w)}
-                                            className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer group relative"
+                                            className="bg-white md:p-5 p-3 md:rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-blue-200 transition-all duration-300 cursor-pointer group relative"
                                         >
                                             <button 
                                                 onClick={(e) => { e.stopPropagation(); handleDeleteWord(w._id); }} 
@@ -209,9 +198,6 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                             <div className="space-y-3">
-                                                <div className="inline-flex px-2.5 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 text-[10px] font-black uppercase text-blue-700 rounded-lg tracking-wider border border-blue-100">
-                                                    {w.category}
-                                                </div>
                                                 <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                                                     {w.term}
                                                 </h3>
@@ -254,24 +240,6 @@ const PasteWord = ({ handleAddWord, userWords, handleDeleteWord }: PasteWordProp
                                 <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">Definition</span>
                                 <p className="text-slate-700 mt-1 text-lg leading-relaxed">{selectedWord.definition}</p>
                             </div>
-                            <div>
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Category</span>
-                                <p className="text-slate-600 mt-1">{selectedWord.category}</p>
-                            </div>
-                            {selectedWord.createdAt && (
-                                <div>
-                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Added on</span>
-                                    <p className="text-slate-600 mt-1">
-                                        {new Date(selectedWord.createdAt).toLocaleDateString('uz-UZ', {
-                                            year: 'numeric',
-                                            month: 'long',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit'
-                                        })}
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </motion.div>
                 </div>
