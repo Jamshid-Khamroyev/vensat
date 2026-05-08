@@ -1,5 +1,7 @@
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BookOpen, Clock, LogOut } from "lucide-react";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 
 interface NavbarProps {
     view: string;
@@ -16,7 +18,10 @@ const Navbar = ({ setUser, setView, view, user, handleCompleteTest, formatTime, 
         setUser(null);
         localStorage.removeItem('aero_user');
         setView('landing');
+        setOpen(false)
     };
+
+    const [open, setOpen] = useState(false);
   return (
     <header className="h-14 sm:h-16 px-1 sm:px-8 bg-bluebook-navy text-white flex items-center justify-between sticky top-0 z-50 shadow-lg">
         <div className="flex items-center gap-2 sm:gap-3 cursor-pointer" onClick={() => user && setView('dashboard')}>
@@ -66,13 +71,33 @@ const Navbar = ({ setUser, setView, view, user, handleCompleteTest, formatTime, 
               
                 <div className="w-[1px] h-4 bg-white/10 mx-2 hidden sm:block" />
               
-                <button onClick={handleLogout}
+                <button onClick={() => setOpen(true)}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-red-400"
                   title="Sign Out">
                   <LogOut className="w-4 h-4 sm:w-5 h-5" />
                 </button>
           </div>
         )}
+
+        {/* Confirmation modal with shadcn ui */}
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Logout</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to log out?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="secondary" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleLogout}>
+                Logout
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </header>
   )
 }

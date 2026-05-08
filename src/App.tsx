@@ -1,44 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
-  Lock, 
-  LogOut, 
-  Plus, 
   ChevronRight, 
-  ChevronLeft, 
-  Timer, 
-  CheckCircle2, 
-  AlertCircle,
-  Clock,
+  ChevronLeft,
   RotateCcw,
-  Sparkles,
-  BookOpen,
-  Settings,
-  BrainCircuit,
-  Wand2,
-  FileJson,
   LayoutGrid,
-  Trash2,
-  Edit2,
-  Send,
-  MessageSquare,
-  GraduationCap,
   X,
   User as UserIcon,
-  Lightbulb,
   Highlighter,
   Strikethrough,
   Flag,
-  Home,
-  Book,
-  Eye
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Markdown from 'react-markdown';
 import { 
-  generateSATTest, 
-  generateWordsTest,
   chatWithAI,
-  generateStory,
   ParsedTest 
 } from './services/geminiService';
 import { AppUser, Session, SessionRecord, StoryRecord, TestRecord, WordRecord } from './types';
