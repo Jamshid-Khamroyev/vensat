@@ -242,3 +242,46 @@ export async function generateWordsTest(category: string, words: string, count: 
 
   return cleanTest(JSON.parse(response.text || "{}"));
 }
+
+export async function translateWords(words: string[]): Promise<{ term: string; definition: string }[]> {
+  const model = "gemini-3-flash-preview";
+  const systemInstruction = `
+    You are a translator. Translate English words to Uzbek.
+    
+    CRITICAL RULES:
+    1. Each translation must be 1-2 words maximum in Uzbek
+    2. Provide the most common/standard translation
+    3. Return as a JSON array of objects with "term" (English) and "definition" (Uzbek)
+    4. Do NOT include example sentences or explanations
+    5. Keep definitions concise and clear
+    
+    Example output format:
+    [
+      { "term": "apple", "definition": "olma" },
+      { "term": "beautiful", "definition": "chiroyli" },
+      { "term": "run", "definition": "yugurmoq" }
+    ]
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ text: `Translate these English words to Uzbek (1-2 words only):\n${words.join('\n')}` }],
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            term: { type: Type.STRING },
+            definition: { type: Type.STRING }
+          },
+          required: ["term", "definition"]
+        }
+      }
+    }
+  });
+
+  return JSON.parse(response.text || "[]");
+}

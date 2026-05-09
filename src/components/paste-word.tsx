@@ -1,22 +1,37 @@
-import { BookOpen, FileText, Search, X, Play } from "lucide-react";
-import { useState, useMemo } from "react";
+import { BookOpen, FileText, Search, X, Play, Camera, Loader2, ArrowRight, CheckCircle } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
 import { motion } from 'framer-motion';
 import { WordRecord } from "../types";
+import { translateWords } from "../services/geminiService";
+import { toast } from "sonner";
 
 interface PasteWordProps {
     handleAddWord: (word: { term: string; definition: string; category: string }) => void;
     userWords: WordRecord[];
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
     setCurrentWordGroup: (group: { name: string; words: WordRecord[] } | null) => void;
+    localWords?: { term: string; definition?: string }[];
+    removeLocalWord?: (term: string) => void;
+    translateLocalWords?: () => void;
+    isProcessing?: boolean;
 }
 
-const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup }: PasteWordProps) => {
+const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, localWords = [], removeLocalWord, translateLocalWords, isProcessing }: PasteWordProps) => {
     const [batchMode, setBatchMode] = useState(false);
     const [batchText, setBatchText] = useState('');
     const [parsedPairs, setParsedPairs] = useState<{ english: string; uzbek: string }[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [selectedWord, setSelectedWord] = useState<WordRecord | null>(null);
+    
+    // Image OCR states
+    const [imageMode, setImageMode] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [extractedText, setExtractedText] = useState('');
+    const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+    const [isTranslating, setIsTranslating] = useState(false);
+    const [translatedWords, setTranslatedWords] = useState<{ term: string; definition: string }[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Automatic word grouping (20 words per group)
     const groupedWords = useMemo(() => {
@@ -85,12 +100,131 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup }: P
         setParsedPairs([]);
     };
 
+    // Image OCR handlers
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            setSelectedImage(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const processImageWithOCR = async () => {
+        if (!selectedImage) return;
+        
+        setIsProcessingOCR(true);
+        try {
+            // Use OCR.space API to extract text from image
+            const formData = new FormData();
+            formData.append('apikey', 'd4ae045a0088957');
+            formData.append('base64Image', selectedImage);
+            formData.append('language', 'eng');
+            formData.append('isTable', 'false');
+            
+            const response = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.IsErroredOnProcessing) {
+                toast.error('OCR xatolik: ' + data.ErrorMessage);
+                return;
+            }
+            
+            if (data.ParsedResults && data.ParsedResults.length > 0) {
+                const parsedText = data.ParsedResults[0].ParsedText;
+                
+                // Extract English words from the parsed text
+                const words = parsedText
+                    .replace(/[^a-zA-Z\s]/g, ' ') // Keep only letters and spaces
+                    .split(/\s+/)
+                    .map(w => w.trim().toLowerCase())
+                    .filter(w => w.length > 2 && w.length < 20); // Filter reasonable word lengths
+                
+                const uniqueWords = [...new Set(words)];
+                
+                if (uniqueWords.length > 0) {
+                    setExtractedText(uniqueWords.join('\n'));
+                    toast.success(`${uniqueWords.length} ta so'z aniqlandi`);
+                } else {
+                    toast.error('Rasmda so\'zlar topilmadi');
+                }
+            } else {
+                toast.error('Rasmda matn topilmadi');
+            }
+        } catch (error) {
+            console.error('OCR error:', error);
+            toast.error('Rasmni qayta ishlashda xatolik');
+        } finally {
+            setIsProcessingOCR(false);
+        }
+    };
+
+    const handleTranslateWords = async () => {
+        const words = extractedText
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(line => line.length > 0);
+        
+        if (words.length === 0) {
+            toast.error('Tarjima qilish uchun so\'zlar yo\'q');
+            return;
+        }
+        
+        setIsTranslating(true);
+        try {
+            const translations = await translateWords(words);
+            setTranslatedWords(translations);
+            toast.success(`${translations.length} ta so'z tarjima qilindi`);
+        } catch (error) {
+            toast.error('Tarjimada xatolik yuz berdi');
+        } finally {
+            setIsTranslating(false);
+        }
+    };
+
+    const confirmImageWordsAdd = () => {
+        for (const word of translatedWords) {
+            handleAddWord({
+                term: word.term,
+                definition: word.definition,
+                category: 'Vocabulary'
+            });
+        }
+        
+        toast.success(`${translatedWords.length} ta so'z lug'atga qo'shildi`);
+        
+        // Reset states
+        setImageMode(false);
+        setSelectedImage(null);
+        setExtractedText('');
+        setTranslatedWords([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const closeImageMode = () => {
+        setImageMode(false);
+        setSelectedImage(null);
+        setExtractedText('');
+        setTranslatedWords([]);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                    <h2 className="text-2xl sm:text-3xl font-bold tracking-tight bg-linear-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
                         Lexicon Manager
                     </h2>
                     <p className="text-slate-500 text-sm mt-1">Store private vocabulary for AI-enhanced test generation.</p>
@@ -98,9 +232,15 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup }: P
                 <div className="flex gap-3">
                     <button 
                         onClick={() => setBatchMode(true)} 
-                        className="px-5 py-2.5 rounded-sm bg-gradient-to-r from-blue-950 to-blue-900 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 "
+                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-blue-950 to-blue-900 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 "
                     >
                         <FileText className="w-4 h-4" /> Batch Paste
+                    </button>
+                    <button 
+                        onClick={() => setImageMode(true)} 
+                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 "
+                    >
+                        <Camera className="w-4 h-4" /> Rasmdan OCR
                     </button>
                 </div>
             </div>
@@ -223,7 +363,7 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup }: P
                         className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4">
+                        <div className="bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-4">
                             <div className="flex justify-between items-center">
                                 <h3 className="text-xl font-bold text-white">{selectedWord.term}</h3>
                                 <button onClick={() => setSelectedWord(null)} className="text-white/80 hover:text-white">
@@ -288,8 +428,193 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup }: P
                                         <button onClick={() => setBatchMode(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all">
                                             Cancel
                                         </button>
-                                        <button onClick={confirmBatchAdd} className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium hover:shadow-lg transition-all">
+                                        <button onClick={confirmBatchAdd} className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 text-white font-medium hover:shadow-lg transition-all">
                                             Confirm & Add All ({parsedPairs.length} words)
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Image OCR Modal */}
+            {imageMode && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={closeImageMode}>
+                    <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="p-6 border-b sticky top-0 bg-white flex items-center justify-between">
+                            <div>
+                                <h3 className="text-xl font-bold">Rasmdan So'zlarni Olish</h3>
+                                <p className="text-sm text-slate-500 mt-1">Rasm yuklang → so'zlarni tahrirlang → tarjima qiling → saqlang</p>
+                            </div>
+                            <button onClick={closeImageMode} className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            {/* Show image and text extraction only when no translations yet */}
+                            {translatedWords.length === 0 && (
+                                <>
+                                    {/* Step 1: Image Upload */}
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-semibold text-slate-700">1. Rasm yuklang</label>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            onChange={handleImageSelect}
+                                            className="hidden"
+                                        />
+                                        
+                                        {!selectedImage ? (
+                                            <div 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 transition-all"
+                                            >
+                                                <Camera className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+                                                <p className="text-slate-600 font-medium">Rasm tanlash uchun bosing</p>
+                                                <p className="text-sm text-slate-400 mt-1">Yoki kamera ochish uchun (telefonda)</p>
+                                            </div>
+                                        ) : (
+                                            <div className="relative">
+                                                <img 
+                                                    src={selectedImage} 
+                                                    alt="Selected" 
+                                                    className="max-h-64 mx-auto rounded-lg shadow-md"
+                                                />
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedImage(null);
+                                                        setExtractedText('');
+                                                        setTranslatedWords([]);
+                                                    }}
+                                                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Step 2: Extract Text Button */}
+                                    {selectedImage && !extractedText && (
+                                        <button
+                                            onClick={processImageWithOCR}
+                                            disabled={isProcessingOCR}
+                                            className="w-full py-3 bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isProcessingOCR ? (
+                                                <><Loader2 className="w-5 h-5 animate-spin" /> Qayta ishlanmoqda...</>
+                                            ) : (
+                                                <><Camera className="w-5 h-5" /> So'zlarni olish</>
+                                            )}
+                                        </button>
+                                    )}
+
+                                    {/* Step 3: Edit Extracted Text */}
+                                    {extractedText && (
+                                        <div className="space-y-3">
+                                            <label className="text-sm font-semibold text-slate-700">2. So'zlarni tahrirlang (har bir qatorda bitta so'z)</label>
+                                            <textarea
+                                                value={extractedText}
+                                                onChange={(e) => setExtractedText(e.target.value)}
+                                                placeholder="apple&#10;beautiful&#10;run"
+                                                className="w-full h-32 p-4 border rounded-xl font-mono text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all"
+                                            />
+                                            <p className="text-xs text-slate-500">{extractedText.split(/\r?\n/).filter(l => l.trim()).length} ta so'z</p>
+                                        </div>
+                                    )}
+
+                                    {/* Step 4: Translate Button */}
+                                    {extractedText && (
+                                        <button
+                                            onClick={handleTranslateWords}
+                                            disabled={isTranslating}
+                                            className="w-full py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {isTranslating ? (
+                                                <><Loader2 className="w-5 h-5 animate-spin" /> Tarjima qilinmoqda...</>
+                                            ) : (
+                                                <><ArrowRight className="w-5 h-5" /> O'zbek tiliga tarjima qilish</>
+                                            )}
+                                        </button>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Step 5: Editable Translation Table - Only show when translations exist */}
+                            {translatedWords.length > 0 && (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                            Tarjima natijalari ({translatedWords.length} ta so'z)
+                                        </label>
+                                        <button
+                                            onClick={() => {
+                                                setTranslatedWords([]);
+                                                setExtractedText('');
+                                                setSelectedImage(null);
+                                                if (fileInputRef.current) {
+                                                    fileInputRef.current.value = '';
+                                                }
+                                            }}
+                                            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                                        >
+                                            <X className="w-4 h-4" />
+                                            Qayta boshlash
+                                        </button>
+                                    </div>
+                                    
+                                    <p className="text-xs text-slate-500">O'zbek tarjimalarini tahrirlashingiz mumkin</p>
+                                    
+                                    <div className="border rounded-xl max-h-80 overflow-auto">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-slate-50 sticky top-0">
+                                                <tr>
+                                                    <th className="p-3 text-left font-semibold w-1/2">English</th>
+                                                    <th className="p-3 text-left font-semibold w-1/2">O'zbek (tahrirlash mumkin)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {translatedWords.map((word, idx) => (
+                                                    <tr key={idx} className="border-t">
+                                                        <td className="p-3 font-medium align-top">{word.term}</td>
+                                                        <td className="p-2 align-top">
+                                                            <input
+                                                                type="text"
+                                                                value={word.definition}
+                                                                onChange={(e) => {
+                                                                    const newWords = [...translatedWords];
+                                                                    newWords[idx] = { ...word, definition: e.target.value };
+                                                                    setTranslatedWords(newWords);
+                                                                }}
+                                                                className="w-full px-2 py-1 border rounded-md text-sm focus:border-emerald-500 focus:ring-1 focus:ring-emerald-100 transition-all"
+                                                                placeholder="Tarjima..."
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    
+                                    <div className="flex justify-end gap-3 pt-4 border-t">
+                                        <button 
+                                            onClick={closeImageMode} 
+                                            className="px-5 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all"
+                                        >
+                                            Bekor qilish
+                                        </button>
+                                        <button 
+                                            onClick={confirmImageWordsAdd} 
+                                            className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 text-white font-medium hover:shadow-lg transition-all flex items-center gap-2"
+                                        >
+                                            <CheckCircle className="w-4 h-4" />
+                                            Saqlash ({translatedWords.length} ta so'z)
                                         </button>
                                     </div>
                                 </div>

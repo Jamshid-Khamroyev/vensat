@@ -40,6 +40,7 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef,  dbSessions, handleSe
     } catch (e) { alert("Rename failed."); }
   };
 
+  console.log(user);
 
   return (
     <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -57,7 +58,7 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef,  dbSessions, handleSe
                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.displayName}`} className="w-16 h-16 rounded-full border-2 border-blue-400 shadow-lg p-0.5 bg-white" referrerPolicy="no-referrer" />
                        <div>
                           <h3 className="text-xl font-black">{user?.displayName}</h3>
-                          <p className="text-blue-300 text-sm font-medium">{user?.email.slice(0, 15)}...</p>
+                          <p className="text-blue-300 text-sm font-medium">{user?.email?.slice(0, 15)}...</p>
                        </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">

@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
+import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -24,7 +25,8 @@ app.get("/health", (_req, res) => {
 // MongoDB schemas
 const UserSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true, index: true },
-  displayName: { type: String, required: true },
+  displayName: { type: String },
+  password: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -123,22 +125,83 @@ async function startServer() {
   }
 
   // API Routes
-  app.post("/api/auth/login", asyncHandler(async (req, res) => {
-    const { email, displayName } = req.body;
-    if (!email || typeof email !== "string") {
-      return res.status(400).json({ error: "Email required and must be a string" });
-    }
-    if (!displayName || typeof displayName !== "string") {
-      return res.status(400).json({ error: "Display name required" });
-    }
+app.post("/api/auth/register", asyncHandler(async (req, res) => {
+  const { email, displayName, password } = req.body;
 
-    let user = await User.findOne({ email: email.toLowerCase().trim() });
-    if (!user) {
-      user = new User({ email: email.toLowerCase().trim(), displayName: displayName.trim() || email.split('@')[0] });
-      await user.save();
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "Email required" });
+  }
+
+  if (!displayName || typeof displayName !== "string") {
+    return res.status(400).json({ error: "Display name required" });
+  }
+
+  if (!password || password.length < 3) {
+    return res.status(400).json({ error: "Password must be at least 3 characters" });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existingUser = await User.findOne({ email: normalizedEmail });
+
+  if (existingUser) {
+    return res.status(400).json({ error: "User already exists" });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
+    email: normalizedEmail,
+    displayName: displayName.trim(),
+    password: hashedPassword
+  });
+
+  res.status(201).json({
+    message: "User created",
+    user: {
+      _id: user._id,
+      email: user.email,
+      displayName: user.displayName
     }
-    res.json(user);
-  }));
+  });
+}));
+
+
+app.post("/api/auth/login", asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "Email required" });
+  }
+
+  if (!password || typeof password != "string") {
+    return res.status(400).json({ error: "Password required" });
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (!user) {
+    return res.status(400).json({ error: "User not found" });
+  }
+
+  // const isMatch = await bcrypt.compare(password, user.password);
+
+  // if (!isMatch) {
+  //   return res.status(400).json({ error: "Invalid password" });
+  // }
+
+  res.json({
+    message: "Login successful",
+    user: {
+      _id: user._id,
+      email: user.email,
+      displayName: user.displayName
+    }
+  });
+}));
+
 
   // Tests
   app.get("/api/tests", asyncHandler(async (_req, res) => {

@@ -11,6 +11,7 @@ import {
   Flag,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Toaster, toast } from 'sonner';
 import { 
   chatWithAI,
   ParsedTest 
@@ -28,6 +29,7 @@ import Stories from './pages/stories';
 import Profile from './pages/profile';
 import Results from './components/results';
 import WordGroupView from './pages/word-group';
+import NYTStoryReader from './pages/nyt-story-reader';
 
 
 // --- App ---
@@ -35,14 +37,16 @@ export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [authEmail, setAuthEmail] = useState('');
-  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [dbTests, setDbTests] = useState<TestRecord[]>([]);
   const [dbSessions, setDbSessions] = useState<SessionRecord[]>([]);
   const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
   const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
+  const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
   const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[] } | null>(null);
   const [userWords, setUserWords] = useState<WordRecord[]>([]);
+  const [localWords, setLocalWords] = useState<{ term: string; definition?: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -69,14 +73,27 @@ export default function App() {
   const [storyOptions, setStoryOptions] = useState({ topic: '', category: 'Business', length: 'medium' as 'short' | 'medium' | 'long', words: '' });
   const [definition, setDefinition] = useState<{ word: string, meaning: string } | null>(null);
   
+  // Vocabulary Tooltips State (for test view)
+  const [vocabMeanings, setVocabMeanings] = useState<Record<string, string>>({});
+  const [showVocabPanel, setShowVocabPanel] = useState(false);
+  
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Restore view from URL on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('aero_user');
+    const savedLocalWords = localStorage.getItem('aero_local_words');
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view') as typeof view | null;
+
+    if (savedLocalWords) {
+      try {
+        setLocalWords(JSON.parse(savedLocalWords));
+      } catch (e) {
+        console.error('Error parsing local words:', e);
+      }
+    }
 
     const init = async () => {
       if (savedUser) {
@@ -307,6 +324,70 @@ export default function App() {
     });
   };
 
+  // Vocabulary Lookup Function (for test view)
+  const fetchVocabMeaning = async (word: string) => {
+    if (vocabMeanings[word]) return; // Already cached
+    
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+      if (!response.ok) throw new Error('Failed to fetch');
+      const data = await response.json();
+      
+      if (data && data[0] && data[0].meanings && data[0].meanings[0]) {
+        const meaning = data[0].meanings[0].definitions[0]?.definition || 'No definition found';
+        setVocabMeanings(prev => ({ ...prev, [word]: meaning }));
+      }
+    } catch (e) {
+      console.error('Error fetching vocab meaning:', e);
+      setVocabMeanings(prev => ({ ...prev, [word]: 'Definition not found' }));
+    }
+  };
+
+  // Save word temporarily during test
+  const saveWordTemporarily = (word: string) => {
+    const newLocalWords = [...localWords, { term: word }];
+    setLocalWords(newLocalWords);
+    localStorage.setItem('aero_local_words', JSON.stringify(newLocalWords));
+    toast.success(`"${word}" vaqtincha saqlandi`);
+  };
+
+  // Remove word from local storage
+  const removeLocalWord = (term: string) => {
+    const newLocalWords = localWords.filter(w => w.term !== term);
+    setLocalWords(newLocalWords);
+    localStorage.setItem('aero_local_words', JSON.stringify(newLocalWords));
+    toast.success('So\'z o\'chirildi');
+  };
+
+  // Translate local words using Gemini
+  const translateLocalWords = async () => {
+    const wordsWithoutDefinition = localWords.filter(w => !w.definition);
+    if (wordsWithoutDefinition.length === 0) {
+      toast('Barcha so\'zlar tarjima qilingan');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const { translateWords } = await import('./services/geminiService');
+      const terms = wordsWithoutDefinition.map(w => w.term);
+      const translations = await translateWords(terms);
+      
+      const newLocalWords = localWords.map(w => {
+        const translation = translations.find(t => t.term.toLowerCase() === w.term.toLowerCase());
+        return translation ? { ...w, definition: translation.definition } : w;
+      });
+      
+      setLocalWords(newLocalWords);
+      localStorage.setItem('aero_local_words', JSON.stringify(newLocalWords));
+      toast.success(`${translations.length} ta so'z tarjima qilindi`);
+    } catch (e) {
+      toast.error('Tarjima qilishda xatolik');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleCompleteTest = async () => {
     if (!currentTest || !currentSession) return;
     let score = 0;
@@ -361,12 +442,8 @@ export default function App() {
         <AnimatePresence mode="wait">
           {view === 'landing' && (
             <LandingPage
-              authEmail={authEmail}
-              setAuthEmail={setAuthEmail}
-              setIsProcessing={setIsProcessing}
               setUser={setUser}
               setView={setView}
-              isProcessing={isProcessing}
               fetchAll={fetchAll} 
             />
           )}
@@ -401,7 +478,8 @@ export default function App() {
               dbStories={dbStories}
               setCurrentStory={setCurrentStory}
               setDbStories={setDbStories}
-              setView={setView} 
+              setView={setView}
+              setCurrentNYTStory={setCurrentNYTStory}
             />
           )}
 
@@ -428,6 +506,14 @@ export default function App() {
               handleLookup={handleLookup}
               setDefinition={setDefinition}
               setView={setView} 
+            />
+          )}
+
+
+          {view === 'nytimes-story' && currentNYTStory && (
+            <NYTStoryReader
+              currentStory={currentNYTStory}
+              setView={setView}
             />
           )}
 
@@ -591,6 +677,7 @@ export default function App() {
           )}
         </AnimatePresence>
       </main>
+      <Toaster position="top-center" richColors />
     </div>
   );
 }
