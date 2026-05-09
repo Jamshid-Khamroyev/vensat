@@ -31,6 +31,16 @@ export interface AppUser {
     definition: string;
     category: string;
     createdAt: string;
+    groupId?: string;
+  }
+
+  export interface WordGroup {
+    _id: string;
+    name: string;
+    words: WordRecord[];
+    userId: string;
+    createdAt: string;
+    order: number;
   }
   
   export interface StoryRecord {

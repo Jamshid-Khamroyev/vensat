@@ -144,13 +144,21 @@ export async function generateStory(category: string, topic: string, length: 'sh
   const model = "gemini-3-flash-preview";
   const systemInstruction = `
     You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
-    ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.` : ''}
-    
+    ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.
+
+    WORD USAGE RULES (CRITICAL):
+    - Each vocabulary word MUST be used in a context that makes its meaning clear and understandable from surrounding sentences.
+    - Do NOT just list the words or force them awkwardly. They should feel like natural parts of the story.
+    - Use the words in ways that reveal their definitions through context clues, actions, or character dialogue.
+    - If a word is abstract, embody it through concrete situations or character decisions.
+    - The story should remain engaging and coherent — never sacrifice readability for vocabulary insertion.
+    - Aim for at least ONE meaningful usage of each provided word.` : ''}
+
     Structure:
     - Title: Attractive and relevant.
     - Content: Polished prose, well-structured paragraphs.
-    - Length Guidelines: Short (~250 words), Medium (~500 words), Long (~1000 words).
-    
+    - Length Guidelines: ${length === 'short' ? 'Short (~250 words)' : length === 'medium' ? 'Medium (~500 words)' : 'Long (~1000 words)'}
+
     Format the output as a JSON object with 'title' and 'content' keys.
   `;
 

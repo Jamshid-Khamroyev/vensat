@@ -35,7 +35,7 @@
 }
 
 .bluebook-input {
-  @apply w-full p-2 sm:p-4 bg-white border border-bluebook-border rounded-lg outline-none focus:border-bluebook-blue transition-colors text-sm sm:text-base;
+  @apply w-full p-2 bg-white border border-blue-950 rounded-sm outline-none focus:border-2 transition-colors text-sm sm:text-base;
 }
 
 /* Deep Work Focus Mode */

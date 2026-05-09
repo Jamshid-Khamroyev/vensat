@@ -24,10 +24,8 @@ const AiPracticeGenerator = ({
         setIsProcessing(true);
         try {
           let parsed;
-          // If it's a SAT category (not Math) and words are provided, we use the new logic
-          const isMath = options.value.toLowerCase().includes('math');
           if (options.type === 'sat') {
-            parsed = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, (!isMath && options.words) ? options.words : undefined);
+            parsed = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, options.words);
           } else {
             parsed = await generateWordsTest(options.category || 'General', options.value, options.count);
           }
@@ -70,10 +68,6 @@ const AiPracticeGenerator = ({
                             <option>Reading & Writing: Information & Ideas</option>
                             <option>Reading & Writing: Standard English Conventions</option>
                             <option>Reading & Writing: Expression of Ideas</option>
-                            <option>Math: Algebra</option>
-                            <option>Math: Advanced Math</option>
-                            <option>Math: Problem Solving & Data Analysis</option>
-                            <option>Math: Geometry & Trigonometry</option>
                           </optgroup>
                           <optgroup label="Vocabulary Focus">
                             <option value="Vocabulary: Science & Tech">Vocabulary: Science & Tech</option>

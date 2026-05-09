@@ -27,6 +27,7 @@ import StoryGen from './components/story-gen';
 import Stories from './pages/stories';
 import Profile from './pages/profile';
 import Results from './components/results';
+import WordGroupView from './pages/word-group';
 
 
 // --- App ---
@@ -34,12 +35,13 @@ export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [authEmail, setAuthEmail] = useState('');
-  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [dbTests, setDbTests] = useState<TestRecord[]>([]);
   const [dbSessions, setDbSessions] = useState<SessionRecord[]>([]);
   const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
   const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
+  const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[] } | null>(null);
   const [userWords, setUserWords] = useState<WordRecord[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -64,22 +66,81 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
-  const [storyOptions, setStoryOptions] = useState({ topic: '', category: 'General', length: 'medium' as 'short' | 'medium' | 'long', words: '' });
+  const [storyOptions, setStoryOptions] = useState({ topic: '', category: 'Business', length: 'medium' as 'short' | 'medium' | 'long', words: '' });
   const [definition, setDefinition] = useState<{ word: string, meaning: string } | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  // Restore view from URL on mount
   useEffect(() => {
     const savedUser = localStorage.getItem('aero_user');
-    if (savedUser) {
-      const u = JSON.parse(savedUser);
-      setUser(u);
-      fetchAll(u._id);
-      setView('dashboard');
-    }
-    setLoading(false);
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view') as typeof view | null;
+
+    const init = async () => {
+      if (savedUser) {
+        const u = JSON.parse(savedUser);
+        setUser(u);
+        await fetchAll(u._id);
+        if (viewParam) setView(viewParam);
+        else setView('dashboard');
+      } else {
+        if (viewParam) setView(viewParam);
+      }
+      setLoading(false);
+    };
+
+    init();
   }, []);
+
+  // Sync URL when view or dependent state changes
+  useEffect(() => {
+    if (loading) return;
+    const params = new URLSearchParams(window.location.search);
+    params.set('view', view);
+    if (view === 'word-group' && currentWordGroup) {
+      params.set('groupName', currentWordGroup.name);
+    } else {
+      params.delete('groupName');
+    }
+    if (view === 'story-reader' && currentStory) {
+      params.set('storyId', currentStory._id);
+    } else {
+      params.delete('storyId');
+    }
+    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+  }, [view, currentWordGroup, currentStory, loading]);
+
+  // Restore word-group from URL when words load
+  useEffect(() => {
+    if (view !== 'word-group' || currentWordGroup || userWords.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const groupName = params.get('groupName');
+    if (groupName) {
+      const sorted = [...userWords].sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return dateB - dateA;
+      });
+      const groupIndex = parseInt(groupName.replace('Group ', '')) - 1;
+      if (!isNaN(groupIndex) && groupIndex >= 0) {
+        const words = sorted.slice(groupIndex * 20, (groupIndex + 1) * 20);
+        if (words.length > 0) setCurrentWordGroup({ name: groupName, words });
+      }
+    }
+  }, [view, userWords, currentWordGroup]);
+
+  // Restore story-reader from URL when stories load
+  useEffect(() => {
+    if (view !== 'story-reader' || currentStory || dbStories.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const storyId = params.get('storyId');
+    if (storyId) {
+      const story = dbStories.find(s => s._id === storyId);
+      if (story) setCurrentStory(story);
+    }
+  }, [view, dbStories, currentStory]);
 
   useEffect(() => {
     if (view === 'testing' && timeLeft > 0) {
@@ -389,8 +450,12 @@ export default function App() {
           {view === 'words' && (
             <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
               className="focus-mode space-y-8">
-              <PasteWord handleAddWord={handleAddWord} handleDeleteWord={handleDeleteWord} userWords={userWords} />
+              <PasteWord handleAddWord={handleAddWord} userWords={userWords} setView={setView} setCurrentWordGroup={setCurrentWordGroup} />
             </motion.div>
+          )}
+
+          {view === 'word-group' && (
+            <WordGroupView group={currentWordGroup} setView={setView} handleDeleteWord={handleDeleteWord} />
           )}
 
           {view === 'profile' && (
@@ -402,6 +467,7 @@ export default function App() {
               user={user}
               setView={setView}
               chatScrollRef={chatScrollRef}
+              fetchAll={fetchAll}
               dbSessions={dbSessions}
               isChatting={isChatting}
               setChatMessages={setChatMessages}
@@ -420,7 +486,7 @@ export default function App() {
                      <button
                        key={c}
                        onClick={() => { setHighlightColor(c); setIsHighlighterActive(true); }}
-                       className={`w-6 h-6 rounded flex items-center justify-center transition-all ${highlightColor === c && isHighlighterActive ? 'ring-2 ring-blue-500 scale-110' : 'opacity-60 hover:opacity-100'}`}
+                       className={`w-6 h-6 rounded flex items-center justify-center transition-all ${highlightColor === c && isHighlighterActive ? 'scale-110' : 'opacity-60 hover:opacity-100'}`}
                      >
                        <div className={`w-4 h-4 rounded-full ${c === 'yellow' ? 'bg-yellow-300' : c === 'mint' ? 'bg-emerald-300' : 'bg-sky-300'}`} />
                      </button>

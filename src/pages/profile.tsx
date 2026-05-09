@@ -1,11 +1,11 @@
 import { motion } from "framer-motion"
-import { BrainCircuit, ChevronLeft, Clock, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Sparkles } from "lucide-react";
+import { BrainCircuit, ChevronLeft, Clock, Edit2, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
 import Markdown from "react-markdown";
 import { SessionRecord } from "../types";
 
 interface ProfileProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-    user: { displayName: string; email: string } | null;
+    user: { displayName: string; email: string, _id: string } | null;
     dbSessions: SessionRecord[];
     chatMessages: { role: 'user' | 'model'; parts: { text: string }[] }[];
     setChatMessages: (messages: any[]) => void;
@@ -15,9 +15,32 @@ interface ProfileProps {
     setIsChatting: (chatting: boolean) => void;
     handleSendMessage: () => void;
     chatScrollRef: React.RefObject<HTMLDivElement>;
+    fetchAll: (userId: string) => void;
 }
 
-const Profile = ({ chatInput, chatMessages, chatScrollRef, dbSessions, handleSendMessage, isChatting, setChatInput, setChatMessages, setIsChatting, setView, user }: ProfileProps) => {
+const Profile = ({ chatInput, chatMessages, chatScrollRef,  dbSessions, handleSendMessage, isChatting, setChatInput, setChatMessages, setView, user, fetchAll }: ProfileProps) => {
+    const handleDeleteSession = async (id: string) => {
+    if (!confirm("Delete this history record?")) return;
+    try {
+      await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      if (user) fetchAll(user._id);
+    } catch (e) { alert("Delete failed."); }
+  };
+
+  const handleRenameSession = async (id: string, currentTitle: string) => {
+    const newTitle = prompt("Rename session record:", currentTitle || "Test Session");
+    if (!newTitle || newTitle === currentTitle) return;
+    try {
+      await fetch(`/api/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: newTitle })
+      });
+      if (user) fetchAll(user._id);
+    } catch (e) { alert("Rename failed."); }
+  };
+
+
   return (
     <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               className="focus-mode space-y-6">
@@ -128,6 +151,37 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, dbSessions, handleSen
                   </div>
                 </div>
               </div>
+
+              
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400"><Clock className="w-4 h-4" /> History</div>
+                  <div className="bluebook-card p-4 space-y-3 h-[400px] overflow-y-auto no-scrollbar">
+                    {dbSessions.length === 0 ? (
+                      <div className="h-full flex items-center justify-center text-slate-400 italic text-sm">No activity recorded.</div>
+                    ) : (
+                      dbSessions.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between p-3 bg-white hover:bg-slate-50 rounded-xl border border-slate-100 group transition-all duration-200 shadow-sm hover:shadow-md">
+                          <div className="min-w-0 pr-2">
+                            <div className="font-bold text-[11px] sm:text-xs truncate flex items-center gap-1 text-slate-700">
+                              <span className="truncate">{s.title || "Test Session"}</span>
+                              <div className="flex gap-0.5 ml-auto sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleRenameSession(s._id, s.title)} className="p-0.5 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded transition-all"><Edit2 className="w-2.5 h-2.5" /></button>
+                                <button onClick={() => handleDeleteSession(s._id)} className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all"><Trash2 className="w-2.5 h-2.5" /></button>
+                              </div>
+                            </div>
+                            <div className="text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-tight mt-0.5">{new Date(s.startTime).toLocaleDateString()}</div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            <div className="px-2 py-1 bg-blue-50/50 rounded-lg border border-blue-100/50 text-[10px] font-black text-blue-600">
+                              {Math.round(((s.score || 0) / (s.total || 1)) * 100)}%
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
             </motion.div>
   )
 }
