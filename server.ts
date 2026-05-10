@@ -62,15 +62,66 @@ const SessionSchema = new mongoose.Schema({
 const Test = mongoose.model("Test", TestSchema);
 const Session = mongoose.model("Session", SessionSchema);
 
+const WordGroupSchema = new mongoose.Schema({
+  userId: { type: String, required: true, index: true },
+  name: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const WordGroup = mongoose.model("WordGroup", WordGroupSchema);
+
 const WordSchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
   term: { type: String, required: true },
   definition: { type: String, required: true },
   category: { type: String, default: 'Vocabulary' },
+  groupId: { type: String, index: true },
   createdAt: { type: Date, default: Date.now }
 });
 
 const Word = mongoose.model("Word", WordSchema);
+
+const GROUP_SIZE = 20;
+
+// Backfill ungrouped words for a user into 20-word groups (newest first => Group 1).
+// Idempotent: returns silently if no ungrouped words exist.
+async function ensureUserWordGroups(userId: string) {
+  const ungrouped = await Word.find({
+    userId,
+    $or: [{ groupId: { $exists: false } }, { groupId: null }, { groupId: "" }]
+  }).sort({ createdAt: -1 });
+
+  if (ungrouped.length === 0) return;
+
+  const existingGroupCount = await WordGroup.countDocuments({ userId });
+  let groupCounter = existingGroupCount;
+
+  for (let i = 0; i < ungrouped.length; i += GROUP_SIZE) {
+    groupCounter += 1;
+    const group = await WordGroup.create({
+      userId,
+      name: `Group ${groupCounter}`,
+    });
+    const slice = ungrouped.slice(i, i + GROUP_SIZE);
+    const ids = slice.map((w) => w._id);
+    await Word.updateMany({ _id: { $in: ids } }, { $set: { groupId: group._id.toString() } });
+  }
+}
+
+// Pick (or create) the group a newly added word should belong to.
+async function getOrCreateOpenGroup(userId: string) {
+  // Most recent group for the user.
+  const lastGroup = await WordGroup.findOne({ userId }).sort({ createdAt: -1 });
+  if (lastGroup) {
+    const count = await Word.countDocuments({ groupId: lastGroup._id.toString() });
+    if (count < GROUP_SIZE) return lastGroup;
+  }
+  const totalGroups = await WordGroup.countDocuments({ userId });
+  return WordGroup.create({
+    userId,
+    name: `Group ${totalGroups + 1}`,
+  });
+}
 
 const StorySchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
@@ -273,6 +324,7 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
   // Words
   app.get("/api/words/:userId", asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
+    await ensureUserWordGroups(req.params.userId);
     const words = await Word.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(1000);
     res.json(words);
   }));
@@ -282,7 +334,9 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
     if (!userId || !term || !definition) {
       return res.status(400).json({ error: "Missing required fields: userId, term, definition" });
     }
-    const newWord = new Word(req.body);
+    await ensureUserWordGroups(userId);
+    const group = await getOrCreateOpenGroup(userId);
+    const newWord = new Word({ ...req.body, groupId: group._id.toString() });
     await newWord.save();
     res.status(201).json(newWord);
   }));
@@ -293,6 +347,54 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
     }
     await Word.findByIdAndDelete(req.params.id);
     res.status(204).send();
+  }));
+
+  // Word Groups
+  app.get("/api/word-groups/:userId", asyncHandler(async (req, res) => {
+    if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
+    await ensureUserWordGroups(req.params.userId);
+    const groups = await WordGroup.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    const groupIds = groups.map((g) => g._id.toString());
+    const words = await Word.find({ userId: req.params.userId, groupId: { $in: groupIds } }).sort({ createdAt: -1 });
+    const byGroup: Record<string, any[]> = {};
+    for (const w of words) {
+      const gid = w.get("groupId");
+      if (!gid) continue;
+      if (!byGroup[gid]) byGroup[gid] = [];
+      byGroup[gid].push(w);
+    }
+    res.json(
+      groups.map((g) => ({
+        _id: g._id,
+        name: g.name,
+        userId: g.userId,
+        createdAt: g.createdAt,
+        words: byGroup[g._id.toString()] || [],
+      }))
+    );
+  }));
+
+  app.post("/api/word-groups", asyncHandler(async (req, res) => {
+    const { userId, name } = req.body;
+    if (!userId) return res.status(400).json({ error: "User ID required" });
+    let groupName: string = (name || "").toString().trim();
+    if (!groupName) {
+      const totalGroups = await WordGroup.countDocuments({ userId });
+      groupName = `Group ${totalGroups + 1}`;
+    }
+    const group = await WordGroup.create({ userId, name: groupName });
+    res.status(201).json({ _id: group._id, name: group.name, userId: group.userId, createdAt: group.createdAt, words: [] });
+  }));
+
+  app.delete("/api/word-groups/:id", asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid group ID" });
+    }
+    const group = await WordGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+    const wordsResult = await Word.deleteMany({ groupId: req.params.id });
+    await WordGroup.findByIdAndDelete(req.params.id);
+    res.json({ deletedWords: wordsResult.deletedCount || 0 });
   }));
 
   // Stories

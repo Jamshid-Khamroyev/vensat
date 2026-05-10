@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Play, Volume2, BookOpen, Layers, ArrowLeft, ArrowRight, BrainCircuit, RotateCcw, CheckCircle2, XCircle, Zap, Shuffle } from "lucide-react";
+import { Trash2, Play, Volume2, BookOpen, Layers, ArrowLeft, ArrowRight, BrainCircuit, RotateCcw, CheckCircle2, XCircle, Zap, Shuffle, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { WordRecord } from "../types";
 
@@ -7,6 +7,7 @@ interface WordGroupProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
   group: { name: string; words: WordRecord[] } | null;
   handleDeleteWord: (id: string) => void;
+  wordsBusy?: boolean;
 }
 
 const gradients = [
@@ -22,7 +23,7 @@ const gradients = [
 
 const getGradient = (index: number) => gradients[index % gradients.length];
 
-const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => {
+const WordGroupView = ({ setView, group, handleDeleteWord, wordsBusy = false }: WordGroupProps) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
@@ -45,6 +46,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
 
 
   const handleDelete = (id: string) => {
+    if (wordsBusy) return;
     if (!confirm("Delete this word?")) return;
     handleDeleteWord(id);
     if (activeIndex >= words.length - 1 && words.length > 1) {
@@ -281,9 +283,10 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                         <button
                           onClick={() => handleDelete(activeWord._id)}
-                          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
+                          disabled={wordsBusy}
+                          className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors px-3 py-2 rounded-lg hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:bg-transparent"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {wordsBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                           Remove
                         </button>
                         <span className="text-xs text-slate-400 font-mono">

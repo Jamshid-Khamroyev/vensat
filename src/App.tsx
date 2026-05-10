@@ -16,7 +16,7 @@ import {
   chatWithAI,
   ParsedTest 
 } from './services/geminiService';
-import { AppUser, Session, SessionRecord, StoryRecord, TestRecord, WordRecord } from './types';
+import { AppUser, Session, SessionRecord, StoryRecord, TestRecord, WordGroup, WordRecord } from './types';
 import PasteWord from './components/paste-word';
 import LandingPage from './pages/landing';
 import Navbar from './components/navbar';
@@ -46,6 +46,9 @@ export default function App() {
   const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
   const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[] } | null>(null);
   const [userWords, setUserWords] = useState<WordRecord[]>([]);
+  const [dbWordGroups, setDbWordGroups] = useState<WordGroup[]>([]);
+  const [wordsBusy, setWordsBusy] = useState(false);
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const [localWords, setLocalWords] = useState<{ term: string; definition?: string }[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -131,10 +134,20 @@ export default function App() {
 
   // Restore word-group from URL when words load
   useEffect(() => {
-    if (view !== 'word-group' || currentWordGroup || userWords.length === 0) return;
+    if (view !== 'word-group' || currentWordGroup) return;
     const params = new URLSearchParams(window.location.search);
     const groupName = params.get('groupName');
-    if (groupName) {
+    if (!groupName) return;
+
+    if (dbWordGroups.length > 0) {
+      const match = dbWordGroups.find(g => g.name === groupName);
+      if (match) {
+        setCurrentWordGroup({ name: match.name, words: match.words || [] });
+        return;
+      }
+    }
+
+    if (userWords.length > 0) {
       const sorted = [...userWords].sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
@@ -146,7 +159,7 @@ export default function App() {
         if (words.length > 0) setCurrentWordGroup({ name: groupName, words });
       }
     }
-  }, [view, userWords, currentWordGroup]);
+  }, [view, userWords, dbWordGroups, currentWordGroup]);
 
   // Restore story-reader from URL when stories load
   useEffect(() => {
@@ -174,25 +187,37 @@ export default function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, timeLeft]);
 
+  const fetchWordGroups = async (id: string) => {
+    try {
+      const res = await fetch(`/api/word-groups/${id}`);
+      if (res.ok) setDbWordGroups(await res.json());
+    } catch (e) {
+      console.error("Fetch word groups failed", e);
+    }
+  };
+
   const fetchAll = async (id: string) => {
     try {
-      const [testsRes, sessionsRes, wordsRes, storiesRes] = await Promise.all([
+      const [testsRes, sessionsRes, wordsRes, storiesRes, groupsRes] = await Promise.all([
         fetch("/api/tests"),
         fetch(`/api/sessions/${id}`),
         fetch(`/api/words/${id}`),
-        fetch(`/api/stories/${id}`)
+        fetch(`/api/stories/${id}`),
+        fetch(`/api/word-groups/${id}`)
       ]);
       
       if (testsRes.ok) setDbTests(await testsRes.json());
       if (sessionsRes.ok) setDbSessions(await sessionsRes.json());
       if (wordsRes.ok) setUserWords(await wordsRes.json());
       if (storiesRes.ok) setDbStories(await storiesRes.json());
+      if (groupsRes.ok) setDbWordGroups(await groupsRes.json());
     } catch (e) { 
       console.error("Fetch failed", e);
     }
   };
 
   const handleAddWord = async (word: { term: string, definition: string, category: string }) => {
+    setWordsBusy(true);
     try {
       const res = await fetch("/api/words", {
         method: "POST",
@@ -200,15 +225,38 @@ export default function App() {
         body: JSON.stringify({ ...word, userId: user?._id })
       });
       const saved = await res.json();
-      setUserWords([saved, ...userWords]);
+      setUserWords(prev => [saved, ...prev]);
+      if (user) await fetchWordGroups(user._id);
     } catch (e) { alert("Failed to save word."); }
+    finally { setWordsBusy(false); }
   };
 
   const handleDeleteWord = async (id: string) => {
+    setWordsBusy(true);
     try {
       await fetch(`/api/words/${id}`, { method: "DELETE" });
-      setUserWords(userWords.filter(w => w._id !== id));
+      setUserWords(prev => prev.filter(w => w._id !== id));
+      if (user) await fetchWordGroups(user._id);
     } catch (e) { alert("Delete failed."); }
+    finally { setWordsBusy(false); }
+  };
+
+  const handleDeleteWordGroup = async (groupId: string) => {
+    setDeletingGroupId(groupId);
+    setWordsBusy(true);
+    try {
+      const deletedGroupName = dbWordGroups.find(g => g._id === groupId)?.name;
+      const res = await fetch(`/api/word-groups/${groupId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      setDbWordGroups(prev => prev.filter(g => g._id !== groupId));
+      setUserWords(prev => prev.filter(w => w.groupId !== groupId));
+      setCurrentWordGroup(prev => (prev && deletedGroupName && prev.name === deletedGroupName ? null : prev));
+    } catch (e) {
+      alert("Group delete failed.");
+    } finally {
+      setDeletingGroupId(null);
+      setWordsBusy(false);
+    }
   };
 
   const startTest = (test: ParsedTest) => {
@@ -526,6 +574,8 @@ export default function App() {
               dbTests={dbTests}
               setDbTests={setDbTests}
               user={user}
+              userWords={userWords}
+              dbWordGroups={dbWordGroups}
               selectedTime={selectedTime}
               setSelectedTime={setSelectedTime}
               setView={setView}
@@ -536,12 +586,26 @@ export default function App() {
           {view === 'words' && (
             <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
               className="focus-mode space-y-8">
-              <PasteWord handleAddWord={handleAddWord} userWords={userWords} setView={setView} setCurrentWordGroup={setCurrentWordGroup} />
+              <PasteWord
+                handleAddWord={handleAddWord}
+                userWords={userWords}
+                dbWordGroups={dbWordGroups}
+                wordsBusy={wordsBusy}
+                deletingGroupId={deletingGroupId}
+                handleDeleteWordGroup={handleDeleteWordGroup}
+                setView={setView}
+                setCurrentWordGroup={setCurrentWordGroup}
+              />
             </motion.div>
           )}
 
           {view === 'word-group' && (
-            <WordGroupView group={currentWordGroup} setView={setView} handleDeleteWord={handleDeleteWord} />
+            <WordGroupView
+              group={currentWordGroup}
+              setView={setView}
+              handleDeleteWord={handleDeleteWord}
+              wordsBusy={wordsBusy}
+            />
           )}
 
           {view === 'profile' && (

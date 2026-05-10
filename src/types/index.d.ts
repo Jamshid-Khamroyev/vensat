@@ -40,7 +40,6 @@ export interface AppUser {
     words: WordRecord[];
     userId: string;
     createdAt: string;
-    order: number;
   }
   
   export interface StoryRecord {

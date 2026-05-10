@@ -1,13 +1,17 @@
-import { BookOpen, FileText, Search, X, Play, Camera, Loader2, ArrowRight, CheckCircle } from "lucide-react";
+import { BookOpen, FileText, Search, X, Play, Camera, Loader2, ArrowRight, CheckCircle, Trash2 } from "lucide-react";
 import { useState, useMemo, useRef } from "react";
 import { motion } from 'framer-motion';
-import { WordRecord } from "../types";
+import { WordGroup, WordRecord } from "../types";
 import { translateWords } from "../services/geminiService";
 import { toast } from "sonner";
 
 interface PasteWordProps {
     handleAddWord: (word: { term: string; definition: string; category: string }) => void;
     userWords: WordRecord[];
+    dbWordGroups?: WordGroup[];
+    wordsBusy?: boolean;
+    deletingGroupId?: string | null;
+    handleDeleteWordGroup?: (groupId: string) => Promise<void> | void;
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
     setCurrentWordGroup: (group: { name: string; words: WordRecord[] } | null) => void;
     localWords?: { term: string; definition?: string }[];
@@ -16,7 +20,7 @@ interface PasteWordProps {
     isProcessing?: boolean;
 }
 
-const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, localWords = [], removeLocalWord, translateLocalWords, isProcessing }: PasteWordProps) => {
+const PasteWord = ({ handleAddWord, userWords, dbWordGroups = [], wordsBusy = false, deletingGroupId = null, handleDeleteWordGroup, setView, setCurrentWordGroup, localWords = [], removeLocalWord, translateLocalWords, isProcessing }: PasteWordProps) => {
     const [batchMode, setBatchMode] = useState(false);
     const [batchText, setBatchText] = useState('');
     const [parsedPairs, setParsedPairs] = useState<{ english: string; uzbek: string }[]>([]);
@@ -33,36 +37,60 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
     const [translatedWords, setTranslatedWords] = useState<{ term: string; definition: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Automatic word grouping (20 words per group)
-    const groupedWords = useMemo(() => {
-        const groups: { [key: string]: WordRecord[] } = {};
-        
-        const filtered = userWords.filter(w => 
-            w.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            w.definition.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    // Use server-side groups when available; otherwise fall back to client-side bucketing of 20.
+    const matchesSearch = (w: WordRecord) =>
+        w.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        w.definition.toLowerCase().includes(searchTerm.toLowerCase());
 
+    const sortGroupsByCreatedAt = (a: { createdAt?: string }, b: { createdAt?: string }) => {
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    };
+
+    const groupCards = useMemo<{ id: string | null; name: string; words: WordRecord[] }[]>(() => {
+        if (dbWordGroups && dbWordGroups.length > 0) {
+            return [...dbWordGroups]
+                .sort(sortGroupsByCreatedAt)
+                .map(g => ({
+                    id: g._id,
+                    name: g.name,
+                    words: (g.words || []).filter(matchesSearch)
+                }))
+                .filter(g => searchTerm === '' || g.words.length > 0);
+        }
+
+        // Fallback: client-side bucketing.
+        const filtered = userWords.filter(matchesSearch);
         const sorted = [...filtered].sort((a, b) => {
             const dateA = new Date(a.createdAt || 0).getTime();
             const dateB = new Date(b.createdAt || 0).getTime();
             return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
         });
-
-        // Group words by 20s
+        const buckets: { id: string | null; name: string; words: WordRecord[] }[] = [];
         sorted.forEach((word, index) => {
-            const groupIndex = Math.floor(index / 20);
-            const groupKey = `Group ${groupIndex + 1}`;
-            
-            if (!groups[groupKey]) groups[groupKey] = [];
-            groups[groupKey].push(word);
+            const idx = Math.floor(index / 20);
+            if (!buckets[idx]) buckets[idx] = { id: null, name: `Group ${idx + 1}`, words: [] };
+            buckets[idx].words.push(word);
         });
-
-        return groups;
-    }, [userWords, searchTerm, sortOrder]);
+        return buckets;
+    }, [dbWordGroups, userWords, searchTerm, sortOrder]);
 
     const handleGroupClick = (groupKey: string, words: WordRecord[]) => {
         setCurrentWordGroup({ name: groupKey, words });
         setView('word-group');
+    };
+
+    const onDeleteGroup = async (e: React.MouseEvent, groupId: string | null) => {
+        e.stopPropagation();
+        if (!groupId) {
+            toast.error("Group not yet synced. Please refresh.");
+            return;
+        }
+        if (!handleDeleteWordGroup) return;
+        if (deletingGroupId) return;
+        if (!confirm("Delete this group and all words inside?")) return;
+        await handleDeleteWordGroup(groupId);
     };
 
     const parseBatch = () => {
@@ -232,13 +260,15 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                 <div className="flex gap-3">
                     <button 
                         onClick={() => setBatchMode(true)} 
-                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-blue-950 to-blue-900 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 "
+                        disabled={wordsBusy}
+                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-blue-950 to-blue-900 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
                     >
                         <FileText className="w-4 h-4" /> Batch Paste
                     </button>
                     <button 
                         onClick={() => setImageMode(true)} 
-                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 "
+                        disabled={wordsBusy}
+                        className="px-5 py-2.5 rounded-sm bg-linear-to-r from-emerald-600 to-teal-600 text-white font-medium flex items-center gap-2 cursor-pointer hover:shadow-xl hover:scale-105 transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
                     >
                         <Camera className="w-4 h-4" /> Rasmdan OCR
                     </button>
@@ -285,71 +315,95 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.entries(groupedWords).map(([groupKey, words], groupIndex) => (
-                            <motion.div
-                                key={groupKey}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: groupIndex * 0.05 }}
-                                className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
-                                onClick={() => handleGroupClick(groupKey, words)}
-                            >
-                                {/* Thumbnail Area */}
-                                <div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="grid grid-cols-4 gap-2 p-4 opacity-40 group-hover:scale-105 transition-transform duration-500">
-                                            {words.slice(0, 8).map((word) => (
-                                                <div key={word._id} className="bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 truncate shadow-sm">
-                                                    {word.term}
-                                                </div>
-                                            ))}
-                                            {words.length < 8 && Array.from({ length: 8 - words.length }).map((_, i) => (
-                                                <div key={`empty-${i}`} className="bg-white/40 rounded-lg px-2 py-1.5" />
-                                            ))}
+                        {groupCards.map((card, groupIndex) => {
+                            const isDeleting = !!card.id && deletingGroupId === card.id;
+                            const groupNumberLabel = (card.name.match(/\d+/) || [String(groupIndex + 1)])[0];
+                            return (
+                                <motion.div
+                                    key={card.id || card.name}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: groupIndex * 0.05 }}
+                                    className={`group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer ${isDeleting ? 'opacity-60 pointer-events-none' : ''}`}
+                                    onClick={() => !isDeleting && handleGroupClick(card.name, card.words)}
+                                >
+                                    {/* Thumbnail Area */}
+                                    <div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="grid grid-cols-4 gap-2 p-4 opacity-40 group-hover:scale-105 transition-transform duration-500">
+                                                {card.words.slice(0, 8).map((word) => (
+                                                    <div key={word._id} className="bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 truncate shadow-sm">
+                                                        {word.term}
+                                                    </div>
+                                                ))}
+                                                {card.words.length < 8 && Array.from({ length: 8 - card.words.length }).map((_, i) => (
+                                                    <div key={`empty-${i}`} className="bg-white/40 rounded-lg px-2 py-1.5" />
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                    {/* Play Overlay */}
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-                                        <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300">
-                                            <Play className="w-6 h-6 text-blue-600 fill-blue-600 ml-1" />
+                                        {/* Play Overlay */}
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+                                            <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300">
+                                                <Play className="w-6 h-6 text-blue-600 fill-blue-600 ml-1" />
+                                            </div>
                                         </div>
-                                    </div>
-                                    {/* Word Count Badge */}
-                                    <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md">
-                                        {words.length} words
-                                    </div>
-                                    {/* Group Number Badge */}
-                                    <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-md">
-                                        #{groupKey.split(' ')[1]}
-                                    </div>
-                                </div>
-
-                                {/* Info Area */}
-                                <div className="p-4">
-                                    <h3 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors line-clamp-1">
-                                        {groupKey}
-                                    </h3>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Playlist • {words.length} so'z
-                                    </p>
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {words.slice(0, 3).map((word) => (
-                                            <span
-                                                key={word._id}
-                                                className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-medium"
+                                        {/* Word Count Badge */}
+                                        <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md">
+                                            {card.words.length} words
+                                        </div>
+                                        {/* Group Number Badge */}
+                                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-md">
+                                            #{groupNumberLabel}
+                                        </div>
+                                        {/* Delete Group Button */}
+                                        {card.id && handleDeleteWordGroup && (
+                                            <button
+                                                onClick={(e) => onDeleteGroup(e, card.id)}
+                                                disabled={isDeleting || wordsBusy}
+                                                className="absolute top-2 right-2 z-10 p-1.5 rounded-md bg-white/90 backdrop-blur-sm text-slate-500 hover:text-red-500 hover:bg-white shadow-sm border border-slate-200 transition-all opacity-0 group-hover:opacity-100 disabled:opacity-100 disabled:cursor-not-allowed"
+                                                title="Delete group"
                                             >
-                                                {word.term}
-                                            </span>
-                                        ))}
-                                        {words.length > 3 && (
-                                            <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold">
-                                                +{words.length - 3}
-                                            </span>
+                                                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                                            </button>
                                         )}
                                     </div>
-                                </div>
-                            </motion.div>
-                        ))}
+
+                                    {/* Info Area */}
+                                    <div className="p-4">
+                                        <h3 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors line-clamp-1">
+                                            {card.name}
+                                        </h3>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            Playlist • {card.words.length} so'z
+                                        </p>
+                                        <div className="flex flex-wrap gap-1.5 mt-3">
+                                            {card.words.slice(0, 3).map((word) => (
+                                                <span
+                                                    key={word._id}
+                                                    className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-medium"
+                                                >
+                                                    {word.term}
+                                                </span>
+                                            ))}
+                                            {card.words.length > 3 && (
+                                                <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold">
+                                                    +{card.words.length - 3}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {isDeleting && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm">
+                                            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white shadow border border-slate-200">
+                                                <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                                                <span className="text-xs font-bold text-slate-600">Deleting…</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
