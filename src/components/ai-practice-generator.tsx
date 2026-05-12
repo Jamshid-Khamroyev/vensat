@@ -1,7 +1,10 @@
 import {motion} from 'framer-motion';
-import { BrainCircuit, Clock, RotateCcw, Wand2, X } from "lucide-react"
+import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } from "lucide-react"
 import { generateSATTest, generateWordsTest } from '../services/geminiService';
 import axios from '../services/api';
+import { GroupWord } from '../types';
+import { group } from 'console';
+import { useState } from 'react';
 
 interface AiPracticeGeneratorProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -9,28 +12,34 @@ interface AiPracticeGeneratorProps {
     setSelectedTime: (time: number) => void;
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
-    setGenOptions: (options: { category: string; difficulty: string; count: number; words?: string }) => void;
-    genOptions: { category: string; difficulty: string; count: number; words?: string };
     user: { _id: string; displayName: string; email: string } | null;
     dbTests: any[];
     setDbTests: (tests: any[]) => void;
+    userWords: GroupWord[];
     startTest: (test: any) => void;
 }
 
 const AiPracticeGenerator = ({ 
-    selectedTime, setSelectedTime,setView,  setGenOptions, genOptions, isProcessing, setIsProcessing, user, dbTests, setDbTests, startTest
+    selectedTime, setSelectedTime,setView, userWords, isProcessing, setIsProcessing, user, dbTests, setDbTests, startTest
 }: AiPracticeGeneratorProps) => {
+   const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, count: number, words?: string }>({
+      category: 'Reading & Writing: Information & Ideas',
+      difficulty: 'Medium',
+      count: 10,
+      words: ''
+  });
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
-    const handleAIGen = async (options: { type: 'sat' | 'words', value: string, count: number, difficulty?: string, category?: string, words?: string }) => {
+    const handleAIGen = async (options: { type: 'sat' | 'words', value: string, count: number, difficulty?: string, category?: string }) => {
         setIsProcessing(true);
+        const usedWords = userWords.filter(group => group._id === selectedGroupId).map(group => group.words.map(word => word.term).join(",")).join(",");
         try {
           let parsed;
           if (options.type === 'sat') {
-            parsed = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, options.words);
+            parsed = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, usedWords);
           } else {
-            parsed = await generateWordsTest(options.category || 'General', options.value, options.count);
+            parsed = await generateWordsTest(options.category || 'General', usedWords, options.count);
           }
-          
           const res = await axios.post("/api/tests", {
             ...parsed, 
             creatorId: user?._id, 
@@ -41,7 +50,7 @@ const AiPracticeGenerator = ({
           startTest(parsed);
         } catch (e) { alert("Generation failed."); }
         finally { setIsProcessing(false); }
-    };
+    }
 
   return (
     <motion.div key="ai-gen" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -88,24 +97,32 @@ const AiPracticeGenerator = ({
                     </div>
                   </div>
 
-                  {!genOptions.category.startsWith('Math') && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
                        <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Context Words (Optional)</label>
-                       <textarea 
-                        value={genOptions.words || ''} 
-                        onChange={e => setGenOptions({...genOptions, words: e.target.value})} 
-                        className="bluebook-input h-24 resize-none text-sm bg-slate-50 border-slate-100" 
-                        placeholder="e.g. ephemeral, ubiquitous, pragmatic, resilient..."
-                       />
+                       {userWords.map(group => (
+                        <div key={group._id} className="space-y-1 border hover:bg-slate-100 flex items-center justify-between border-slate-200 p-2 rounded-sm">
+                          <div className='flex items-center space-x-1' >
+                            <p className="text-[14px] text-blue-950">{group.title}</p>
+                            <p className="text-[12px] text-slate-400">({group.words.length} words)</p>
+                          </div>
+
+                          <button onClick={() => setSelectedGroupId(group._id)} className="text-[10px] text-slate-400 cursor-pointer hover:text-slate-600">
+                            {selectedGroupId === group._id ? (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <PlusCircle className="h-6 w-6" />
+                            )}
+                          </button>
+                        </div>
+                       ))}
                        <p className="text-[9px] text-slate-400 italic">AI will attempt to prioritize these words within the DSAT passages where appropriate.</p>
                     </div>
-                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                        <label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Question Count</label>
                        <div className="flex items-center gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                          <input type="range" min="5" max="25" step="5" value={genOptions.count} onChange={e => setGenOptions({...genOptions, count: Number(e.target.value)})} className="flex-1 accent-blue-600 h-1" />
+                          <input type="range" min="5" max="20" step="5" value={genOptions.count} onChange={e => setGenOptions({...genOptions, count: Number(e.target.value)})} className="flex-1 accent-blue-600 h-1" />
                           <span className="font-bold text-blue-600 text-xs">{genOptions.count}</span>
                        </div>
                     </div>
@@ -126,7 +143,6 @@ const AiPracticeGenerator = ({
                         value: genOptions.category, 
                         count: genOptions.count, 
                         difficulty: genOptions.difficulty,
-                        words: genOptions.words
                       })} 
                       className="bluebook-button w-full flex items-center justify-center gap-3 !py-4 shadow-xl active:scale-[0.98] transition-all"
                     >

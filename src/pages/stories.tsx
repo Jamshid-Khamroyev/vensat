@@ -188,7 +188,7 @@ const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrent
 
             {/* Mening Tab - User's Stories */}
             {activeTab === 'mening' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {dbStories.length === 0 ? (
                         <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-200">
                             <BookOpen className="text-slate-200 w-12 h-12 mx-auto mb-4" />

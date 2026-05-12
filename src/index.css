@@ -40,7 +40,7 @@
 
 /* Deep Work Focus Mode */
 .focus-mode {
-  @apply w-full max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-12;
+  @apply w-full mx-auto px-4 py-6 sm:px-6 sm:py-12;
 }
 
 h1 { @apply text-xl sm:text-2xl font-bold tracking-tight; }

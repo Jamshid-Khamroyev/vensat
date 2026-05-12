@@ -2,12 +2,12 @@ import { motion } from "framer-motion"
 import { BrainCircuit, ChevronLeft, RotateCcw, Sparkles, FileText, BookOpen, PenTool, Type, Hash, Layers, ChevronDown, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { generateStory } from "../services/geminiService";
-import { AppUser } from "../types";
+import { AppUser, GroupWord } from "../types";
 import { Button } from "@/components/ui/button";
 
 interface StoryGenProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-  userWords: any[]; // Will be GroupWord[] but using any for compatibility
+  userWords: GroupWord[]; // Will be GroupWord[] but using any for compatibility
   storyOptions: {
     topic: string;
     category: string;

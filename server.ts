@@ -143,7 +143,7 @@ async function startServer() {
   });
 
   app.use(cors({
-    origin: ["https://aerotest.onrender.com", "http://localhost:3000"],
+    origin: ["https://aerotest-1.onrender.com", "http://localhost:3000"],
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true
   }));

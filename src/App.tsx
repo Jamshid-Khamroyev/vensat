@@ -71,12 +71,7 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Advanced AI Gen State
-  const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, count: number, words?: string }>({
-    category: 'Reading & Writing: Information & Ideas',
-    difficulty: 'Medium',
-    count: 10,
-    words: ''
-  });
+
 
   // Chatbot State
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
@@ -547,12 +542,11 @@ export default function App() {
           {view === 'ai-gen' && (
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
               <AiPracticeGenerator
-                genOptions={genOptions}
-                setGenOptions={setGenOptions}
                 isProcessing={isProcessing}
                 setIsProcessing={setIsProcessing}
                 dbTests={dbTests}
                 setDbTests={setDbTests}
+                userWords={userWords}
                 user={user}
                 selectedTime={selectedTime}
                 setSelectedTime={setSelectedTime}
