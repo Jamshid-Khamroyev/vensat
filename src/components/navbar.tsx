@@ -38,38 +38,18 @@ const Navbar = ({ setUser, setView, view, user, handleCompleteTest, formatTime, 
 
     return (
       <>
-        <header className={`h-14 sm:h-16 px-3 sm:px-6 lg:px-8 text-white flex items-center justify-between sticky top-0 z-50 shadow-lg transition-colors duration-300 ${
-          isTesting ? 'bg-bluebook-navy' : 'bg-bluebook-navy/95 backdrop-blur-md'
-        }`}>
+        <header className={`h-14 sm:h-16 px-3 sm:px-6 lg:px-8 bg-white flex items-center justify-between sticky top-0 z-50 shadow-sm transition-colors duration-300 `}>
           {/* Logo */}
-          <div className="flex items-center gap-2.5 cursor-pointer shrink-0" onClick={() => user && !isTesting && setView('dashboard')}>
-            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center ${
-              isTesting ? 'bg-blue-600/30' : 'bg-blue-500/20'
-            }`}>
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-blue-300" />
+          <div className="flex items-center text-blue-950 gap-2.5 cursor-pointer shrink-0" onClick={() => user && !isTesting && setView('dashboard')}>
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center border border-blue-950`}>
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <h1 className="text-base sm:text-lg font-black tracking-tight hidden sm:block">AeroTest</h1>
           </div>
 
-          {/* Testing Mode Center */}
-          {user && isTesting && (
-            <div className="flex items-center gap-3 sm:gap-6">
-              <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
-                <Clock className="w-4 h-4 text-blue-300" />
-                <span className="font-mono text-sm sm:text-base tabular-nums font-bold">{formatTime?.(timeLeft || 0)}</span>
-              </div>
-              <button
-                onClick={handleCompleteTest}
-                className="bg-rose-500 hover:bg-rose-400 px-4 py-1.5 rounded-lg text-xs sm:text-sm font-black transition-all shadow-lg shadow-rose-500/20"
-              >
-                Finish
-              </button>
-            </div>
-          )}
-
           {/* Desktop Navigation */}
           {user && !isTesting && !isLanding && (
-            <nav className="hidden md:flex items-center gap-1 bg-white/5 rounded-xl p-1">
+            <nav className="hidden md:flex items-center gap-1 bg-white/5 border rounded-xl p-1">
               {navItems.map((item) => {
                 const isActive = view === item.key;
                 const Icon = item.icon;
@@ -77,10 +57,10 @@ const Navbar = ({ setUser, setView, view, user, handleCompleteTest, formatTime, 
                   <button
                     key={item.key}
                     onClick={() => setView(item.key as any)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs font-bold transition-all duration-200 ${
                       isActive
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-400 hover:text-white hover:bg-white/10'
+                        ? 'bg-blue-950 text-white shadow-md'
+                        : 'text-slate-400 hover:text-white hover:bg-blue-950'
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5" />

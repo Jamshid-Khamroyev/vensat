@@ -1,13 +1,14 @@
 import { motion } from "framer-motion"
-import { BookOpen, ChevronRight, Clock, Plus, Trash2, Loader2, ExternalLink, User, TrendingUp, ChevronDown } from "lucide-react";
+import { BookOpen, ChevronRight, Clock, Plus, Trash2, Loader2, ExternalLink, User, TrendingUp, ChevronDown, GraduationCap } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface StoriesProps {
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "nytimes-story") => void;
+    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "nytimes-story" | "springer-reader") => void;
     dbStories: { _id: string; title: string; category: string; content: string }[];
     setCurrentStory: (story: any) => void;
     setDbStories: (books: any[]) => void;
     setCurrentNYTStory: (story: NYTStory | null) => void;
+    setCurrentSpringerArticle: (article: SpringerArticle | null) => void;
 }
 
 interface NYTStory {
@@ -21,6 +22,17 @@ interface NYTStory {
     multimedia: { url: string; format: string }[];
 }
 
+interface SpringerArticle {
+    title: string;
+    abstract: string;
+    url: string;
+    authors: { name: string }[];
+    publicationDate: string;
+    journal: string;
+    doi: string;
+    keywords: string[];
+}
+
 const NYT_SECTIONS = [
     'arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 
     'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 
@@ -31,20 +43,27 @@ const NYT_SECTIONS = [
 
 type NYTSection = typeof NYT_SECTIONS[number];
 
-const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrentNYTStory }: StoriesProps) => {
-    const [activeTab, setActiveTab] = useState<'mening' | 'popular'>('mening');
+const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrentNYTStory, setCurrentSpringerArticle }: StoriesProps) => {
+    const [activeTab, setActiveTab] = useState<'mening' | 'popular' | 'academic'>('mening');
     
     // NY Times states
     const [nytStories, setNytStories] = useState<NYTStory[]>([]);
     const [isLoadingNYT, setIsLoadingNYT] = useState(false);
     const [selectedSection, setSelectedSection] = useState<NYTSection>('automobiles');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    
+    // Springer states
+    const [springerArticles, setSpringerArticles] = useState<SpringerArticle[]>([]);
+    const [isLoadingSpringer, setIsLoadingSpringer] = useState(false);
+    const [springerKeyword, setSpringerKeyword] = useState('test');
 
     useEffect(() => {
         if (activeTab === 'popular') {
             fetchNYTStories(selectedSection);
+        } else if (activeTab === 'academic') {
+            fetchSpringerArticles(springerKeyword);
         }
-    }, [activeTab, selectedSection]);
+    }, [activeTab, selectedSection, springerKeyword]);
 
     // Fetch NY Times stories by section
     const fetchNYTStories = async (section: NYTSection) => {
@@ -71,6 +90,40 @@ const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrent
     const handleSectionChange = (section: NYTSection) => {
         setSelectedSection(section);
         setIsDropdownOpen(false);
+    };
+
+    // Fetch Springer Nature articles
+    const fetchSpringerArticles = async (keyword: string) => {
+        setIsLoadingSpringer(true);
+        try {
+            const response = await fetch(
+                `https://api.springernature.com/openaccess/json?api_key=a1e120d652e510029e86960a90ad5eac&q=keyword%3A%20${encodeURIComponent(keyword)}`
+            );
+            if (!response.ok) throw new Error('Failed to fetch Springer articles');
+            const data = await response.json();
+            
+            const articles = (data.records || []).map((record: any) => ({
+                title: record.title || 'Untitled',
+                abstract: record.abstract || 'No abstract available',
+                url: record.url?.[0]?.value || '#',
+                authors: (record.creators || []).map((c: any) => ({ name: c.creator })),
+                publicationDate: record.publicationDate || 'Unknown date',
+                journal: record.publicationName || 'Unknown journal',
+                doi: record.doi || '',
+                keywords: record.keywords || []
+            }));
+            
+            setSpringerArticles(articles);
+        } catch (e) {
+            console.error('Error fetching Springer articles:', e);
+        } finally {
+            setIsLoadingSpringer(false);
+        }
+    };
+
+    const handleSpringerArticleClick = (article: SpringerArticle) => {
+        setCurrentSpringerArticle(article);
+        setView('springer-reader');
     };
 
     const handleDeleteStory = async (id: string) => {
@@ -100,10 +153,10 @@ const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrent
             <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
                 <button
                     onClick={() => setActiveTab('mening')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg text-sm font-medium transition-all ${
                         activeTab === 'mening'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-blue-950 shadow-sm'
+                            : 'text-slate-500 hover:text-blue-950 hover:bg-white'
                     }`}
                 >
                     <User className="w-4 h-4" />
@@ -111,14 +164,25 @@ const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrent
                 </button>
                 <button
                     onClick={() => setActiveTab('popular')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg text-sm font-medium transition-all ${
                         activeTab === 'popular'
-                            ? 'bg-white text-blue-600 shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
+                            ? 'bg-white text-blue-950 shadow-sm'
+                            : 'text-slate-500 hover:text-blue-950 hover:bg-white'
                     }`}
                 >
                     <TrendingUp className="w-4 h-4" />
                     Popular
+                </button>
+                <button
+                    onClick={() => setActiveTab('academic')}
+                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg text-sm font-medium transition-all ${
+                        activeTab === 'academic'
+                            ? 'bg-white text-blue-950 shadow-sm'
+                            : 'text-slate-500 hover:text-blue-950 hover:bg-white'
+                    }`}
+                >
+                    <GraduationCap className="w-4 h-4" />
+                    Academic
                 </button>
             </div>
 
@@ -239,6 +303,76 @@ const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrent
                                                 <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-all" />
                                             </div>
                                         </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Academic Tab - Springer Nature Articles */}
+            {activeTab === 'academic' && (
+                <div className="space-y-6">
+                    {/* Keyword Search */}
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={springerKeyword}
+                            onChange={(e) => setSpringerKeyword(e.target.value)}
+                            placeholder="Kalit so'z kiriting (masalan: test, science, biology)"
+                            className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
+                            onKeyDown={(e) => e.key === 'Enter' && fetchSpringerArticles(springerKeyword)}
+                        />
+                        <button
+                            onClick={() => fetchSpringerArticles(springerKeyword)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                            Qidirish
+                        </button>
+                    </div>
+                    
+                    {isLoadingSpringer ? (
+                        <div className="py-20 text-center">
+                            <Loader2 className="w-12 h-12 text-blue-500 mx-auto mb-4 animate-spin" />
+                            <p className="text-slate-500 font-medium">Ilmiy maqolalar yuklanmoqda...</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            {springerArticles.map((article, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => handleSpringerArticleClick(article)}
+                                    className="group bg-white md:p-6 p-4 md:rounded-3xl rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer overflow-hidden"
+                                >
+                                    {/* Journal Badge */}
+                                    <div className="flex items-center gap-2 flex-wrap mb-3">
+                                        <div className="inline-flex px-3 py-1 bg-blue-50 text-[10px] font-black uppercase text-blue-600 rounded-full tracking-widest">
+                                            {article.journal}
+                                        </div>
+                                    </div>
+                                    
+                                    <h3 className="text-lg font-bold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-2 mb-3">
+                                        {article.title}
+                                    </h3>
+                                    
+                                    <p className="text-slate-400 text-sm line-clamp-3 leading-relaxed mb-4">
+                                        {article.abstract.substring(0, 150)}...
+                                    </p>
+                                    
+                                    {/* Authors */}
+                                    <div className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+                                        <span className="line-clamp-1">
+                                            {article.authors.slice(0, 3).map(a => a.name).join(', ')}
+                                            {article.authors.length > 3 && ` +${article.authors.length - 3} more`}
+                                        </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+                                        <div className="text-xs text-slate-400">
+                                            {article.publicationDate}
+                                        </div>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-all" />
                                     </div>
                                 </div>
                             ))}

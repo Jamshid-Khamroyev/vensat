@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,6 +12,7 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 if (!MONGODB_URI) {
   console.error("FATAL: MONGODB_URI is not defined in environment variables");
@@ -62,15 +64,28 @@ const SessionSchema = new mongoose.Schema({
 const Test = mongoose.model("Test", TestSchema);
 const Session = mongoose.model("Session", SessionSchema);
 
-const WordSchema = new mongoose.Schema({
+// Name generator for group titles
+const generateGroupName = () => {
+  const adjectives = ['Advanced', 'Basic', 'Essential', 'Professional', 'Academic', 'Business', 'Technical', 'Scientific', 'Literary', 'Conversational'];
+  const topics = ['Vocabulary', 'English', 'Language', 'Terms', 'Expressions', 'Phrases', 'Words', 'Concepts', 'Definitions', 'Lexicon'];
+  const randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+  const number = Math.floor(Math.random() * 999) + 1;
+  return `${randomAdj} ${randomTopic} ${number}`;
+};
+
+const GroupWordsSchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
-  term: { type: String, required: true },
-  definition: { type: String, required: true },
-  category: { type: String, default: 'Vocabulary' },
+  title: { type: String, required: true },
+  words: [{
+    term: { type: String, required: true },
+    definition: { type: String, required: true }
+  }],
+  isDefault: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 
-const Word = mongoose.model("Word", WordSchema);
+const GroupWords = mongoose.model("GroupWords", GroupWordsSchema);
 
 const StorySchema = new mongoose.Schema({
   userId: { type: String, required: true, index: true },
@@ -80,6 +95,24 @@ const StorySchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 const Story = mongoose.model("Story", StorySchema);
+
+// Authentication middleware
+const authenticateToken = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    (req as any).user = decoded;
+    next();
+  });
+};
 
 // Async wrapper for routes
 const asyncHandler = (fn: (req: express.Request, res: express.Response, next: express.NextFunction) => Promise<any>) => {
@@ -128,18 +161,6 @@ async function startServer() {
 app.post("/api/auth/register", asyncHandler(async (req, res) => {
   const { email, displayName, password } = req.body;
 
-  if (!email || typeof email !== "string") {
-    return res.status(400).json({ error: "Email required" });
-  }
-
-  if (!displayName || typeof displayName !== "string") {
-    return res.status(400).json({ error: "Display name required" });
-  }
-
-  if (!password || password.length < 3) {
-    return res.status(400).json({ error: "Password must be at least 3 characters" });
-  }
-
   const normalizedEmail = email.toLowerCase().trim();
 
   const existingUser = await User.findOne({ email: normalizedEmail });
@@ -156,8 +177,24 @@ app.post("/api/auth/register", asyncHandler(async (req, res) => {
     password: hashedPassword
   });
 
+  // Create default group for new user
+  const defaultGroup = await GroupWords.create({
+    userId: user._id.toString(),
+    title: `${user.displayName}'s Default Group`,
+    words: [],
+    isDefault: true
+  });
+
+  // Create JWT token
+  const token = jwt.sign(
+    { userId: user._id, email: user.email },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
   res.status(201).json({
     message: "User created",
+    token,
     user: {
       _id: user._id,
       email: user.email,
@@ -169,14 +206,6 @@ app.post("/api/auth/register", asyncHandler(async (req, res) => {
 
 app.post("/api/auth/login", asyncHandler(async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || typeof email !== "string") {
-    return res.status(400).json({ error: "Email required" });
-  }
-
-  if (!password || typeof password != "string") {
-    return res.status(400).json({ error: "Password required" });
-  }
 
   const normalizedEmail = email.toLowerCase().trim();
 
@@ -192,8 +221,16 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
   //   return res.status(400).json({ error: "Invalid password" });
   // }
 
+  // Create JWT token
+  const token = jwt.sign(
+    { userId: user._id, email: user.email },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
   res.json({
     message: "Login successful",
+    token,
     user: {
       _id: user._id,
       email: user.email,
@@ -270,28 +307,133 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
     res.status(204).send();
   }));
 
-  // Words
-  app.get("/api/words/:userId", asyncHandler(async (req, res) => {
+  // Group Words
+  app.get("/api/words/:userId", authenticateToken, asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
-    const words = await Word.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(1000);
-    res.json(words);
+    const groups = await GroupWords.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(1000);
+    res.json(groups);
   }));
 
-  app.post("/api/words", asyncHandler(async (req, res) => {
-    const { userId, term, definition } = req.body;
-    if (!userId || !term || !definition) {
-      return res.status(400).json({ error: "Missing required fields: userId, term, definition" });
+  // Get or create default group
+  app.get("/api/words/:userId/default", authenticateToken, asyncHandler(async (req, res) => {
+    if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
+    
+    let defaultGroup = await GroupWords.findOne({ userId: req.params.userId, isDefault: true });
+    
+    if (!defaultGroup) {
+      // Create default group if it doesn't exist
+      const user = await User.findById(req.params.userId);
+      defaultGroup = await GroupWords.create({
+        userId: req.params.userId,
+        title: `${user?.displayName || 'User'}'s Default Group`,
+        words: [],
+        isDefault: true
+      });
     }
-    const newWord = new Word(req.body);
-    await newWord.save();
-    res.status(201).json(newWord);
+    
+    res.json(defaultGroup);
   }));
 
-  app.delete("/api/words/:id", asyncHandler(async (req, res) => {
+  app.post("/api/words", authenticateToken, asyncHandler(async (req, res) => {
+    const { userId, words, title } = req.body;
+    
+    // Validate each word has term and definition
+    for (const word of words) {
+      if (!word.term || !word.definition) {
+        return res.status(400).json({ error: "Each word must have term and definition" });
+      }
+    }
+    
+    const groupTitle = title || generateGroupName();
+    const newGroup = new GroupWords({
+      userId,
+      title: groupTitle,
+      words
+    });
+
+    await newGroup.save();
+    res.status(201).json(newGroup);
+  }));
+
+  // Add words to default group
+  app.post("/api/words/:userId/default", authenticateToken, asyncHandler(async (req, res) => {
+    if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
+    const { words } = req.body;
+    
+    if (!words || !Array.isArray(words) || words.length === 0) {
+      return res.status(400).json({ error: "Words array required" });
+    }
+    
+    // Validate each word has term and definition
+    for (const word of words) {
+      if (!word.term || !word.definition) {
+        return res.status(400).json({ error: "Each word must have term and definition" });
+      }
+    }
+    
+    let defaultGroup = await GroupWords.findOne({ userId: req.params.userId, isDefault: true });
+    
+    if (!defaultGroup) {
+      // Create default group if it doesn't exist
+      const user = await User.findById(req.params.userId);
+      defaultGroup = await GroupWords.create({
+        userId: req.params.userId,
+        title: `${user?.displayName || 'User'}'s Default Group`,
+        words: [],
+        isDefault: true
+      });
+    }
+    
+    // Add words to default group
+    defaultGroup.words.push(...words);
+    await defaultGroup.save();
+    
+    res.json(defaultGroup);
+  }))
+
+ app.patch("/api/words/:id", authenticateToken, asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ error: "Invalid group ID" });
+  }
+
+  const { words, title } = req.body;
+  const update: any = {};
+
+  if (title) {
+    update.$set = { title };
+  }
+
+  if (words && Array.isArray(words) && words.length > 0) {
+    for (const word of words) {
+      if (!word.term || !word.definition) {
+        return res.status(400).json({ error: "Each word must have term and definition" });
+      }
+    }
+    update.$addToSet = { words: { $each: words } };
+  }
+
+  if (Object.keys(update).length === 0) {
+    return res.status(400).json({ error: "Nothing to update" });
+  }
+
+  const updatedGroup = await GroupWords.findByIdAndUpdate(
+    req.params.id,
+    update,
+    { new: true, runValidators: true }
+  );
+
+  if (!updatedGroup) {
+    return res.status(404).json({ error: "Group not found" });
+  }
+
+  res.json(updatedGroup);
+}));
+
+  app.delete("/api/words/:id", authenticateToken, asyncHandler(async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: "Invalid word ID" });
+      return res.status(400).json({ error: "Invalid group ID" });
     }
-    await Word.findByIdAndDelete(req.params.id);
+    await GroupWords.findByIdAndDelete(req.params.id);
     res.status(204).send();
   }));
 

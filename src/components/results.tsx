@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import api from '../services/api';
 
 interface ResultsProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;

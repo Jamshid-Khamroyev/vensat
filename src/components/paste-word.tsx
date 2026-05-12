@@ -1,28 +1,27 @@
-import { BookOpen, FileText, Search, X, Play, Camera, Loader2, ArrowRight, CheckCircle } from "lucide-react";
+import { BookOpen, FileText, Search, X, Play, Camera, Loader2, ArrowRight, CheckCircle, Plus, Edit2, Trash2 } from "lucide-react";
 import { useState, useMemo, useRef } from "react";
 import { motion } from 'framer-motion';
-import { WordRecord } from "../types";
-import { translateWords } from "../services/geminiService";
+import { WordRecord, GroupWord } from "../types";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 interface PasteWordProps {
-    handleAddWord: (word: { term: string; definition: string; category: string }) => void;
-    userWords: WordRecord[];
+    handleAddWord: (words: { term: string; definition: string }[], title?: string) => void;
+    handleUpdateGroup: (id: string, words?: { term: string; definition: string }[], title?: string) => void;
+    handleDeleteGroup: (id: string) => void;
+    userWords: GroupWord[];
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
     setCurrentWordGroup: (group: { name: string; words: WordRecord[] } | null) => void;
-    localWords?: { term: string; definition?: string }[];
-    removeLocalWord?: (term: string) => void;
-    translateLocalWords?: () => void;
-    isProcessing?: boolean;
 }
 
-const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, localWords = [], removeLocalWord, translateLocalWords, isProcessing }: PasteWordProps) => {
+const PasteWord = ({ handleAddWord, handleUpdateGroup, handleDeleteGroup, userWords, setView, setCurrentWordGroup }: PasteWordProps) => {
     const [batchMode, setBatchMode] = useState(false);
     const [batchText, setBatchText] = useState('');
-    const [parsedPairs, setParsedPairs] = useState<{ english: string; uzbek: string }[]>([]);
+    const [parsedPairs, setParsedPairs] = useState<{ term: string; definition: string }[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
     const [selectedWord, setSelectedWord] = useState<WordRecord | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
     
     // Image OCR states
     const [imageMode, setImageMode] = useState(false);
@@ -33,13 +32,16 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
     const [translatedWords, setTranslatedWords] = useState<{ term: string; definition: string }[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Automatic word grouping (20 words per group)
+    // Display word groups (already grouped in database)
     const groupedWords = useMemo(() => {
         const groups: { [key: string]: WordRecord[] } = {};
         
-        const filtered = userWords.filter(w => 
-            w.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            w.definition.toLowerCase().includes(searchTerm.toLowerCase())
+        const filtered = userWords.filter(group => 
+            group?.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            group?.words?.some(w => 
+                w.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                w.definition.toLowerCase().includes(searchTerm.toLowerCase())
+            )
         );
 
         const sorted = [...filtered].sort((a, b) => {
@@ -48,26 +50,30 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
             return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
         });
 
-        // Group words by 20s
-        sorted.forEach((word, index) => {
-            const groupIndex = Math.floor(index / 20);
-            const groupKey = `Group ${groupIndex + 1}`;
+        // Convert GroupWord to display format
+        sorted.forEach((group, index) => {
+            const wordRecords: WordRecord[] = group.words.map((word, idx) => ({
+                _id: `${group._id}-${idx}`,
+                term: word.term,
+                definition: word.definition,
+                category: group.category,
+                createdAt: group.createdAt
+            }));
             
-            if (!groups[groupKey]) groups[groupKey] = [];
-            groups[groupKey].push(word);
+            groups[group.title] = wordRecords;
         });
 
         return groups;
     }, [userWords, searchTerm, sortOrder]);
 
-    const handleGroupClick = (groupKey: string, words: WordRecord[]) => {
+    const handleGroupClick = (groupKey: string, words: any) => {
         setCurrentWordGroup({ name: groupKey, words });
         setView('word-group');
     };
 
     const parseBatch = () => {
         const lines = batchText.split(/\r?\n/);
-        const pairs: { english: string; uzbek: string }[] = [];
+        const pairs: { term: string; definition: string }[] = [];
         
         for (const line of lines) {
             const trimmed = line.trim();
@@ -81,23 +87,61 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
             else if (trimmed.includes('|')) [eng, uzb] = trimmed.split('|');
             else if (trimmed.includes('\t')) [eng, uzb] = trimmed.split('\t');
             
-            if (eng && uzb) pairs.push({ english: eng.trim(), uzbek: uzb.trim() });
+            if (eng && uzb) pairs.push({ term: eng.trim(), definition: uzb.trim() });
         }
         setParsedPairs(pairs);
     };
 
-    const confirmBatchAdd = () => {
-        const now = new Date().toISOString();
-        for (const pair of parsedPairs) {
-            handleAddWord({ 
-                term: pair.english, 
-                definition: pair.uzbek,
+    const confirmBatchAdd = async () => {
+        if (isProcessing) return;
+        
+        setIsProcessing(true);
+        
+        try {
+            const wordsToAdd = parsedPairs.map(pair => ({
+                term: pair.term, 
+                definition: pair.definition,
                 category: 'Vocabulary'
-            });
+            }));
+            
+            await handleWordSubmission(wordsToAdd);
+            setBatchMode(false);
+            setBatchText('');
+            setParsedPairs([]);
+        } catch (error) {
+            console.error('Batch add failed:', error);
+            toast.error('So\'zlarni qo\'shishda xatolik yuz berdi');
+        } finally {
+            setIsProcessing(false);
         }
-        setBatchMode(false);
-        setBatchText('');
-        setParsedPairs([]);
+    };
+
+    // Function to handle adding words to existing group or creating new group
+    const handleWordSubmission = async (wordsToAdd: { term: string; definition: string }[]) => {
+        if (isProcessing) return;
+        
+        setIsProcessing(true);
+        
+        try {
+            // Find if there's an existing group with less than 30 words
+            const existingGroup = userWords.find(group => group.words.length < 30);
+            
+            if (existingGroup) {
+                // Add to existing group
+                const updatedWords = [...existingGroup.words, ...wordsToAdd];
+                await handleUpdateGroup(existingGroup._id, updatedWords, existingGroup.title);
+                toast.success(`${wordsToAdd.length} ta so'z "${existingGroup.title}" guruhiga qo'shildi`);
+            } else {
+                // Create new group
+                await handleAddWord(wordsToAdd);
+                toast.success(`${wordsToAdd.length} ta so'z bilan yangi guruh yaratildi`);
+            }
+        } catch (error) {
+            console.error('Word submission failed:', error);
+            toast.error('So\'zlarni qo\'shishda xatolik yuz berdi');
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     // Image OCR handlers
@@ -123,6 +167,9 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
             formData.append('base64Image', selectedImage);
             formData.append('language', 'eng');
             formData.append('isTable', 'false');
+            formData.append('OCREngine', '2'); 
+            formData.append('scale', 'true');
+            formData.append('detectOrientation', 'true');
             
             const response = await fetch('https://api.ocr.space/parse/image', {
                 method: 'POST',
@@ -165,22 +212,53 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
         }
     };
 
-    const handleTranslateWords = async () => {
-        const words = extractedText
-            .split(/\r?\n/)
-            .map(line => line.trim())
-            .filter(line => line.length > 0);
+    const translateExtractedText = async () => {
+        if (!extractedText.trim()) return toast.error('Tarjima qilish uchun matn kerak');
         
-        if (words.length === 0) {
-            toast.error('Tarjima qilish uchun so\'zlar yo\'q');
-            return;
-        }
+        if (isTranslating) return;
         
         setIsTranslating(true);
         try {
-            const translations = await translateWords(words);
-            setTranslatedWords(translations);
-            toast.success(`${translations.length} ta so'z tarjima qilindi`);
+            const data = JSON.stringify({
+                q: extractedText,
+                source: 'en',
+                target: 'uz'
+            });
+
+            const xhr = new XMLHttpRequest();
+            xhr.withCredentials = true;
+
+            xhr.addEventListener('readystatechange', function () {
+                if (this.readyState === this.DONE) {
+                    try {
+                        const info = JSON.parse(this.responseText);
+                        
+                        const translatedArray = info.data.translations.translatedText;
+                        
+                        const finalResult = translatedArray[0]; 
+                        const response = finalResult.split(",");
+                        const finalWordsList = extractedText
+                            .split(/\r?\n/)
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0)
+                            .map((word, index) => {
+                                return {
+                                    term: word,
+                                    definition: response[index] || ""
+                                };
+                            });
+                        setTranslatedWords(finalWordsList);
+                    } catch (error) {
+                        console.error("JSON parse qilishda xato:", error);
+                    }
+                }
+            });
+
+            xhr.open('POST', 'https://deep-translate1.p.rapidapi.com/language/translate/v2');
+            xhr.setRequestHeader('x-rapidapi-key', 'f3251f90e7msh179edc31ad1c822p139b02jsnaeb7fd4fb5cd');
+            xhr.setRequestHeader('x-rapidapi-host', 'deep-translate1.p.rapidapi.com');
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(data);
         } catch (error) {
             toast.error('Tarjimada xatolik yuz berdi');
         } finally {
@@ -188,14 +266,13 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
         }
     };
 
-    const confirmImageWordsAdd = () => {
-        for (const word of translatedWords) {
-            handleAddWord({
-                term: word.term,
-                definition: word.definition,
-                category: 'Vocabulary'
-            });
-        }
+    const confirmImageWordsAdd = async () => {
+        const wordsToAdd = translatedWords.map(word => ({
+            term: word.term,
+            definition: word.definition,
+        }));
+        
+        await handleAddWord(wordsToAdd, 'OCR Import ' + new Date().toLocaleDateString());
         
         toast.success(`${translatedWords.length} ta so'z lug'atga qo'shildi`);
         
@@ -275,75 +352,91 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
             {/* Words Display */}
             <div className="space-y-6">
                 {userWords.length === 0 ? (
-                    <div className="py-20 text-center bg-gradient-to-br from-slate-50 to-white rounded-3xl border-2 border-dashed border-slate-200">
-                        <div className="bg-gradient-to-br from-slate-100 to-slate-200 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                    <div className="py-20 text-center bg-linear-to-br from-slate-50 to-white rounded-3xl border-2 border-dashed border-slate-200">
+                        <div className="bg-linear-to-br from-slate-100 to-slate-200 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
                             <BookOpen className="text-slate-400 w-10 h-10" />
                         </div>
-                        <p className="text-slate-500 font-medium text-lg">Your lexicon is empty</p>
-                        <p className="text-slate-400 text-sm mt-1">Start by adding words or using batch paste</p>
-                        <p className="text-slate-400 text-xs mt-2">Words will be automatically grouped in sets of 20</p>
+                        <p className="text-slate-500 font-medium text-lg">Lexiconingiz bo'sh</p>
+                        <p className="text-slate-400 text-sm mt-1">So'zlar qo'shishni boshlang</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {Object.entries(groupedWords).map(([groupKey, words], groupIndex) => (
+                        {userWords.map((group, index) => (
                             <motion.div
-                                key={groupKey}
+                                key={group._id || index}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: groupIndex * 0.05 }}
-                                className="group bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
-                                onClick={() => handleGroupClick(groupKey, words)}
+                                transition={{ duration: 0.3, delay: index * 0.05 }}
+                                className="group bg-white rounded-2xl border border-slate-200 shadow-sm md:hover:shadow-xl md:hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
+                                onClick={() => handleGroupClick(group._id, group)}
                             >
                                 {/* Thumbnail Area */}
-                                <div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+                                <div className="relative aspect-video bg-linear-to-br from-slate-100 to-slate-200 overflow-hidden">
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="grid grid-cols-4 gap-2 p-4 opacity-40 group-hover:scale-105 transition-transform duration-500">
-                                            {words.slice(0, 8).map((word) => (
-                                                <div key={word._id} className="bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 truncate shadow-sm">
+                                        <div className="grid grid-cols-4 gap-2 p-4 opacity-40 md:group-hover:scale-105 transition-transform duration-500">
+                                            {group.words.slice(0, 8).map((word) => (
+                                                <div key={word.term} className="bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-600 truncate shadow-sm">
                                                     {word.term}
                                                 </div>
                                             ))}
-                                            {words.length < 8 && Array.from({ length: 8 - words.length }).map((_, i) => (
-                                                <div key={`empty-${i}`} className="bg-white/40 rounded-lg px-2 py-1.5" />
-                                            ))}
                                         </div>
                                     </div>
+                                    
                                     {/* Play Overlay */}
-                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
-                                        <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300">
+                                    <div className="absolute inset-0 bg-black/0 md:group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+                                        <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg opacity-0 md:group-hover:opacity-100 scale-75 md:group-hover:scale-100 transition-all duration-300">
                                             <Play className="w-6 h-6 text-blue-600 fill-blue-600 ml-1" />
                                         </div>
                                     </div>
-                                    {/* Word Count Badge */}
+
+                                    {/* Badges */}
                                     <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md">
-                                        {words.length} words
+                                        {group.words.length} so'z
                                     </div>
-                                    {/* Group Number Badge */}
                                     <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-md">
-                                        #{groupKey.split(' ')[1]}
+                                        #{index + 1}
                                     </div>
                                 </div>
 
                                 {/* Info Area */}
                                 <div className="p-4">
-                                    <h3 className="font-bold text-slate-800 text-base group-hover:text-blue-600 transition-colors line-clamp-1">
-                                        {groupKey}
-                                    </h3>
-                                    <p className="text-xs text-slate-500 mt-1">
-                                        Playlist • {words.length} so'z
-                                    </p>
-                                    <div className="flex flex-wrap gap-1.5 mt-3">
-                                        {words.slice(0, 3).map((word) => (
-                                            <span
-                                                key={word._id}
-                                                className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-medium"
+                                    <div className="flex items-center justify-between gap-2 mb-2">
+                                        <h3 className="font-bold text-slate-800 text-base md:group-hover:text-blue-600 transition-colors line-clamp-1">
+                                            {group.title}
+                                        </h3>
+                                        
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                            <button 
+                                                onClick={() => handleUpdateGroup(group._id, group.words, group.title)}
+                                                className="p-2 bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
                                             >
+                                                <Edit2 className="w-4 h-4" />
+                                                <span className="hidden sm:inline text-xs font-semibold">Tahrirlash</span>
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteGroup(group._id)}
+                                                className="p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors flex items-center gap-2"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                                <span className="hidden sm:inline text-xs font-semibold">O'chirish</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-medium">
+                                        Playlist • {group.words.length} so'z
+                                    </p>
+
+                                    <div className="flex flex-wrap gap-1 mt-3">
+                                        {group.words.slice(0, 3).map((word) => (
+                                            <span key={word.term} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-md text-[10px] font-medium border border-slate-200/50">
                                                 {word.term}
                                             </span>
                                         ))}
-                                        {words.length > 3 && (
+                                        {group.words.length > 3 && (
                                             <span className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-md text-[10px] font-bold">
-                                                +{words.length - 3}
+                                                +{group.words.length - 3}
                                             </span>
                                         )}
                                     </div>
@@ -416,8 +509,8 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                                             <tbody>
                                                 {parsedPairs.map((pair, idx) => (
                                                     <tr key={idx} className="border-t hover:bg-slate-50 transition-colors">
-                                                        <td className="p-3">{pair.english}</td>
-                                                        <td className="p-3">{pair.uzbek}</td>
+                                                        <td className="p-3">{pair.term}</td>
+                                                        <td className="p-3">{pair.definition}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -432,6 +525,21 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                                             Confirm & Add All ({parsedPairs.length} words)
                                         </button>
                                     </div>
+
+                                    <div className="text-sm text-slate-500 mt-2">Bu yerda ham saqlashingiz mumkin!</div>
+                                        {userWords.filter(group => group.words.length + parsedPairs.length <= 30).map(group => (
+                                            <div
+                                                onClick={() => {
+                                                    const concatedWords = parsedPairs.concat(group.words)
+                                                    handleUpdateGroup(group._id, concatedWords)
+                                                    setBatchMode(false)
+                                                }} 
+                                                key={group._id} 
+                                                className="p-2 border my-1 flex w-full justify-between items-center rounded-sm hover:opacity-80 cursor-pointer">
+                                                    <h3>{group.title}</h3>
+                                                    <Plus className="w-4 h-4"/>
+                                            </div>
+                                        ))}
                                 </div>
                             )}
                         </div>
@@ -531,7 +639,7 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                                     {/* Step 4: Translate Button */}
                                     {extractedText && (
                                         <button
-                                            onClick={handleTranslateWords}
+                                            onClick={translateExtractedText}
                                             disabled={isTranslating}
                                             className="w-full py-3 bg-linear-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                                         >
@@ -613,10 +721,25 @@ const PasteWord = ({ handleAddWord, userWords, setView, setCurrentWordGroup, loc
                                             onClick={confirmImageWordsAdd} 
                                             className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 text-white font-medium hover:shadow-lg transition-all flex items-center gap-2"
                                         >
-                                            <CheckCircle className="w-4 h-4" />
-                                            Saqlash ({translatedWords.length} ta so'z)
+                                            <Plus className="w-4 h-4" />
+                                            Yangi yaratish ({translatedWords.length} ta so'z)
                                         </button>
                                     </div>
+
+                                    <div className="text-sm text-slate-500 mt-2">Bu yerda ham saqlashingiz mumkin!</div>
+                                        {userWords.filter(group => group.words.length + translatedWords.length <= 30).map(group => (
+                                            <div
+                                                onClick={() => {
+                                                    const concatedWords = translatedWords.concat(group.words)
+                                                    handleUpdateGroup(group._id, concatedWords )
+                                                    setImageMode(false)
+                                                }} 
+                                                key={group._id} 
+                                                className="p-2 border flex w-full justify-between items-center rounded-sm hover:opacity-80 cursor-pointer">
+                                                    <h3>{group.title}</h3>
+                                                    <Plus className="w-4 h-4"/>
+                                            </div>
+                                        ))}
                                 </div>
                             )}
                         </div>

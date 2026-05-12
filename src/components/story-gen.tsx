@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 interface StoryGenProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-  userWords: { term: string }[];
+  userWords: any[]; // Will be GroupWord[] but using any for compatibility
   storyOptions: {
     topic: string;
     category: string;
@@ -28,13 +28,25 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
 
   const groupedWords = useMemo(() => {
     const groups: { [key: string]: { term: string }[] } = {};
-    const sorted = [...userWords];
-    sorted.forEach((word, index) => {
+    
+    // Flatten all words from all groups
+    const allWords: { term: string }[] = [];
+    userWords.forEach((group: any) => {
+      if (group.words && Array.isArray(group.words)) {
+        group.words.forEach((word: any) => {
+          allWords.push({ term: word.term });
+        });
+      }
+    });
+    
+    // Group by 20s
+    allWords.forEach((word, index) => {
       const groupIndex = Math.floor(index / 20);
       const groupKey = `Group ${groupIndex + 1}`;
       if (!groups[groupKey]) groups[groupKey] = [];
       groups[groupKey].push(word);
     });
+    
     return groups;
   }, [userWords]);
 

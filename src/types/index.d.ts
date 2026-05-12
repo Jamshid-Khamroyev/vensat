@@ -34,6 +34,19 @@ export interface AppUser {
     groupId?: string;
   }
 
+  export interface GroupWord {
+    _id: string;
+    userId: string;
+    title: string;
+    words: {
+      term: string;
+      definition: string;
+    }[];
+    category: string;
+    isDefault: boolean;
+    createdAt: string;
+  }
+
   export interface WordGroup {
     _id: string;
     name: string;

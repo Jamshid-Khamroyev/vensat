@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { BrainCircuit, ChevronLeft, Lightbulb, Volume2, VolumeX, Plus, Type, Settings } from "lucide-react";
+import { BrainCircuit, ChevronLeft, Lightbulb, Volume2, VolumeX, Plus, Type, Settings, Save } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
 interface StoryReadingPorps {
@@ -8,16 +8,16 @@ interface StoryReadingPorps {
     handleLookup: (word: string) => void;
     definition: { word: string; meaning: string } | null;
     setDefinition: (def: { word: string; meaning: string } | null) => void;
-    handleAddWord: (wordData: { term: string; definition: string; category: string }) => void;
+    handleAddWord: (words: { term: string; definition: string }[], title?: string) => void;
+    handleAddToDefaultGroup: (words: { term: string; definition: string }[]) => void;
 }
 
-const StoryReading = ({ currentStory, definition, handleAddWord, handleLookup, setDefinition, setView }: StoryReadingPorps) => {
+const StoryReading = ({ currentStory, definition, handleAddWord, handleAddToDefaultGroup, handleLookup, setDefinition, setView }: StoryReadingPorps) => {
   const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>('medium');
   const [fontFamily, setFontFamily] = useState<'serif' | 'sans-serif' | 'mono'>('serif');
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showControls, setShowControls] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [showMobileMenu, setShowMobileMenu] = useState(true);
+  const [words, setWords] = useState<{ term: string; definition: string }[]>([]);
   const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -41,10 +41,50 @@ const StoryReading = ({ currentStory, definition, handleAddWord, handleLookup, s
     }
   };
 
-  const handleMobileWordAdd = (word: string, meaning: string) => {
-    handleAddWord({ term: word, definition: meaning, category: currentStory.category });
-    setDefinition(null);
+  const handleAddToWords = ({ term }: { term: string }) => {
+    if (selectedText) {
+      const data = JSON.stringify({
+        q: term,
+        source: 'en',
+        target: 'uz'
+      });
+
+    const xhr = new XMLHttpRequest();
+    xhr.withCredentials = true;
+
+   xhr.addEventListener('readystatechange', function () {
+    if (this.readyState === this.DONE) {
+      try {
+        const info = JSON.parse(this.responseText);
+        
+        const translatedArray = info.data.translations.translatedText;
+        
+        const finalResult = translatedArray[0]; 
+        setWords(prev => [...prev, { term, definition: finalResult }]);
+      } catch (error) {
+        console.error("JSON parse qilishda xato:", error);
+      }
+    }
+  });
+
+    xhr.open('POST', 'https://deep-translate1.p.rapidapi.com/language/translate/v2');
+    xhr.setRequestHeader('x-rapidapi-key', 'f3251f90e7msh179edc31ad1c822p139b02jsnaeb7fd4fb5cd');
+    xhr.setRequestHeader('x-rapidapi-host', 'deep-translate1.p.rapidapi.com');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+
+    xhr.send(data);
     setSelectedText('');
+    setDefinition(null);
+    }
+  };
+
+  const handleMobileWordAdd = () => {
+    if(words.length > 0) {
+      handleAddToDefaultGroup(words);
+      setWords([]);
+      setDefinition(null);
+      setSelectedText('');
+    }
   };
 
   const startTextToSpeech = () => {
@@ -170,12 +210,20 @@ const StoryReading = ({ currentStory, definition, handleAddWord, handleLookup, s
               </div>
 
               <div className="sticky top-16 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 py-4 md:px-6 flex items-center justify-between">
-                <div className="flex items-center md:gap-4">
-                   <button onClick={() => setView('stories')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><ChevronLeft className="w-5 h-5" /></button>
+                <div className="flex items-center w-full justify-between md:gap-4">
+                   <button onClick={() => setView('stories')} className="p-2 hover:bg-slate-100 max-md:hidden rounded-full text-slate-400"><ChevronLeft className="w-5 h-5 max-md:hidden" /></button>
                    <div>
                      <h2 className="text-lg font-bold text-slate-800 leading-none">{currentStory.title}</h2>
                      <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase mt-1.5">{currentStory.category} • {Math.ceil(currentStory.content.split(' ').length / 200)} min read</p>
                    </div>
+                  <button onClick={handleMobileWordAdd} 
+                    className="p-1 cursor-pointer rounded-sm hover:bg-slate-200 border relative flex items-center justify-center text-sm">
+                      <span className="md:block hidden">Save New Words</span> 
+                      <Save />
+                      {words.length > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-blue-950 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">{words.length}</span>
+                      )}
+                    </button>
                 </div>
                 
                 {/* Desktop Controls */}
@@ -285,7 +333,8 @@ const StoryReading = ({ currentStory, definition, handleAddWord, handleLookup, s
                        </div>
                        <p className="text-sm text-slate-500 leading-relaxed italic">{definition.meaning}</p>
                        <div className="flex gap-2">
-                          <button onClick={() => handleMobileWordAdd(definition.word, definition.meaning)} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-200">Add to Lexicon</button>
+                          <button onClick={() => handleAddToWords({ term: definition.word  })} 
+                          className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition-all active:scale-95 shadow-lg shadow-blue-200">Add to Lexicon</button>
                           <button onClick={() => setDefinition(null)} className="py-3 px-5 bg-slate-100 text-slate-400 rounded-xl font-bold text-xs hover:bg-slate-200 transition-all">Dismiss</button>
                        </div>
                     </motion.div>
@@ -313,7 +362,7 @@ const StoryReading = ({ currentStory, definition, handleAddWord, handleLookup, s
                       </div>
                       <div className="flex gap-3 pt-2">
                         <button 
-                          onClick={() => handleMobileWordAdd(definition.word, definition.meaning)}
+                          onClick={() => handleAddToWords({ term: definition.word })}
                           className="flex-1 py-3 bg-bluebook-navy text-white rounded-xl font-bold text-sm hover:bg-blue-800 transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
                         >
                           <Plus className="w-4 h-4" />

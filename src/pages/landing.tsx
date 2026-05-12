@@ -2,6 +2,7 @@ import { Lock, Sparkles, BookOpen, Star, CheckCircle, X, Eye, EyeOff, Mail, User
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { faqs, features, stats, testimonials } from '../constants';
+import api from '../services/api';
 
 interface landingProps {
     setUser: React.Dispatch<React.SetStateAction<any>>;
@@ -32,20 +33,17 @@ const LandingPage = ({ fetchAll, setUser, setView }: landingProps) => {
       setLocalLoading(true);
 
       try {
-        const res = await fetch(authMode === "login" ? "/api/auth/login" : "/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(authMode === "login"
+        const res = await api.post(authMode === "login" ? "/api/auth/login" : "/api/auth/register", 
+          authMode === "login"
             ? { email: formData.email, password: formData.password }
-            : { email: formData.email, password: formData.password, displayName: formData.displayName })
-        });
+            : { email: formData.email, password: formData.password, displayName: formData.displayName }
+        );
 
-        const data = await res.json();
-
-        if (!res.ok) return toast.error(data.error || "Xatolik yuz berdi");
+        const data = res.data;
 
         setUser(data.user);
         localStorage.setItem("aero_user", JSON.stringify(data.user));
+        localStorage.setItem("aero_token", data.token);
         fetchAll(data.user._id);
 
         toast.success(authMode === "login" ? "Xush kelibsiz!" : "Hisob yaratildi!");

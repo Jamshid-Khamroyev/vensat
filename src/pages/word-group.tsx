@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Trash2, Play, Volume2, BookOpen, Layers, ArrowLeft, ArrowRight, BrainCircuit, RotateCcw, CheckCircle2, XCircle, Zap, Shuffle } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { WordRecord } from "../types";
+import api from "../services/api";
 
 interface WordGroupProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
@@ -27,6 +28,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
   const [direction, setDirection] = useState(0);
 
   const words = group?.words || [];
+    
   const activeWord = words[activeIndex];
 
   const goNext = useCallback(() => {
@@ -44,9 +46,15 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
   }, [activeIndex]);
 
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("Delete this word?")) return;
-    handleDeleteWord(id);
+    try {
+      await api.delete(`/api/words/${id}`);
+      setView('words');
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Delete failed');
+    }
     if (activeIndex >= words.length - 1 && words.length > 1) {
       setActiveIndex(words.length - 2);
     }
@@ -307,7 +315,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                 </button>
 
                 <div className="flex items-center gap-1.5">
-                  {words.map((_, idx) => (
+                  {words?.map((_, idx) => (
                     <button
                       key={idx}
                       onClick={() => {

@@ -1,6 +1,7 @@
 import {motion} from 'framer-motion';
 import { BrainCircuit, Clock, RotateCcw, Wand2, X } from "lucide-react"
 import { generateSATTest, generateWordsTest } from '../services/geminiService';
+import axios from '../services/api';
 
 interface AiPracticeGeneratorProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -30,12 +31,12 @@ const AiPracticeGenerator = ({
             parsed = await generateWordsTest(options.category || 'General', options.value, options.count);
           }
           
-          const res = await fetch("/api/tests", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...parsed, creatorId: user?._id, timeLimit: selectedTime })
+          const res = await axios.post("/api/tests", {
+            ...parsed, 
+            creatorId: user?._id, 
+            timeLimit: selectedTime 
           });
-          const saved = await res.json();
+          const saved = res.data;
           setDbTests([saved, ...dbTests]);
           startTest(parsed);
         } catch (e) { alert("Generation failed."); }
