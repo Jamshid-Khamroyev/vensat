@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' ? 'https://aerotest.onrender.com' : 'http://localhost:3000',
+  baseURL: process.env.NODE_ENV === 'production' ? 'https://aerotest-1.onrender.com' : 'http://localhost:3000',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
