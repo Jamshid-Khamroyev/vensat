@@ -10,6 +10,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+app.use(cors({
+    origin: ["https://aerotest-1.onrender.com", "http://localhost:3000"],
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    credentials: true
+}));
+app.use(express.json({ limit: "10mb" }));
+
 const PORT = Number(process.env.PORT) || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
@@ -141,13 +148,6 @@ async function startServer() {
   mongoose.connection.on("disconnected", () => {
     console.warn("MongoDB disconnected. Attempting to reconnect...");
   });
-
-  app.use(cors({
-    origin: ["https://aerotest-1.onrender.com", "http://localhost:3000"],
-    methods: ["GET", "POST", "PATCH", "DELETE"],
-    credentials: true
-  }));
-  app.use(express.json({ limit: "10mb" }));
 
   // Request logging in dev
   if (process.env.NODE_ENV !== "production") {
