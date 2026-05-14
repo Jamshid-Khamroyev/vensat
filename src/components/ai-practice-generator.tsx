@@ -2,7 +2,7 @@ import {motion} from 'framer-motion';
 import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } from "lucide-react"
 import { generateSATTest, generateWordsTest } from '../services/geminiService';
 import axios from '../services/api';
-import { GroupWord } from '../types';
+import { GroupWord, TestRecord } from '../types';
 import { group } from 'console';
 import { useState } from 'react';
 
@@ -23,10 +23,9 @@ const AiPracticeGenerator = ({
     selectedTime, setSelectedTime,setView, userWords, isProcessing, setIsProcessing, user, dbTests, setDbTests, startTest
 }: AiPracticeGeneratorProps) => {
    const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, count: number, words?: string }>({
-      category: 'Reading & Writing: Information & Ideas',
+      category: 'information-ideas',
       difficulty: 'Medium',
       count: 10,
-      words: ''
   });
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
@@ -34,15 +33,11 @@ const AiPracticeGenerator = ({
         setIsProcessing(true);
         const usedWords = userWords.filter(group => group._id === selectedGroupId).map(group => group.words.map(word => word.term).join(",")).join(",");
         try {
-          let parsed;
-          if (options.type === 'sat') {
-            parsed = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, usedWords);
-          } else {
-            parsed = await generateWordsTest(options.category || 'General', usedWords, options.count);
-          }
+          const parsed: any = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, usedWords);
           const res = await axios.post("/api/tests", {
             ...parsed, 
             creatorId: user?._id, 
+            category: parsed.category,
             timeLimit: selectedTime 
           });
           const saved = res.data;
@@ -71,18 +66,13 @@ const AiPracticeGenerator = ({
                        <select 
                          value={genOptions.category} 
                          onChange={e => setGenOptions({...genOptions, category: e.target.value})} 
-                         className="bluebook-input !py-3 bg-slate-50 appearance-none text-xs font-bold"
+                         className="bluebook-input bg-slate-50 appearance-none text-xs font-bold"
                        >
                           <optgroup label="DSAT Sections">
-                            <option>Reading & Writing: Craft & Structure</option>
-                            <option>Reading & Writing: Information & Ideas</option>
-                            <option>Reading & Writing: Standard English Conventions</option>
-                            <option>Reading & Writing: Expression of Ideas</option>
-                          </optgroup>
-                          <optgroup label="Vocabulary Focus">
-                            <option value="Vocabulary: Science & Tech">Vocabulary: Science & Tech</option>
-                            <option value="Vocabulary: Literature & Arts">Vocabulary: Literature & Arts</option>
-                            <option value="Vocabulary: History & Social Studies">Vocabulary: History & Social Studies</option>
+                            <option value={"craft-structure"}>Reading: Craft & Structure</option>
+                            <option value={"information-ideas"}>Reading: Information & Ideas</option>
+                            <option value={"standard-conventions"}>Writing: Standard English Conventions</option>
+                            <option value={"expression-ideas"}>Writing: Expression of Ideas</option>
                           </optgroup>
                        </select>
                     </div>

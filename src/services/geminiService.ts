@@ -99,6 +99,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
     - For Reading & Writing: Every question MUST feature a high-level passage (paragraphs/sentences). Use authentic DSAT language.
     - Metdata: For every question, include its "difficulty" (matching ${difficulty}) and "category" (matching ${category}).
     - CRITICAL: Do NOT include any formatting artifacts like "\\n*" or markdown bullets in the text fields.
+    - Category section should contain => information-ideas, craft-structure, expression-ideas, standard-conventions
     
     Structure:
     The question stem must sound like a real DSAT question
@@ -115,6 +116,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
         type: Type.OBJECT,
         properties: {
           title: { type: Type.STRING },
+          category: { type: Type.STRING },
           questions: {
             type: Type.ARRAY,
             items: {
@@ -132,7 +134,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
             }
           }
         },
-        required: ["title", "questions"]
+        required: ["title", "questions", "category"]
       }
     }
   });

@@ -7,10 +7,11 @@ export interface AppUser {
   }
   
   export interface TestRecord {
-    _id: string;
+    _id: string;  
     title: string;
     timeLimit?: number;
     questions: any[];
+    category: string;
     createdAt: string;
   }
   
@@ -24,6 +25,17 @@ export interface AppUser {
     endTime?: string;
     status: string;
   }
+
+  export interface CategoryConfig {
+  id: DSATCategory;
+  name: string;
+  icon: any;
+  description: string;
+  shortName: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+}
   
   export interface WordRecord {
     _id: string;

@@ -44,6 +44,7 @@ const User = mongoose.model("User", UserSchema);
 const TestSchema = new mongoose.Schema({
   title: { type: String, required: true },
   creatorId: { type: String, required: true },
+  category: { type: String, required: true },
   timeLimit: { type: Number, default: 30 },
   questions: [{
     text: String,
@@ -178,7 +179,7 @@ app.post("/api/auth/register", asyncHandler(async (req, res) => {
   });
 
   // Create default group for new user
-  const defaultGroup = await GroupWords.create({
+  await GroupWords.create({
     userId: user._id.toString(),
     title: `${user.displayName}'s Default Group`,
     words: [],
@@ -241,16 +242,29 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
 
 
   // Tests
-  app.get("/api/tests", asyncHandler(async (_req, res) => {
-    const tests = await Test.find().sort({ createdAt: -1 }).limit(100);
-    res.json(tests);
+app.get("/api/tests", asyncHandler(async (req, res) => {
+    const { userId, category, limit = 100, page = 1 } = req.query;
+    
+    const query: any = {};
+    if (userId) query.creatorId = userId;
+    if (category) query.category = category;
+    
+    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+    
+    const [tests, total] = await Promise.all([
+      Test.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit as string)).lean(),
+      Test.countDocuments(query)
+    ]);
+    
+    res.json({ tests, total, page: parseInt(page as string), limit: parseInt(limit as string) });
   }));
 
   app.post("/api/tests", asyncHandler(async (req, res) => {
-    const { title, creatorId, questions } = req.body;
-    if (!title || !creatorId || !Array.isArray(questions) || questions.length === 0) {
-      return res.status(400).json({ error: "Missing required fields: title, creatorId, questions" });
+    const { title, creatorId, questions, category } = req.body;
+    if (!title || !creatorId || !Array.isArray(questions) || questions.length === 0 || !category) {
+      return res.status(400).json({ error: "Missing required fields: title, creatorId, questions, category" });
     }
+    
     const newTest = new Test(req.body);
     await newTest.save();
     res.status(201).json(newTest);
