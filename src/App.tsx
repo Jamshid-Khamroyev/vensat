@@ -234,13 +234,13 @@ export default function App() {
     } catch (e) { alert("Failed to save to default group."); }
   };
 
-  const startTest = (test: ParsedTest) => {
+  const startTest = (test: ParsedTest & { _id?: string }) => {
     setCurrentTest(test);
     setView('testing');
     setEliminated({});
     setIsHighlighterActive(false);
     setCurrentSession({
-      testId: 'active',
+      testId: test._id || 'active',
       userId: user?._id || 'guest',
       answers: {},
       score: 0,
@@ -390,27 +390,45 @@ export default function App() {
 
   const handleCompleteTest = async () => {
     if (!currentTest || !currentSession) return;
-    let score = 0;
-    currentTest.questions.forEach((q, i) => {
-      if (currentSession.answers[i] === q.correctAnswerIndex) score++;
-    });
-
-    const final = {
-      ...currentSession,
-      score,
-      total: currentTest.questions.length,
-      title: currentTest.title,
-      endTime: Date.now(),
-      status: 'completed'
-    };
-
-    if (user) {
-      await api.post("/api/sessions", final);
-      fetchAll(user._id);
+    
+    const testId = currentSession.testId;
+    
+    if (user && testId && testId !== 'active') {
+      try {
+        const res = await api.post(`/api/tests/${testId}/submit`, {
+          userId: user._id,
+          answers: currentSession.answers,
+          startTime: currentSession.startTime,
+          title: currentTest.title
+        });
+        
+        const result = res.data;
+        const final: Session = {
+          ...currentSession,
+          score: result.score,
+          total: result.total,
+          endTime: result.endTime,
+          status: 'completed'
+        };
+        
+        setCurrentSession(final);
+        fetchAll(user._id);
+        setView('results');
+      } catch (e) {
+        console.error('Submit failed:', e);
+        alert('Test submission failed.');
+      }
+    } else {
+      const final: Session = {
+        ...currentSession,
+        score: 0,
+        total: currentTest.questions.length,
+        endTime: Date.now(),
+        status: 'completed'
+      };
+      setCurrentSession(final);
+      setView('results');
     }
-
-    setCurrentSession(final as Session);
-    setView('results');
   };
 
   const formatTime = (s: number) => {

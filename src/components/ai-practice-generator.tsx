@@ -42,7 +42,7 @@ const AiPracticeGenerator = ({
           });
           const saved = res.data;
           setDbTests([saved, ...dbTests]);
-          startTest(parsed);
+          startTest(saved);
         } catch (e) { alert("Generation failed."); }
         finally { setIsProcessing(false); }
     }
