@@ -129,6 +129,18 @@ const asyncHandler = (fn: (req: express.Request, res: express.Response, next: ex
   };
 };
 
+const stripCorrectAnswers = (test: any) => {
+  if (!test) return test;
+  const obj = typeof test.toObject === 'function' ? test.toObject() : { ...test };
+  if (obj.questions && Array.isArray(obj.questions)) {
+    obj.questions = obj.questions.map((q: any) => {
+      const { correctAnswerIndex, ...rest } = q;
+      return rest;
+    });
+  }
+  return obj;
+};
+
 async function startServer() {
   // Connect to MongoDB with retry logic
   try {
@@ -256,7 +268,7 @@ app.get("/api/tests", asyncHandler(async (req, res) => {
       Test.countDocuments(query)
     ]);
     
-    res.json({ tests, total, page: parseInt(page as string), limit: parseInt(limit as string) });
+    res.json({ tests: tests.map(stripCorrectAnswers), total, page: parseInt(page as string), limit: parseInt(limit as string) });
   }));
 
   app.post("/api/tests", asyncHandler(async (req, res) => {
@@ -267,7 +279,7 @@ app.get("/api/tests", asyncHandler(async (req, res) => {
     
     const newTest = new Test(req.body);
     await newTest.save();
-    res.status(201).json(newTest);
+    res.status(201).json(stripCorrectAnswers(newTest));
   }));
 
   app.patch("/api/tests/:id", asyncHandler(async (req, res) => {
@@ -276,7 +288,7 @@ app.get("/api/tests", asyncHandler(async (req, res) => {
     }
     const updatedTest = await Test.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!updatedTest) return res.status(404).json({ error: "Test not found" });
-    res.json(updatedTest);
+    res.json(stripCorrectAnswers(updatedTest));
   }));
 
   app.delete("/api/tests/:id", asyncHandler(async (req, res) => {
@@ -285,6 +297,62 @@ app.get("/api/tests", asyncHandler(async (req, res) => {
     }
     await Test.findByIdAndDelete(req.params.id);
     res.status(204).send();
+  }));
+
+  // Submit test answers - check on backend, update stats, return result
+  app.post("/api/tests/:id/submit", asyncHandler(async (req, res) => {
+    const { userId, answers, startTime, title } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: "Invalid test ID" });
+    }
+    if (!userId || !answers || typeof answers !== 'object') {
+      return res.status(400).json({ error: "Missing required fields: userId, answers" });
+    }
+
+    const test = await Test.findById(req.params.id).lean();
+    if (!test) return res.status(404).json({ error: "Test not found" });
+
+    let score = 0;
+    const total = test.questions.length;
+    const questionResults: { questionIndex: number; selectedAnswer: number; correctAnswer: number; isCorrect: boolean }[] = [];
+
+    test.questions.forEach((q: any, i: number) => {
+      const selected = answers[i] !== undefined ? answers[i] : -1;
+      const isCorrect = selected === q.correctAnswerIndex;
+      if (isCorrect) score++;
+      questionResults.push({
+        questionIndex: i,
+        selectedAnswer: selected,
+        correctAnswer: q.correctAnswerIndex,
+        isCorrect
+      });
+    });
+
+    const sessionData = {
+      testId: req.params.id,
+      userId,
+      title: title || test.title,
+      total,
+      answers,
+      score,
+      startTime: startTime ? new Date(startTime) : new Date(),
+      endTime: new Date(),
+      status: 'completed'
+    };
+
+    const newSession = new Session(sessionData);
+    await newSession.save();
+
+    res.json({
+      sessionId: newSession._id,
+      score,
+      total,
+      percentage: Math.round((score / total) * 100),
+      questionResults,
+      startTime: sessionData.startTime,
+      endTime: sessionData.endTime
+    });
   }));
 
   // Sessions
