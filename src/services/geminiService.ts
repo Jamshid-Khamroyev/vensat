@@ -3,16 +3,17 @@ import { GoogleGenAI, Type } from "@google/genai";
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export interface ParsedQuestion {
-  id: string;
+  _id: string;
   text: string;
   options: string[];
-  correctAnswerIndex: number;
+  correctAnswerIndex?: number;
   difficulty?: string;
   question?: string ;
   category?: string;
 }
 
 export interface ParsedTest {
+  _id: string;
   title: string;
   questions: ParsedQuestion[];
 }

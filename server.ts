@@ -36,10 +36,55 @@ const UserSchema = new mongoose.Schema({
   email: { type: String, unique: true, required: true, index: true },
   displayName: { type: String },
   password: { type: String },
+  role: { type: String, default: "user" },
+  avatar: { type: String },
+  eoi_skill: {
+    score: { type: Number, default: 0 },
+    testsTaken: { type: Number, default: 0 }
+  },
+
+  sec_skill: {
+    score: { type: Number, default: 0 },
+    testsTaken: { type: Number, default: 0 }
+  },
+
+  iai_skill: {
+    score: { type: Number, default: 0 },
+    testsTaken: { type: Number, default: 0 }
+  },
+
+  cas_skill: {
+    score: { type: Number, default: 0 },
+    testsTaken: { type: Number, default: 0 }
+  },
+
+  accuracy: {
+    score: { type: Number, default: 0 },
+    totalTestsTaken: { type: Number, default: 0 }
+  },
   createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model("User", UserSchema);
+
+const historySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  testId: { type: mongoose.Schema.Types.ObjectId, ref: 'Test', required: true },
+  title: { type: String, required: true },
+  category: { type: String, required: true },
+  results: [{
+    questionId: mongoose.Schema.Types.ObjectId,
+    isCorrect: Boolean,
+    correctAnswerIndex: Number,
+    userSelectedIndex: Number
+  }],
+  score: { type: Number, required: true },
+  total: { type: Number, required: true },
+  completedAt: { type: Date, default: Date.now }
+});
+
+const History = mongoose.model('History', historySchema);
+
 
 const TestSchema = new mongoose.Schema({
   title: { type: String, required: true },
@@ -57,20 +102,8 @@ const TestSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const SessionSchema = new mongoose.Schema({
-  testId: { type: String, required: true },
-  userId: { type: String, required: true, index: true },
-  title: String,
-  total: Number,
-  answers: Object,
-  score: Number,
-  startTime: Date,
-  endTime: Date,
-  status: { type: String, enum: ['in-progress', 'completed'] }
-});
 
 const Test = mongoose.model("Test", TestSchema);
-const Session = mongoose.model("Session", SessionSchema);
 
 // Name generator for group titles
 const generateGroupName = () => {
@@ -243,32 +276,56 @@ app.post("/api/auth/login", asyncHandler(async (req, res) => {
 
   // Tests
 app.get("/api/tests", asyncHandler(async (req, res) => {
-    const { userId, category, limit = 100, page = 1 } = req.query;
-    
-    const query: any = {};
-    if (userId) query.creatorId = userId;
-    if (category) query.category = category;
-    
-    const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
-    
-    const [tests, total] = await Promise.all([
-      Test.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit as string)).lean(),
-      Test.countDocuments(query)
-    ]);
-    
-    res.json({ tests, total, page: parseInt(page as string), limit: parseInt(limit as string) });
-  }));
+  const { userId, category, limit = 100, page = 1 } = req.query;
+  const match: any = {};
+  if (userId) match.creatorId = userId;
+  if (category) match.category = category;
+  
+  const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+  const [tests, total] = await Promise.all([
+    Test.aggregate([
+      { $match: match },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: parseInt(limit as string) },
+      { $set: { question: { $size: "$questions" } } },
+      { $unset: "questions" }
+    ]),
+    Test.countDocuments(match)
+  ]);
+  
+  res.json({ tests, total, page: parseInt(page as string), limit: parseInt(limit as string) });
+}));
+
+app.get("/api/tests/:id", asyncHandler(async (req, res) => {
+  const test = await Test.findById(req.params.id).lean();
+  if (!test) return res.status(404).json({ error: "Test not found" });
+  
+  const sanitizedQuestions = test.questions?.map(({ correctAnswerIndex, ...q }) => q);
+  
+  res.json({ ...test, questions: sanitizedQuestions });
+}));
 
   app.post("/api/tests", asyncHandler(async (req, res) => {
-    const { title, creatorId, questions, category } = req.body;
+    const { title, creatorId, questions, category, timeLimit } = req.body;
+
     if (!title || !creatorId || !Array.isArray(questions) || questions.length === 0 || !category) {
-      return res.status(400).json({ error: "Missing required fields: title, creatorId, questions, category" });
+        return res.status(400).json({ error: "Missing required fields: title, creatorId, questions, category" });
     }
-    
+
     const newTest = new Test(req.body);
     await newTest.save();
-    res.status(201).json(newTest);
-  }));
+
+    const responseData = {
+        _id: newTest._id,
+        title: newTest.title,
+        category: newTest.category,
+        timeLimit: newTest.timeLimit,
+        questionCount: newTest.questions.length
+    };
+
+    res.status(201).json(responseData);
+}));
 
   app.patch("/api/tests/:id", asyncHandler(async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -287,40 +344,67 @@ app.get("/api/tests", asyncHandler(async (req, res) => {
     res.status(204).send();
   }));
 
-  // Sessions
-  app.get("/api/sessions/:userId", asyncHandler(async (req, res) => {
-    if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
-    const sessions = await Session.find({ userId: req.params.userId }).sort({ startTime: -1 }).limit(200);
-    res.json(sessions);
+  app.post("/api/tests/:id/check", authenticateToken, asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { answers } = req.body;
+    const userId = (req as any)?.user?.userId;      
+    
+    const test = await Test.findById(id).lean();
+    if (!test) return res.status(404).json({ error: "Test not found" });
+    
+    const results = test.questions.map(q => {
+      const answer = answers.find(a => a.questionId === q._id.toString());
+      return {
+        questionId: q._id,
+        isCorrect: answer?.selectedIndex === q.correctAnswerIndex,
+        correctAnswerIndex: q.correctAnswerIndex,
+        userSelectedIndex: answer?.selectedIndex ?? null
+      };
+    });
+    
+    const score = results.filter(r => r.isCorrect).length;
+    const total = test.questions.length;
+    
+    const history = new History({
+      userId: userId,
+      testId: test._id,
+      title: test.title,
+      category: test.category, 
+      results: results,
+      score: score,
+      total: total,
+      completedAt: new Date()
+    });
+    
+    await history.save();
+    
+    res.json({
+      score: score,
+      total: total
+    });
   }));
 
-  app.post("/api/sessions", asyncHandler(async (req, res) => {
-    const { testId, userId, answers } = req.body;
-    if (!testId || !userId) {
-      return res.status(400).json({ error: "Missing testId or userId" });
-    }
-    const newSession = new Session(req.body);
-    await newSession.save();
-    res.status(201).json(newSession);
+  app.get("/api/history/:userId", asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { page = 1, limit = 10, category } = req.query;
+    
+    const query: any = { userId };
+    if (category && category !== 'all') query.category = category;
+    
+    const [history, total] = await Promise.all([
+      History.find(query).sort({ completedAt: -1 }).skip(((page as number) - 1) * (limit as number)).limit(parseInt(limit as string)).lean(),
+      History.countDocuments(query)
+    ]);
+    
+    res.json({ history, total, page: parseInt(page as string), totalPages: Math.ceil(total / parseInt(limit as string)) });
   }));
 
-  app.patch("/api/sessions/:id", asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: "Invalid session ID" });
-    }
-    const updatedSession = await Session.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedSession) return res.status(404).json({ error: "Session not found" });
-    res.json(updatedSession);
+  app.get("/api/history/detail/:historyId", asyncHandler(async (req, res) => {
+    const history = await History.findById(req.params.historyId).populate('testId', 'title category').lean();
+    if (!history) return res.status(404).json({ error: "History not found" });
+    res.json(history);
   }));
-
-  app.delete("/api/sessions/:id", asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: "Invalid session ID" });
-    }
-    await Session.findByIdAndDelete(req.params.id);
-    res.status(204).send();
-  }));
-
+  
   // Group Words
   app.get("/api/words/:userId", authenticateToken, asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });

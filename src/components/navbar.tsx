@@ -9,7 +9,6 @@ interface NavbarProps {
     setView: Dispatch<SetStateAction<"landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group">>
     setUser: Dispatch<SetStateAction<{ _id: string; displayName: string; email: string } | null>>;
     user: { _id: string; displayName: string; email: string } | null;
-    handleCompleteTest?: () => void;
     formatTime?: (seconds: number) => string;
     timeLeft?: number;
 }
@@ -21,7 +20,7 @@ const navItems = [
   { key: 'profile', label: 'Tahlil', icon: BarChart3 },
 ] as const;
 
-const Navbar = ({ setUser, setView, view, user, handleCompleteTest, formatTime, timeLeft }: NavbarProps) => {
+const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarProps) => {
     const handleLogout = () => {
         setUser(null);
         localStorage.removeItem('aero_user');

@@ -20,10 +20,8 @@ import { categories } from "../constants";
 interface DashboardProps {
   setView: Dispatch<SetStateAction<"landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader">>
   user: { _id: string; displayName: string; email: string } | null;
-  dbTests: any[];
-  dbSessions: any[];
   fetchAll: (userId: string) => void;
-  startTest: (test: any) => void;
+  startTest: (id: string) => void;
 }
 
 // DSAT Categories
@@ -453,7 +451,7 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-gray-500">
-                          <span>{test.questions?.length || 0} questions</span>
+                          <span>{test?.question || 0} questions</span>
                           <span className="w-1 h-1 rounded-full bg-gray-300"></span>
                           <span>{test.timeLimit || 30} minutes</span>
                           {test.lastAttempted && (
@@ -492,7 +490,7 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
                         </div>
                         
                         <button 
-                          onClick={() => startTest(test)} 
+                          onClick={() => startTest(test._id)} 
                           className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1
                             ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
                         >

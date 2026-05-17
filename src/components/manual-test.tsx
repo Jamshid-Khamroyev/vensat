@@ -6,14 +6,13 @@ interface ManualTestProps {
     user: { _id: string; displayName: string; email: string } | null;
     dbTests: any[];
     setDbTests: (tests: any[]) => void;
-    startTest: (test: any) => void;
     selectedTime: number;
     setSelectedTime: (time: number) => void;
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
 }
 
-const ManualTest = ({ selectedTime, dbTests, setDbTests,setSelectedTime,setView, startTest, user, isProcessing, setIsProcessing  }: ManualTestProps) => {
+const ManualTest = ({ selectedTime, dbTests, setDbTests,setSelectedTime,setView, user, isProcessing, setIsProcessing  }: ManualTestProps) => {
 
     const handleManualImport = async (testText: string, keyText: string) => {
         setIsProcessing(true);
@@ -27,7 +26,6 @@ const ManualTest = ({ selectedTime, dbTests, setDbTests,setSelectedTime,setView,
           });
           const saved = await res.json();
           setDbTests([saved, ...dbTests]);
-          startTest(parsed);
         } catch (e) { alert("Parsing failed."); }
         finally { setIsProcessing(false); }
       };
