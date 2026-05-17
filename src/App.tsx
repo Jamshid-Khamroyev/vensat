@@ -15,6 +15,8 @@ import PasteWord from './components/paste-word';
 import Navbar from './components/navbar';
 import TestingPage from './pages/testing';
 import api from "./services/api"
+import HistoryDetail from './components/history';
+import GNewsReader from './components/article';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -34,8 +36,10 @@ const SpringerReader = lazy(() => import('./pages/springer-reader'));
 // --- App ---
 export default function App() {
   const [user, setUser] = useState<AppUser | null>(null);
+  const [historyId, setHistoryId] = useState<string>("")
+  const [currentArticle, setCurrentArticle] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | "history" | "article" | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [result, setResult] = useState<any | null>(null);
   const [dbTests, setDbTests] = useState<TestRecord[]>([]);
@@ -174,7 +178,7 @@ export default function App() {
     }
   };
 
-  const handleAddWord = async (words: { term: string, definition: string }[], title?: string) => {
+  const handleAddWord = async (words: { term: string, definition: string, sentence: string }[], title?: string) => {
     try {
       const res = await api.post("/api/words", { userId: user?._id, words, title });
       setUserWords([res.data, ...userWords]);
@@ -331,6 +335,7 @@ export default function App() {
           {view === 'stories' && (
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
               <Stories
+                setCurrentGNewsArticle={setCurrentArticle}
                 dbStories={dbStories}
                 setCurrentStory={setCurrentStory}
                 setDbStories={setDbStories}
@@ -340,6 +345,16 @@ export default function App() {
               />
             </Suspense>
           )}
+
+          {view === "article" && (
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+              <GNewsReader
+                article={currentArticle}
+                setView={setView}
+               />
+            </Suspense>
+          )}
+          
 
           {view === 'story-gen' && (
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
@@ -427,6 +442,7 @@ export default function App() {
               <Profile
                 chatInput={chatInput}
                 setChatInput={setChatInput}
+                setHistoryId={setHistoryId}
                 chatMessages={chatMessages}
                 handleSendMessage={handleSendMessage}
                 user={user}
@@ -455,18 +471,23 @@ export default function App() {
             />
           )}
 
-          {view === 'results' && currentTest && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Results
-                setView={setView}
-                data={result}
-                currentTest={currentTest} 
-              />
-            </Suspense>
-          )}
+            {view === 'results' && currentTest && (
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+                <Results
+                  setView={setView}
+                  data={result}
+                  currentTest={currentTest} 
+                />
+              </Suspense>
+            )}
+            
+            {view === 'history' && (
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+                <HistoryDetail historyId={historyId} />
+              </Suspense>
+            )}
         </AnimatePresence>
       </main>
-      <Toaster position="top-center" richColors />
     </div>
   );
 }

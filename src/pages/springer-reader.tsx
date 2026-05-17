@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Volume2, Type, BookOpen, ExternalLink, Users, Calendar, FileText, PlusCircle } from "lucide-react";
-import { translateText, translateWords } from "../services/geminiService";
+import { translateText } from "../services/geminiService";
 import { toast } from "sonner";
 
 interface SpringerArticle {
@@ -18,7 +18,7 @@ interface SpringerArticle {
 interface SpringerReaderProps {
     article: SpringerArticle;
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "springer-reader") => void;
-    onSaveWord: (words: { term: string; definition: string; category: string }[], title?: string) => void;
+    onSaveWord: (words: { term: string; definition: string; sentence?: string }[], title?: string) => void;
 }
 
 const SpringerReader = ({ article, setView, onSaveWord }: SpringerReaderProps) => {
@@ -114,7 +114,6 @@ const SpringerReader = ({ article, setView, onSaveWord }: SpringerReaderProps) =
             onSaveWord([{
                 term: definition.word,
                 definition: definition.meaning,
-                category: 'Academic'
             }], `From ${article.title}`);
             setDefinition(null);
             setSelectedText('');

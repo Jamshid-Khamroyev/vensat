@@ -6,10 +6,6 @@ import {
     FileJson,
     Trash2,
     Edit2,
-    BookOpen,
-    PenTool,
-    GraduationCap,
-    MessageSquare,
     RefreshCw,
     AlertCircle,
     ChevronRight

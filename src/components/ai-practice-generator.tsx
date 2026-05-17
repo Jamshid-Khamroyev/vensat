@@ -16,7 +16,7 @@ interface AiPracticeGeneratorProps {
     dbTests: any[];
     setDbTests: (tests: any[]) => void;
     userWords: GroupWord[];
-    startTest: (test: any) => void;
+    startTest: (id: string) => void;
 }
 
 const AiPracticeGenerator = ({ 
@@ -42,7 +42,7 @@ const AiPracticeGenerator = ({
           });
           const saved = res.data;
           setDbTests([saved, ...dbTests]);
-          startTest(parsed);
+          startTest(res.data._id);
         } catch (e) { alert("Generation failed."); }
         finally { setIsProcessing(false); }
     }

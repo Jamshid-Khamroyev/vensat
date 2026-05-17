@@ -2,6 +2,7 @@ import { ArrowRight, Camera, CheckCircle, Loader2, Plus, X } from "lucide-react"
 import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GroupWord } from "../types";
+import { generateSentencesForWords } from "../services/geminiService";
 
 interface WordImageModeProps {
     userWords: GroupWord[]
@@ -141,10 +142,15 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
     };
 
     const confirmImageWordsAdd = async () => {
-        const wordsToAdd = translatedWords.map(word => ({
-            term: word.term,
-            definition: word.definition,
-        }));
+            const terms = translatedWords.map(pair => pair.term);
+            const generatedData = await generateSentencesForWords(terms);
+            const sentenceMap = new Map(generatedData.map(item => [item.term, item.sentence]));
+                    
+            const wordsToAdd = translatedWords.map(word => ({
+                term: word.term,
+                definition: word.definition,
+                sentence: sentenceMap.get(word.term) || `Example sentence for ${word.term} will be added later.`
+            }));
         
         await handleAddWord(wordsToAdd, 'OCR Import ' + new Date().toLocaleDateString());
         

@@ -1,5 +1,5 @@
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
-import { Play, Volume2, BookOpen, Layers, ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Volume2, BookOpen, Layers, ArrowLeft, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { WordRecord } from "../types";
 
@@ -29,6 +29,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [showSentence, setShowSentence] = useState(false);
   const constraintsRef = useRef(null);
 
   const words = group?.words && Array.isArray(group.words) ? group.words : [];
@@ -55,6 +56,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
     if (activeIndex < words.length - 1) {
       setDirection(1);
       setActiveIndex(prev => prev + 1);
+      setShowSentence(false);
     }
   }, [activeIndex, words.length]);
 
@@ -62,10 +64,10 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
     if (activeIndex > 0) {
       setDirection(-1);
       setActiveIndex(prev => prev - 1);
+      setShowSentence(false);
     }
   }, [activeIndex]);
 
-  // Drag handlers for swipe
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     setIsDragging(false);
     const swipeThreshold = 50;
@@ -77,7 +79,6 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
     }
   };
 
-  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") {
@@ -93,6 +94,14 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
   }, [goNext, goPrev]);
 
   const progress = ((activeIndex + 1) / words.length) * 100;
+
+  const speakText = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
 
   return (
     <motion.div
@@ -188,9 +197,12 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                       <div className="relative">
                         <div className="flex items-center justify-between mb-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                            <button
+                              onClick={() => speakText(activeWord.term)}
+                              className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm hover:bg-white/30 transition-all"
+                            >
                               <Volume2 className="w-6 h-6" />
-                            </div>
+                            </button>
                             <div>
                               <p className="text-white/80 text-xs font-bold uppercase tracking-wider">
                                 So'z {activeIndex + 1}
@@ -213,7 +225,8 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
 
                     {/* Card Body */}
                     <div className="p-8">
-                      <div className="md:mb-6">
+                      {/* Definition */}
+                      <div className="mb-6">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-1 h-6 bg-blue-950 rounded-full" />
                           <span className="text-xs text-slate-400 uppercase tracking-wider">
@@ -224,6 +237,29 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                           {activeWord.definition}
                         </p>
                       </div>
+
+                      {/* Sentence */}
+                      {activeWord.sentence && (
+                        <div className="pt-4 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <MessageSquare className="w-4 h-4 text-indigo-500" />
+                              <span className="text-xs text-slate-400 uppercase tracking-wider">
+                                Example Sentence
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => speakText(activeWord.sentence!)}
+                              className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"
+                            >
+                              <Volume2 className="w-3.5 h-3.5 text-slate-500" />
+                            </button>
+                          </div>
+                          <p className="text-slate-600 text-base leading-relaxed italic">
+                            "{activeWord.sentence}"
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -291,6 +327,7 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                 onClick={() => {
                   setDirection(idx > activeIndex ? 1 : -1);
                   setActiveIndex(idx);
+                  setShowSentence(false);
                 }}
                 className={`w-full flex items-center gap-3 p-3 text-left transition-all hover:bg-slate-50 border-l-4 ${
                   isActive ? "border-l-blue-500 bg-blue-50/30" : "border-l-transparent"
@@ -312,6 +349,11 @@ const WordGroupView = ({ setView, group, handleDeleteWord }: WordGroupProps) => 
                     {word.term}
                   </p>
                   <p className="text-xs text-slate-400 truncate mt-0.5">{word.definition}</p>
+                  {word.sentence && (
+                    <p className="text-xs text-slate-300 truncate mt-0.5 italic">
+                      {word.sentence.substring(0, 40)}...
+                    </p>
+                  )}
                 </div>
               </button>
             );

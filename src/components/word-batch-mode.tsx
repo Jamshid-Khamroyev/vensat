@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { GroupWord, WordRecord } from "../types";
+import { generateSentencesForWords } from "../services/geminiService";
 
 interface WordBatchModeProps {
     setBatchMode: (value: boolean) => void;
@@ -36,29 +37,38 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
         setParsedPairs(pairs);
     };
 
-    const confirmBatchAdd = async () => {
+   const confirmBatchAdd = async () => {
+        if (parsedPairs.length > 30) {
+            toast.error('Jami 30 ta so\'z qo\'shishingiz mumkin! Qolganini boshqa turkumga qo\'shasiz!');
+            return;
+        }
         if (isProcessing) return;
         
         setIsProcessing(true);
         
         try {
+            const terms = parsedPairs.map(pair => pair.term);
+            const generatedData = await generateSentencesForWords(terms);
+            const sentenceMap = new Map(generatedData.map(item => [item.term, item.sentence]));
+
             const wordsToAdd = parsedPairs.map(pair => ({
-                term: pair.term, 
+                term: pair.term,
                 definition: pair.definition,
+                sentence: sentenceMap.get(pair.term) || `Example sentence for ${pair.term} will be added later.`
             }));
-            
+
             await handleAddWord(wordsToAdd);
             setBatchMode(false);
             setBatchText('');
             setParsedPairs([]);
+            toast.success(`${wordsToAdd.length} ta so'z muvaffaqiyatli qo'shildi!`);
         } catch (error) {
             console.error('Batch add failed:', error);
             toast.error('So\'zlarni qo\'shishda xatolik yuz berdi');
         } finally {
             setIsProcessing(false);
         }
-    };
-
+        };
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setBatchMode(false)}>
                     <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>

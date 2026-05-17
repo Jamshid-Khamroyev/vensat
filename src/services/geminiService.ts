@@ -265,3 +265,53 @@ export async function translateText(text: string, from: string, to: string): Pro
 
   return response.text || "";
 }
+
+export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
+  const model = "gemini-3-flash-preview";
+  const wordsList = words.join(', ');
+  
+  const systemInstruction = `
+    You are an expert SAT tutor and English language educator. Your task is to create contextual example sentences for each given vocabulary word.
+
+    INPUT WORDS: ${wordsList}
+
+    REQUIREMENTS:
+    1. For EACH word, you MUST provide:
+       - The term itself
+       - ONE original sentence that demonstrates the word's meaning through context
+
+    2. SENTENCE RULES (CRITICAL):
+       - Each sentence must NATURALLY incorporate the vocabulary word
+       - The word's meaning MUST be clear from the context of the sentence
+       - Do NOT just say "The word X means Y" — show it through action, description, or situation
+       - Sentences should be realistic, educational, and engaging
+       - Length: 5-12 words per sentence
+       - Use different contexts for different words
+       - Sentences must be grammatically correct
+       - Avoid forced or awkward constructions
+
+    Format the output as a JSON array of objects, each with 'term' and 'sentence' keys.
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ text: "Generate sentences for each word now." }],
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            term: { type: "string" },
+            sentence: { type: "string" }
+          },
+          required: ["term", "sentence"]
+        }
+      }
+    }
+  });
+
+  return JSON.parse(response.text || "[]");
+}

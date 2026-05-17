@@ -2,6 +2,7 @@ import { motion } from "framer-motion"
 import { BrainCircuit, ChevronLeft, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send } from "lucide-react";
 import Markdown from "react-markdown";
 import HistorySection from "../components/histories";
+import { Dispatch, SetStateAction } from "react";
 
 interface ProfileProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -9,6 +10,7 @@ interface ProfileProps {
     chatMessages: { role: 'user' | 'model'; parts: { text: string }[] }[];
     setChatMessages: (messages: any[]) => void;
     chatInput: string;
+    setHistoryId: Dispatch<SetStateAction<string>>
     setChatInput: (input: string) => void;
     isChatting: boolean;
     setIsChatting: (chatting: boolean) => void;
@@ -16,7 +18,7 @@ interface ProfileProps {
     chatScrollRef: React.RefObject<HTMLDivElement>;
 }
 
-const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, isChatting, setChatInput, setChatMessages, setView, user }: ProfileProps) => {
+const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, setHistoryId, isChatting, setChatInput, setChatMessages, setView, user }: ProfileProps) => {
 
   return (
     <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
@@ -88,7 +90,7 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, is
                 </div>
               </div>
 
-              <HistorySection userId={user._id} />
+              <HistorySection userId={user._id} setView={setView} setHistoryId={setHistoryId}/>
             </motion.div>
   )
 }

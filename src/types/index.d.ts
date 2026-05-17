@@ -41,6 +41,7 @@ export interface AppUser {
     _id: string;
     term: string;
     definition: string;
+    sentence?: string 
     category: string;
     createdAt: string;
     groupId?: string;

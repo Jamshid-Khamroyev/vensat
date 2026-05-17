@@ -85,20 +85,24 @@ const historySchema = new mongoose.Schema({
 
 const History = mongoose.model('History', historySchema);
 
+const QuestionSchema = new mongoose.Schema({
+  text: { type: String, required: true },
+  question: { type: String, required: true },
+  options: [{ type: String, required: true }],
+  correctAnswerIndex: { type: Number, required: true },
+  difficulty: { type: String },
+  category: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const Question = mongoose.model("Question", QuestionSchema);
 
 const TestSchema = new mongoose.Schema({
   title: { type: String, required: true },
   creatorId: { type: String, required: true },
   category: { type: String, required: true },
   timeLimit: { type: Number, default: 30 },
-  questions: [{
-    text: String,
-    options: [String],
-    question: String,
-    correctAnswerIndex: Number,
-    difficulty: String,
-    category: String
-  }],
+  questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -120,7 +124,8 @@ const GroupWordsSchema = new mongoose.Schema({
   title: { type: String, required: true },
   words: [{
     term: { type: String, required: true },
-    definition: { type: String, required: true }
+    definition: { type: String, required: true },
+    sentence: { type: String }
   }],
   isDefault: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
@@ -301,88 +306,91 @@ app.get("/api/tests/:id", asyncHandler(async (req, res) => {
   const test = await Test.findById(req.params.id).lean();
   if (!test) return res.status(404).json({ error: "Test not found" });
   
-  const sanitizedQuestions = test.questions?.map(({ correctAnswerIndex, ...q }) => q);
+  const questions = await Question.find({ _id: { $in: test.questions } }).lean();
+  const sanitizedQuestions = questions.map(({ correctAnswerIndex, ...q }) => q);
   
   res.json({ ...test, questions: sanitizedQuestions });
 }));
 
-  app.post("/api/tests", asyncHandler(async (req, res) => {
-    const { title, creatorId, questions, category, timeLimit } = req.body;
-
-    if (!title || !creatorId || !Array.isArray(questions) || questions.length === 0 || !category) {
-        return res.status(400).json({ error: "Missing required fields: title, creatorId, questions, category" });
-    }
-
-    const newTest = new Test(req.body);
-    await newTest.save();
-
-    const responseData = {
-        _id: newTest._id,
-        title: newTest.title,
-        category: newTest.category,
-        timeLimit: newTest.timeLimit,
-        questionCount: newTest.questions.length
-    };
-
-    res.status(201).json(responseData);
+app.post("/api/tests", asyncHandler(async (req, res) => {
+  const { title, creatorId, questions, category, timeLimit } = req.body;
+  
+  if (!title || !creatorId || !Array.isArray(questions) || questions.length === 0 || !category) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
+  
+  const createdQuestions = await Question.insertMany(questions);
+  const questionIds = createdQuestions.map(q => q._id);
+  
+  const newTest = new Test({ ...req.body, questions: questionIds });
+  await newTest.save();
+  
+  res.status(201).json({
+    _id: newTest._id,
+    title: newTest.title,
+    category: newTest.category,
+    timeLimit: newTest.timeLimit,
+    question: newTest.questions.length
+  });
 }));
 
-  app.patch("/api/tests/:id", asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: "Invalid test ID" });
-    }
-    const updatedTest = await Test.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!updatedTest) return res.status(404).json({ error: "Test not found" });
-    res.json(updatedTest);
-  }));
+app.patch("/api/tests/:id", asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ error: "Invalid test ID" });
+  }
+  const updatedTest = await Test.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!updatedTest) return res.status(404).json({ error: "Test not found" });
+  res.json(updatedTest);
+}));
 
-  app.delete("/api/tests/:id", asyncHandler(async (req, res) => {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ error: "Invalid test ID" });
-    }
+app.delete("/api/tests/:id", asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(400).json({ error: "Invalid test ID" });
+  }
+  const test = await Test.findById(req.params.id);
+  if (test) {
+    await Question.deleteMany({ _id: { $in: test.questions } });
     await Test.findByIdAndDelete(req.params.id);
-    res.status(204).send();
-  }));
+  }
+  res.status(204).send();
+}));
 
-  app.post("/api/tests/:id/check", authenticateToken, asyncHandler(async (req, res) => {
-    const { id } = req.params;
-    const { answers } = req.body;
-    const userId = (req as any)?.user?.userId;      
-    
-    const test = await Test.findById(id).lean();
-    if (!test) return res.status(404).json({ error: "Test not found" });
-    
-    const results = test.questions.map(q => {
-      const answer = answers.find(a => a.questionId === q._id.toString());
-      return {
-        questionId: q._id,
-        isCorrect: answer?.selectedIndex === q.correctAnswerIndex,
-        correctAnswerIndex: q.correctAnswerIndex,
-        userSelectedIndex: answer?.selectedIndex ?? null
-      };
-    });
-    
-    const score = results.filter(r => r.isCorrect).length;
-    const total = test.questions.length;
-    
-    const history = new History({
-      userId: userId,
-      testId: test._id,
-      title: test.title,
-      category: test.category, 
-      results: results,
-      score: score,
-      total: total,
-      completedAt: new Date()
-    });
-    
-    await history.save();
-    
-    res.json({
-      score: score,
-      total: total
-    });
-  }));
+app.post("/api/tests/:id/check", authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { answers } = req.body;
+  const userId = (req as any)?.user?.userId;
+  
+  const test = await Test.findById(id).lean();
+  if (!test) return res.status(404).json({ error: "Test not found" });
+  
+  const questions = await Question.find({ _id: { $in: test.questions } }).lean();
+  
+  const results = questions.map(q => {
+    const answer = answers.find(a => a.questionId === q._id.toString());
+    return {
+      questionId: q._id,
+      isCorrect: answer?.selectedIndex === q.correctAnswerIndex,
+      correctAnswerIndex: q.correctAnswerIndex,
+      userSelectedIndex: answer?.selectedIndex ?? null
+    };
+  });
+  
+  const score = results.filter(r => r.isCorrect).length;
+  const total = questions.length;
+  
+  await History.create({
+    userId,
+    testId: test._id,
+    title: test.title,
+    category: test.category,
+    results,
+    score,
+    total,
+    completedAt: new Date()
+  });
+  
+  res.json({ score, total });
+}));
 
   app.get("/api/history/:userId", asyncHandler(async (req, res) => {
     const { userId } = req.params;
@@ -392,7 +400,12 @@ app.get("/api/tests/:id", asyncHandler(async (req, res) => {
     if (category && category !== 'all') query.category = category;
     
     const [history, total] = await Promise.all([
-      History.find(query).sort({ completedAt: -1 }).skip(((page as number) - 1) * (limit as number)).limit(parseInt(limit as string)).lean(),
+      History.find(query)
+      .sort({ completedAt: -1 })
+      .skip(((page as number) - 1) * (limit as number))
+      .limit(parseInt(limit as string))
+      .lean(),
+
       History.countDocuments(query)
     ]);
     
@@ -400,9 +413,34 @@ app.get("/api/tests/:id", asyncHandler(async (req, res) => {
   }));
 
   app.get("/api/history/detail/:historyId", asyncHandler(async (req, res) => {
-    const history = await History.findById(req.params.historyId).populate('testId', 'title category').lean();
+    const history = await History.findById(req.params.historyId)
+      .populate('testId', 'title category')
+      .lean();
+    
     if (!history) return res.status(404).json({ error: "History not found" });
-    res.json(history);
+    
+    const questions = await Question.find({ _id: { $in: history.results.map(r => r.questionId) } })
+      .select('text options category difficulty')
+      .lean();
+    
+    const questionMap = new Map(questions.map(q => [q._id.toString(), q]));
+    
+    const results = history.results.map(r => ({
+      ...r,
+      question: questionMap.get(r.questionId.toString())
+    }));
+    
+    const correctCount = results.filter(r => r.isCorrect).length;
+    
+    res.json({
+      ...history,
+      results,
+      stats: {
+        correctCount,
+        incorrectCount: history.total - correctCount,
+        percentage: parseFloat(((correctCount / history.total) * 100).toFixed(1))
+      }
+    });
   }));
   
   // Group Words
