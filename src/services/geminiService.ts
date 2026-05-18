@@ -90,22 +90,56 @@ export async function parseTestContent(testText: string, keyText: string): Promi
 export async function generateSATTest(category: string, difficulty: string, count: number, words?: string): Promise<ParsedTest> {
   const model = "gemini-3-flash-preview";
   const systemInstruction = `
-    You are an expert Digital SAT (DSAT) instructor. Create a high-quality practice test for the category: ${category}.
-    
-    Difficulty: ${difficulty}
-    Question Count: ${count}.
-    ${words ? `INTEGRATION OBJECTIVE: You MUST integrate these specific vocabulary words/concepts into the questions and passages: ${words}. Let them be the focus of the question or essential context within the DSAT style passage.` : 'Generate standard high-rigor DSAT questions for this category.'}
+You are an expert Digital SAT (DSAT) Reading & Writing question writer.
 
-    Rules for DSAT Questions:
-    - For Reading & Writing: Every question MUST feature a high-level passage (paragraphs/sentences). Use authentic DSAT language.
-    - Metdata: For every question, include its "difficulty" (matching ${difficulty}) and "category" (matching ${category}).
-    - CRITICAL: Do NOT include any formatting artifacts like "\\n*" or markdown bullets in the text fields.
-    - Category section should contain => information-ideas, craft-structure, expression-ideas, standard-conventions
-    
-    Structure:
-    The question stem must sound like a real DSAT question
-    Return a structured JSON match schema.
-  `;
+Create ONLY official-style current DSAT questions.
+
+Category: ${category}
+Difficulty: ${difficulty}
+Question Count: ${count}
+
+${words 
+  ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
+  : ''
+}
+
+STRICT RULES:
+- ONLY use real DSAT Reading & Writing question formats.
+- NEVER create custom or vocabulary-definition questions.
+- NEVER ask about the function or meaning of a specific word.
+- Questions must sound exactly like official Bluebook DSAT questions.
+
+Allowed stem styles include:
+- "Which choice best completes the text with the most logical and precise word or phrase?"
+- "Which choice completes the text so that it conforms to the conventions of Standard English?"
+- "Which choice most logically completes the text?"
+- "Which choice best states the main idea of the text?"
+- "Which choice best describes the overall structure of the text?"
+- "Which choice best completes the text with the most logical transition?"
+- Notes/synthesis/revision/support/inference questions in official DSAT style.
+
+QUESTION DISTRIBUTION:
+- Within each category, distribute different official DSAT subtypes as evenly as possible instead of repeatedly generating the same subtype.
+- Example for craft-structure: balance vocabulary-in-context, overall structure, main purpose, text function, and similar official DSAT subtypes.
+
+REQUIREMENTS:
+- Every question must contain a realistic DSAT-style passage.
+- Use authentic SAT tone and difficulty.
+- Include exactly 4 answer choices (A-D).
+- One correct answer only.
+- Wrong answers must be realistic DSAT distractors.
+- Category must ONLY be:
+  information-ideas
+  craft-structure
+  expression-ideas
+  standard-conventions
+
+OUTPUT:
+- Return clean valid JSON only.
+- No markdown.
+- No explanations.
+- No formatting artifacts.
+`;
 
   const response = await ai.models.generateContent({
     model,

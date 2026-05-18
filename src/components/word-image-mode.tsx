@@ -199,7 +199,6 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
                                             ref={fileInputRef}
                                             type="file"
                                             accept="image/*"
-                                            capture="environment"
                                             onChange={handleImageSelect}
                                             className="hidden"
                                         />
