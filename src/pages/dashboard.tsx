@@ -14,7 +14,7 @@ import axios from 'axios';
 import { categories } from "../constants";
 
 interface DashboardProps {
-  setView: Dispatch<SetStateAction<"landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader">>
+  setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
   user: { _id: string; displayName: string; email: string } | null;
   fetchAll: (userId: string) => void;
   startTest: (id: string) => void;

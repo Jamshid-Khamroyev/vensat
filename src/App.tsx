@@ -17,6 +17,7 @@ import TestingPage from './pages/testing';
 import api from "./services/api"
 import HistoryDetail from './components/history';
 import GNewsReader from './components/article';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -32,13 +33,37 @@ const WordGroupView = lazy(() => import('./pages/word-group'));
 const NYTStoryReader = lazy(() => import('./pages/nyt-story-reader'));
 const SpringerReader = lazy(() => import('./pages/springer-reader'));
 
+// Legacy view wrapper component - keeps old view system working
+function LegacyViewWrapper({ 
+  view, 
+  children 
+}: { 
+  view: string; 
+  children: React.ReactNode 
+}) {
+  const location = useLocation();
+  
+  // Hide legacy view if route path matches current view
+  const isRouteActive = location.pathname !== '/' && 
+    location.pathname !== '/dashboard' && 
+    view !== 'landing' && 
+    view !== 'dashboard';
+  
+  if (isRouteActive) return null;
+  
+  return <>{children}</>;
+}
 
 // --- App ---
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
   const [user, setUser] = useState<AppUser | null>(null);
   const [historyId, setHistoryId] = useState<string>("")
   const [currentArticle, setCurrentArticle] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  // Legacy view state - kept for backward compatibility
   const [view, setView] = useState<'landing' | 'dashboard' | 'create' | "history" | "article" | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [result, setResult] = useState<any | null>(null);
@@ -59,8 +84,6 @@ export default function App() {
   const [eliminated, setEliminated] = useState<Record<number, number[]>>({});
   const [isHighlighterActive, setIsHighlighterActive] = useState(false);
 
-
-  // Chatbot State
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
@@ -70,7 +93,69 @@ export default function App() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  // Restore view from URL on mount
+  // Sync React Router navigation with legacy view state
+  const syncViewWithRoute = (newView: typeof view) => {
+    setView(newView);
+    switch(newView) {
+      case 'landing':
+        navigate('/');
+        break;
+      case 'dashboard':
+        navigate('/dashboard');
+        break;
+      case 'create':
+        navigate('/create');
+        break;
+      case 'stories':
+        navigate('/stories');
+        break;
+      case 'profile':
+        navigate('/profile');
+        break;
+      case 'words':
+        navigate('/words');
+        break;
+      case 'testing':
+        navigate('/testing');
+        break;
+      case 'results':
+        navigate('/results');
+        break;
+      case 'history':
+        navigate('/history');
+        break;
+      case 'ai-gen':
+        navigate('/ai-generator');
+        break;
+      case 'story-gen':
+        navigate('/story-generator');
+        break;
+      case 'story-reader':
+        navigate('/story-reader');
+        break;
+      case 'word-group':
+        navigate(`/word-group/${currentWordGroup?.name}`);
+        break;
+      case 'nytimes-story':
+        navigate('/nytimes-story');
+        break;
+      case 'springer-reader':
+        navigate('/springer-reader');
+        break;
+      case 'article':
+        navigate('/article');
+        break;
+      default:
+        navigate('/dashboard');
+    }
+  };
+
+  // Legacy setView wrapper that also updates route
+  const setViewWithRoute = (newView: typeof view) => {
+    syncViewWithRoute(newView);
+  };
+
+  // Restore from URL params (legacy support)
   useEffect(() => {
     const savedUser = localStorage.getItem('aero_user');
     const savedLocalWords = localStorage.getItem('aero_local_words');
@@ -90,34 +175,25 @@ export default function App() {
         const u = JSON.parse(savedUser);
         setUser(u);
         await fetchAll(u._id);
-        if (viewParam) setView(viewParam);
-        else setView('dashboard');
+        if (viewParam && viewParam !== 'landing') {
+          setView(viewParam);
+          syncViewWithRoute(viewParam);
+        } else if (location.pathname === '/') {
+          setView('landing');
+        } else {
+          setView('dashboard');
+          navigate('/dashboard');
+        }
       } else {
         if (viewParam) setView(viewParam);
+        else if (location.pathname === '/') setView('landing');
+        else navigate('/');
       }
       setLoading(false);
     };
 
     init();
   }, []);
-
-  // Sync URL when view or dependent state changes
-  useEffect(() => {
-    if (loading) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set('view', view);
-    if (view === 'word-group' && currentWordGroup) {
-      params.set('groupName', currentWordGroup.name);
-    } else {
-      params.delete('groupName');
-    }
-    if (view === 'story-reader' && currentStory) {
-      params.set('storyId', currentStory._id);
-    } else {
-      params.delete('storyId');
-    }
-    window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
-  }, [view, currentWordGroup, currentStory, loading]);
 
   // Restore word-group from URL when words load
   useEffect(() => {
@@ -203,7 +279,6 @@ export default function App() {
     try {
       const res = await api.post(`/api/words/${user?._id}/default`, { words });
       
-      // Update userWords state
       const existingIndex = userWords.findIndex(w => w.isDefault);
       if (existingIndex >= 0) {
         setUserWords(userWords.map(w => w.isDefault ? res.data : w));
@@ -215,7 +290,7 @@ export default function App() {
 
   const startTest = async(id: string) => {
     try {
-      setView('testing');
+      setViewWithRoute('testing');
       setEliminated({});
       setIsHighlighterActive(false);
       const response = await api.get(`/api/tests/${id}`)
@@ -226,7 +301,6 @@ export default function App() {
       console.error("Failed to start test", error);
     }
   };
-
 
   const handleLookup = async (word: string) => {
     if (!word.trim()) return;
@@ -268,7 +342,7 @@ export default function App() {
       const response = await api.post(`/api/tests/${id}/check`, { answers });
       console.log(response.data);
       setResult(response.data);
-      setView('results');
+      setViewWithRoute('results');
     } catch (error) {
       console.log(`Error completing test: ${error}`);
     }
@@ -284,10 +358,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
-      {/* Navbar */}
+      {/* Navbar - using legacy view for navbar logic */}
       <Navbar 
         view={view} 
-        setView={setView} 
+        setView={setViewWithRoute} 
         setUser={setUser} 
         user={user} 
         formatTime={formatTime} 
@@ -295,200 +369,74 @@ export default function App() {
       />
 
       <main className="flex-1 overflow-x-hidden">
-        <AnimatePresence mode="wait">
-          {view === 'landing' && (
+        {/* React Router Routes */}
+        <Routes>
+          <Route path="/" element={
             <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <LandingPage
-                setUser={setUser}
-                setView={setView}
-                fetchAll={fetchAll} 
-              />
+              <LandingPage setUser={setUser} user={user} setView={setViewWithRoute} fetchAll={fetchAll} />
             </Suspense>
-          )}
-
-          {view === 'dashboard' && (
+          } />
+          <Route path="/dashboard" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Dashboard
-                fetchAll={fetchAll}
-                startTest={startTest}
-                user={user}
-                setView={setView} 
-              />
+              <Dashboard fetchAll={fetchAll} startTest={startTest} user={user} setView={setViewWithRoute} />
             </Suspense>
-          )}
-
-          {view === 'create' && (
+          } />
+          <Route path="/create" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <ManualTest
-                selectedTime={selectedTime}
-                setSelectedTime={setSelectedTime}
-                dbTests={dbTests}
-                setDbTests={setDbTests}
-                setView={setView}
-                user={user}
-                isProcessing={isProcessing}
-                setIsProcessing={setIsProcessing} 
-              />
+              <ManualTest selectedTime={selectedTime} setSelectedTime={setSelectedTime} dbTests={dbTests} setDbTests={setDbTests} setView={setViewWithRoute} user={user} isProcessing={isProcessing} setIsProcessing={setIsProcessing} />
             </Suspense>
-          )}
-
-          {view === 'stories' && (
+          } />
+          <Route path="/stories" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Stories
-                setCurrentGNewsArticle={setCurrentArticle}
-                dbStories={dbStories}
-                setCurrentStory={setCurrentStory}
-                setDbStories={setDbStories}
-                setView={setView}
-                setCurrentNYTStory={setCurrentNYTStory}
-                setCurrentSpringerArticle={setCurrentSpringerArticle}
-              />
+              <Stories setCurrentGNewsArticle={setCurrentArticle} dbStories={dbStories} setCurrentStory={setCurrentStory} setDbStories={setDbStories} setView={setViewWithRoute} setCurrentNYTStory={setCurrentNYTStory} setCurrentSpringerArticle={setCurrentSpringerArticle} />
             </Suspense>
-          )}
-
-          {view === "article" && (
+          } />
+          <Route path="/profile" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <GNewsReader
-                article={currentArticle}
-                setView={setView}
-               />
+              <Profile chatInput={chatInput} setChatInput={setChatInput} setHistoryId={setHistoryId} chatMessages={chatMessages} handleSendMessage={handleSendMessage} user={user} setView={setViewWithRoute} chatScrollRef={chatScrollRef} isChatting={isChatting} setChatMessages={setChatMessages} setIsChatting={setIsChatting} />
             </Suspense>
-          )}
-          
-
-          {view === 'story-gen' && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <StoryGen
-                user={user}
-                userWords={userWords}
-                storyOptions={storyOptions}
-                setStoryOptions={setStoryOptions}
-                setIsProcessing={setIsProcessing}
-                isProcessing={isProcessing}
-                setDbStories={setDbStories}
-                dbStories={dbStories}
-                setCurrentStory={setCurrentStory}
-                setView={setView} 
-              />
-            </Suspense>
-          )}
-
-          {view === 'story-reader' && currentStory && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <StoryReading
-                currentStory={currentStory}
-                definition={definition}
-                handleAddWord={handleAddWord}
-                handleAddToDefaultGroup={handleAddToDefaultGroup}
-                handleLookup={handleLookup}
-                setDefinition={setDefinition}
-                setView={setView} 
-              />
-            </Suspense>
-          )}
-
-
-          {view === 'nytimes-story' && currentNYTStory && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <NYTStoryReader
-                currentStory={currentNYTStory}
-                setView={setView}
-              />
-            </Suspense>
-          )}
-
-          {view === 'springer-reader' && currentSpringerArticle && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <SpringerReader
-                article={currentSpringerArticle}
-                setView={setView}
-                onSaveWord={handleAddWord}
-              />
-            </Suspense>
-          )}
-
-          {view === 'ai-gen' && (
-            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <AiPracticeGenerator
-                isProcessing={isProcessing}
-                setIsProcessing={setIsProcessing}
-                dbTests={dbTests}
-                setDbTests={setDbTests}
-                userWords={userWords}
-                user={user}
-                selectedTime={selectedTime}
-                setSelectedTime={setSelectedTime}
-                setView={setView}
-                startTest={startTest}
-              />
-            </Suspense>
-          )}
-
-          {view === 'words' && (
-            <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-              className="focus-mode space-y-8">
-              <PasteWord handleDeleteGroup={handleDeleteWord} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setView} setCurrentWordGroup={setCurrentWordGroup} />
+          } />
+          <Route path="/words" element={
+            <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="focus-mode space-y-8">
+              <PasteWord handleDeleteGroup={handleDeleteWord} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setViewWithRoute} setCurrentWordGroup={setCurrentWordGroup} />
             </motion.div>
-          )}
-
-          {view === 'word-group' && (
+          } />
+          <Route path="/testing" element={
+            currentTest ? <TestingPage eliminated={eliminated} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} isHighlighterActive={isHighlighterActive} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
+          } />
+          <Route path="/results" element={
+            currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
+          } />
+          <Route path="/history" element={<HistoryDetail historyId={historyId} />} />
+          <Route path="/ai-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <WordGroupView group={currentWordGroup} setView={setView} handleDeleteWord={handleDeleteWord} />
+              <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} dbTests={dbTests} setDbTests={setDbTests} userWords={userWords} user={user} selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} startTest={startTest} />
             </Suspense>
-          )}
-
-          {view === 'profile' && (
+          } />
+          <Route path="/story-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Profile
-                chatInput={chatInput}
-                setChatInput={setChatInput}
-                setHistoryId={setHistoryId}
-                chatMessages={chatMessages}
-                handleSendMessage={handleSendMessage}
-                user={user}
-                setView={setView}
-                chatScrollRef={chatScrollRef}
-                isChatting={isChatting}
-                setChatMessages={setChatMessages}
-                setIsChatting={setIsChatting}
-              />
+              <StoryGen user={user} userWords={userWords} storyOptions={storyOptions} setStoryOptions={setStoryOptions} setIsProcessing={setIsProcessing} isProcessing={isProcessing} setDbStories={setDbStories} dbStories={dbStories} setCurrentStory={setCurrentStory} setView={setViewWithRoute} />
             </Suspense>
-          )}
-
-          {view === 'testing' && currentTest && (
-            <TestingPage
-              eliminated={eliminated}
-              currentQuestionIndex={currentQuestionIndex}
-              setEliminated={setEliminated}
-              setLocalWords={setLocalWords}
-              localWords={localWords}
-              isHighlighterActive={isHighlighterActive}
-              timeLeft={timeLeft}
-              currentTest={currentTest}
-              setCurrentQuestionIndex={setCurrentQuestionIndex}
-              handleCompleteTest={handleCompleteTest}
-              setIsHighlighterActive={setIsHighlighterActive} 
-            />
-          )}
-
-            {view === 'results' && currentTest && (
-              <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-                <Results
-                  setView={setView}
-                  data={result}
-                  currentTest={currentTest} 
-                />
-              </Suspense>
-            )}
-            
-            {view === 'history' && (
-              <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-                <HistoryDetail historyId={historyId} />
-              </Suspense>
-            )}
-        </AnimatePresence>
+          } />
+          <Route path="/story-reader" element={
+            currentStory ? <StoryReading currentStory={currentStory} definition={definition} handleAddWord={handleAddWord} handleAddToDefaultGroup={handleAddToDefaultGroup} handleLookup={handleLookup} setDefinition={setDefinition} setView={setViewWithRoute} /> : <div>Loading...</div>
+          } />
+          <Route path="/word-group/:groupName" element={
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+              <WordGroupView group={currentWordGroup} setView={setViewWithRoute} handleDeleteWord={handleDeleteWord} />
+            </Suspense>
+          } />
+          <Route path="/nytimes-story" element={
+            currentNYTStory ? <NYTStoryReader currentStory={currentNYTStory} setView={setViewWithRoute} /> : <div>Loading...</div>
+          } />
+          <Route path="/springer-reader" element={
+            currentSpringerArticle ? <SpringerReader article={currentSpringerArticle} setView={setViewWithRoute} onSaveWord={handleAddWord} /> : <div>Loading...</div>
+          } />
+          <Route path="/article" element={
+            currentArticle ? <GNewsReader article={currentArticle} setView={setViewWithRoute} /> : <div>Loading...</div>
+          } />
+        </Routes>
       </main>
     </div>
   );
 }
-

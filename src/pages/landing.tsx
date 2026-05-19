@@ -1,16 +1,18 @@
 import { Lock, Sparkles, BookOpen, Star, CheckCircle, X, Eye, EyeOff, Mail, User, ArrowRight, Loader2, ChevronRight, TrendingUp } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { faqs, features, stats, testimonials } from '../constants';
 import api from '../services/api';
+import { AppUser } from '../types';
 
 interface landingProps {
     setUser: React.Dispatch<React.SetStateAction<any>>;
     setView: React.Dispatch<React.SetStateAction<string>>;
     fetchAll: (userId: string) => void;
+    user: AppUser | null;
 }
 
-const LandingPage = ({ fetchAll, setUser, setView }: landingProps) => {
+const LandingPage = ({ fetchAll, setUser, user, setView }: landingProps) => {
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     const [showPassword, setShowPassword] = useState(false);
@@ -56,7 +58,11 @@ const LandingPage = ({ fetchAll, setUser, setView }: landingProps) => {
       }
     };
 
-
+    useEffect(() => {
+        if(user) {
+            setView("dashboard");
+        }
+    })
     
 
     return (

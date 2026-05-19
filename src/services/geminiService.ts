@@ -110,13 +110,26 @@ STRICT RULES:
 - Questions must sound exactly like official Bluebook DSAT questions.
 
 Allowed stem styles include:
-- "Which choice best completes the text with the most logical and precise word or phrase?"
-- "Which choice completes the text so that it conforms to the conventions of Standard English?"
-- "Which choice most logically completes the text?"
+## Information and Ideas
 - "Which choice best states the main idea of the text?"
+- "Which choice most logically completes the text?"
+- "Based on the text and According to the text questions! as real DSAT questions!"
+- "Which finding, if true, would most directly support or undermine someone's hypothesis?"
+- "Which quotation from the interviews best illustrates something or someone's claim or another!"
+- "Notes/synthesis/revision/support/inference questions in official DSAT style."
+
+## Craft and Structure
+- "Which choice best completes the text with the most logical and precise word or phrase?"
+- "Which choice best states the main purpose of the text?"
+- "Which choice best describes the function of the third sentence in the overall structure of the text?"
 - "Which choice best describes the overall structure of the text?"
-- "Which choice best completes the text with the most logical transition?"
-- Notes/synthesis/revision/support/inference questions in official DSAT style.
+
+## Expression of Ideas
+- "The student Notes question"
+- "Which choice completes the text with the most logical transition?"
+
+## Standard English Conventions
+- "Which choice completes the text so that it conforms to the conventions of Standard English?"
 
 QUESTION DISTRIBUTION:
 - Within each category, distribute different official DSAT subtypes as evenly as possible instead of repeatedly generating the same subtype.

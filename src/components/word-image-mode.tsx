@@ -111,7 +111,7 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
                         const translatedArray = info.data.translations.translatedText;
                         
                         const finalResult = translatedArray[0]; 
-                        const response = finalResult.split(",");
+                        const response = finalResult.split("\n");
                         const finalWordsList = extractedText
                             .split(/\r?\n/)
                             .map(line => line.trim())

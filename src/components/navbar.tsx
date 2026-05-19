@@ -6,7 +6,7 @@ import { Dispatch, SetStateAction, useState, useCallback, useMemo } from "react"
 
 interface NavbarProps {
     view: string;
-    setView: Dispatch<SetStateAction<"landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test">>
+    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
     setUser: Dispatch<SetStateAction<{ _id: string; displayName: string; email: string } | null>>;
     user: { _id: string; displayName: string; email: string } | null;
     formatTime?: (seconds: number) => string;
