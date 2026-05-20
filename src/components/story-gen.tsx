@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 interface StoryGenProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-  userWords: GroupWord[]; // Will be GroupWord[] but using any for compatibility
+  userWords: GroupWord[];
   storyOptions: {
     topic: string;
     category: string;
@@ -24,40 +24,25 @@ interface StoryGenProps {
 }
 
 const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, setCurrentStory, setDbStories, user, setView, storyOptions, userWords }: StoryGenProps) => {
-  const [selectedWordGroup, setSelectedWordGroup] = useState<string[]>([]);
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
 
-  const groupedWords = useMemo(() => {
-    const groups: { [key: string]: { term: string }[] } = {};
-    
-    // Flatten all words from all groups
-    const allWords: { term: string }[] = [];
-    userWords.forEach((group: any) => {
-      if (group.words && Array.isArray(group.words)) {
-        group.words.forEach((word: any) => {
-          allWords.push({ term: word.term });
-        });
-      }
-    });
-    
-    // Group by 20s
-    allWords.forEach((word, index) => {
-      const groupIndex = Math.floor(index / 20);
-      const groupKey = `Group ${groupIndex + 1}`;
-      if (!groups[groupKey]) groups[groupKey] = [];
-      groups[groupKey].push(word);
-    });
-    
-    return groups;
+  // UserWords to'g'ridan-to'g'ri guruhlar sifatida ishlatiladi
+  const availableGroups = useMemo(() => {
+    return userWords.filter(group => group.words && group.words.length > 0);
   }, [userWords]);
 
   const handleCreateStory = async () => {
     if (!storyOptions.topic || isProcessing) return;
     setIsProcessing(true);
     try {
-      const allSelectedWords = selectedWordGroup
-      .flatMap(group => groupedWords[group] || [])
-      .map(word => word.term)
-      .join(", ");
+      // Tanlangan guruhlardan barcha so'zlarni yig'ish
+      const allSelectedWords = selectedGroupIds
+        .flatMap(groupId => {
+          const group = userWords.find(g => g._id === groupId);
+          return group ? group.words.map(w => w.term) : [];
+        })
+        .join(", ");
+      
       const result = await generateStory(storyOptions.category, storyOptions.topic, storyOptions.length, allSelectedWords);
       const res = await fetch("/api/stories", {
         method: "POST",
@@ -69,10 +54,31 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
       setCurrentStory(saved);
       setView('story-reader');
     } catch (e) {
-      alert("Story generation failed.");
+      console.error("Story generation failed:", e);
+      alert("Story generation failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleGroupSelect = (groupId: string) => {
+    setSelectedGroupIds(prev => {
+      if (prev.includes(groupId)) {
+        return prev.filter(id => id !== groupId);
+      }
+      return [...prev, groupId];
+    });
+  };
+
+  const removeGroup = (groupId: string) => {
+    setSelectedGroupIds(prev => prev.filter(id => id !== groupId));
+  };
+
+  const getTotalSelectedWords = () => {
+    return selectedGroupIds.reduce((total, groupId) => {
+      const group = userWords.find(g => g._id === groupId);
+      return total + (group?.words.length || 0);
+    }, 0);
   };
 
   return (
@@ -165,86 +171,94 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
 
           <div className="space-y-6">
             <div className="space-y-3">
-              {/* Group Selector */}
-              {Object.keys(groupedWords).length > 0 && (
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-00 uppercase tracking-wider">
+              {/* Group Selector - UserWords guruhlarini to'g'ridan-to'g'ri ko'rsatish */}
+              {availableGroups.length > 0 && (
+                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wider">
                     <Layers className="w-3.5 h-3.5" />
-                    Select Word Group
+                    Select Word Groups
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                  
+                  <div className="space-y-2">
+                    <div className="relative">
                       <select
-                        value={selectedWordGroup}
-                        onChange={e => setSelectedWordGroup(prev => {
-                          if (prev.includes(e.target.value)) {
-                            return prev.filter(group => group !== e.target.value);
-                          }
-                          return [...prev, e.target.value];
-                        })}
+                        onChange={(e) => handleGroupSelect(e.target.value)}
+                        value=""
                         className="w-full appearance-none bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
                       >
-                        {Object.entries(groupedWords).map(([groupKey, words]) => (
-                          <option key={groupKey} value={groupKey}>
-                            {groupKey} ({words.length} words)
+                        <option value="" disabled>Choose a word group...</option>
+                        {availableGroups.map((group) => (
+                          <option key={group._id} value={group._id}>
+                            {group.title} ({group.words.length} words)
                           </option>
                         ))}
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                     </div>
-                  </div>
-                  {selectedWordGroup.length > 0 && groupedWords[selectedWordGroup[0]] && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedWordGroup.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {selectedWordGroup
-                            .flatMap(group => groupedWords[group] || [])
-                            .slice(0, 6)
-                            .map(w => (
-                              <span
-                                key={w.term}
-                                className="px-2 py-0.5 bg-blue-100 text-blue-950 rounded text-[10px] font-bold"
-                              >
-                                {w.term}
-                              </span>
-                            ))}
 
-                          {selectedWordGroup.flatMap(group => groupedWords[group] || []).length > 6 && (
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold">
-                              +
-                              {selectedWordGroup.flatMap(group => groupedWords[group] || []).length - 6}
-                              {" "}more
-                            </span>
-                          )}
+                    {/* Selected groups display */}
+                    {selectedGroupIds.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-xs font-medium text-slate-600">
+                          Selected Groups ({getTotalSelectedWords()} total words):
                         </div>
-                      )}
-                    </div>
-                  )}
+                        <div className="space-y-2">
+                          {selectedGroupIds.map(groupId => {
+                            const group = userWords.find(g => g._id === groupId);
+                            if (!group) return null;
+                            
+                            return (
+                              <div key={groupId} className="bg-white rounded-lg border border-slate-200 p-2">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <span className="text-sm font-semibold text-slate-800">{group.title}</span>
+                                    <span className="text-xs text-slate-500 ml-2">({group.words.length} words)</span>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="cursor-pointer h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => removeGroup(groupId)}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {group.words.slice(0, 8).map((word, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="px-2 py-0.5 bg-blue-100 text-blue-950 rounded text-[10px] font-medium"
+                                    >
+                                      {word.term}
+                                    </span>
+                                  ))}
+                                  {group.words.length > 8 && (
+                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-medium">
+                                      +{group.words.length - 8} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-            </div>
 
-            <div>
-              {selectedWordGroup.length > 0 && (
-                <div className="text-xs text-slate-500">
-                  {selectedWordGroup.slice(0, 3).map(group => (
-                    <div key={group} className="flex w-full items-center justify-between p-2 border m-1">
-                      <div className="flex gap-x-2">
-                        <span className="text-blue-950">{group}</span>
-                        <span>({groupedWords[group]?.length} words)</span>
-                      </div>
-
-                      <Button variant="ghost" size="sm" className="cursor-pointer" onClick={() => setSelectedWordGroup(prev => prev.filter(p => p !== group))}>
-                        <Trash2 className="w-2 h-2" />
-                      </Button>
-                    </div>
-                  ))}
-
-                   {selectedWordGroup.length > 3 && (
-                        <span className="px-2 py-0.5 bg-blue-950 text-white rounded text-[10px] mx-2 my-4">
-                          And more +{selectedWordGroup.length - 3}
-                        </span>
-                    )}
+              {availableGroups.length === 0 && (
+                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 text-center">
+                  <p className="text-sm text-amber-800">
+                    No word groups available. Please add some words to your vocabulary first.
+                  </p>
+                  <button
+                    onClick={() => setView('words')}
+                    className="mt-2 text-sm text-amber-900 underline font-medium"
+                  >
+                    Go to Words →
+                  </button>
                 </div>
               )}
             </div>
@@ -256,7 +270,8 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
             <div className="flex-1">
               <div className="text-xs text-slate-500 mb-2">
                 {storyOptions.topic ? '✓ Topic defined' : '⚠ Topic required'} • 
-                {storyOptions.category ? ' ✓ Category selected' : ' ⚠ Category required'}
+                {storyOptions.category ? ' ✓ Category selected' : ' ⚠ Category required'} •
+                {selectedGroupIds.length > 0 ? ` ✓ ${getTotalSelectedWords()} words selected` : ' ⚠ No word groups selected'}
               </div>
               <div className="text-xs text-slate-400">
                 Estimated reading time: {storyOptions.length === 'short' ? '1-2 min' : storyOptions.length === 'medium' ? '3-4 min' : '6-8 min'}
@@ -264,7 +279,7 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
             </div>
             <button 
               onClick={handleCreateStory}
-              disabled={isProcessing || !storyOptions.topic}
+              disabled={isProcessing || !storyOptions.topic || selectedGroupIds.length === 0}
               className="w-full sm:w-auto px-8 py-4 bluebook-button flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all font-bold"
             >
               {isProcessing ? (
