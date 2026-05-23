@@ -4,7 +4,6 @@ import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
 import dotenv from "dotenv";
-import { generateGroupName } from "./backend/utils";
 
 // Routes
 import TestRouter from "./backend/controller/test.controller"

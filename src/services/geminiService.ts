@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import axios from "axios";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -90,69 +91,69 @@ export async function parseTestContent(testText: string, keyText: string): Promi
 export async function generateSATTest(category: string, difficulty: string, count: number, words?: string): Promise<ParsedTest> {
   const model = "gemini-3-flash-preview";
   const systemInstruction = `
-You are an expert Digital SAT (DSAT) Reading & Writing question writer.
+  You are an expert Digital SAT (DSAT) Reading & Writing question writer.
 
-Create ONLY official-style current DSAT questions.
+  Create ONLY official-style current DSAT questions.
 
-Category: ${category}
-Difficulty: ${difficulty}
-Question Count: ${count}
+  Category: ${category}
+  Difficulty: ${difficulty}
+  Question Count: ${count}
 
-${words 
-  ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
-  : ''
-}
+  ${words 
+    ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
+    : ''
+  }
 
-STRICT RULES:
-- ONLY use real DSAT Reading & Writing question formats.
-- NEVER create custom or vocabulary-definition questions.
-- NEVER ask about the function or meaning of a specific word.
-- Questions must sound exactly like official Bluebook DSAT questions.
+  STRICT RULES:
+  - ONLY use real DSAT Reading & Writing question formats.
+  - NEVER create custom or vocabulary-definition questions.
+  - NEVER ask about the function or meaning of a specific word.
+  - Questions must sound exactly like official Bluebook DSAT questions.
 
-Allowed stem styles include:
-## Information and Ideas
-- "Which choice best states the main idea of the text?"
-- "Which choice most logically completes the text?"
-- "Based on the text and According to the text questions! as real DSAT questions!"
-- "Which finding, if true, would most directly support or undermine someone's hypothesis?"
-- "Which quotation from the interviews best illustrates something or someone's claim or another!"
-- "Notes/synthesis/revision/support/inference questions in official DSAT style."
+  Allowed stem styles include:
+  ## Information and Ideas
+  - "Which choice best states the main idea of the text?"
+  - "Which choice most logically completes the text?"
+  - "Based on the text and According to the text questions! as real DSAT questions!"
+  - "Which finding, if true, would most directly support or undermine someone's hypothesis?"
+  - "Which quotation from the interviews best illustrates something or someone's claim or another!"
+  - "Notes/synthesis/revision/support/inference questions in official DSAT style."
 
-## Craft and Structure
-- "Which choice best completes the text with the most logical and precise word or phrase?"
-- "Which choice best states the main purpose of the text?"
-- "Which choice best describes the function of the third sentence in the overall structure of the text?"
-- "Which choice best describes the overall structure of the text?"
+  ## Craft and Structure
+  - "Which choice best completes the text with the most logical and precise word or phrase?"
+  - "Which choice best states the main purpose of the text?"
+  - "Which choice best describes the function of the third sentence in the overall structure of the text?"
+  - "Which choice best describes the overall structure of the text?"
 
-## Expression of Ideas
-- "The student Notes question"
-- "Which choice completes the text with the most logical transition?"
+  ## Expression of Ideas
+  - "The student Notes question"
+  - "Which choice completes the text with the most logical transition?"
 
-## Standard English Conventions
-- "Which choice completes the text so that it conforms to the conventions of Standard English?"
+  ## Standard English Conventions
+  - "Which choice completes the text so that it conforms to the conventions of Standard English?"
 
-QUESTION DISTRIBUTION:
-- Within each category, distribute different official DSAT subtypes as evenly as possible instead of repeatedly generating the same subtype.
-- Example for craft-structure: balance vocabulary-in-context, overall structure, main purpose, text function, and similar official DSAT subtypes.
+  QUESTION DISTRIBUTION:
+  - Within each category, distribute different official DSAT subtypes as evenly as possible instead of repeatedly generating the same subtype.
+  - Example for craft-structure: balance vocabulary-in-context, overall structure, main purpose, text function, and similar official DSAT subtypes.
 
-REQUIREMENTS:
-- Every question must contain a realistic DSAT-style passage.
-- Use authentic SAT tone and difficulty.
-- Include exactly 4 answer choices (A-D).
-- One correct answer only.
-- Wrong answers must be realistic DSAT distractors.
-- Category must ONLY be:
-  information-ideas
-  craft-structure
-  expression-ideas
-  standard-conventions
+  REQUIREMENTS:
+  - Every question must contain a realistic DSAT-style passage.
+  - Use authentic SAT tone and difficulty.
+  - Include exactly 4 answer choices (A-D).
+  - One correct answer only.
+  - Wrong answers must be realistic DSAT distractors.
+  - Category must ONLY be:
+    information-ideas
+    craft-structure
+    expression-ideas
+    standard-conventions
 
-OUTPUT:
-- Return clean valid JSON only.
-- No markdown.
-- No explanations.
-- No formatting artifacts.
-`;
+  OUTPUT:
+  - Return clean valid JSON only.
+  - No markdown.
+  - No explanations.
+  - No formatting artifacts.
+  `;
 
   const response = await ai.models.generateContent({
     model,
@@ -190,47 +191,73 @@ OUTPUT:
   return cleanTest(JSON.parse(response.text || "{}"));
 }
 
-export async function generateStory(category: string, topic: string, length: 'short' | 'medium' | 'long', words?: string): Promise<{ title: string, content: string }> {
-  const model = "gemini-3-flash-preview";
-  const systemInstruction = `
-    You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
-    ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.
+export async function generateStory(
+  genre: string,
+  topic: string,
+  length: 'medium' | 'long' | 'extended',
+  words?: string,
+  description?: string
+): Promise<{ title: string, content: string }> {
+  const lengthMap = { medium: '~500 words', long: '~1000 words', extended: '~2000 words' };
+  const tokenMap = { medium: 800, long: 1500, extended: 2800 };
 
-    WORD USAGE RULES (CRITICAL):
-    - Each vocabulary word MUST be used in a context that makes its meaning clear and understandable from surrounding sentences.
-    - Do NOT just list the words or force them awkwardly. They should feel like natural parts of the story.
-    - Use the words in ways that reveal their definitions through context clues, actions, or character dialogue.
-    - If a word is abstract, embody it through concrete situations or character decisions.
-    - The story should remain engaging and coherent — never sacrifice readability for vocabulary insertion.
-    - Aim for at least ONE meaningful usage of each provided word.` : ''}
-
-    Structure:
-    - Title: Attractive and relevant.
-    - Content: Polished prose, well-structured paragraphs.
-    - Length Guidelines: ${length === 'short' ? 'Short (~250 words)' : length === 'medium' ? 'Medium (~500 words)' : 'Long (~1000 words)'}
-
-    Format the output as a JSON object with 'title' and 'content' keys.
-  `;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: "Write the story now." }],
-    config: { 
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          content: { type: "string" }
-        },
-        required: ["title", "content"]
-      }
-    }
+  const { data } = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: 'You are a storyteller. Respond with valid JSON: {"title": "...", "content": "..."}' },
+      { role: 'user', content: `Create a ${genre} story about "${topic}". ${description ? `Context: ${description}` : ''} ${words ? `Include these words naturally in their context: ${words}` : ''} Length: ${lengthMap[length]}` }
+    ],
+    temperature: 0.8,
+    max_tokens: tokenMap[length],
+    response_format: { type: "json_object" }
+  }, {
+    headers: { 'Authorization': `Bearer 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`, 'Content-Type': 'application/json' }
   });
-
-  return JSON.parse(response.text || "{}");
+  
+  return JSON.parse(data.choices[0].message.content);
 }
+
+// export async function generateStory(category: string, topic: string, length: 'short' | 'medium' | 'long', words?: string): Promise<{ title: string, content: string }> {
+//   const model = "gemini-3-flash-preview";
+//   const systemInstruction = `
+//     You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
+//     ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.
+
+//     WORD USAGE RULES (CRITICAL):
+//     - Each vocabulary word MUST be used in a context that makes its meaning clear and understandable from surrounding sentences.
+//     - Do NOT just list the words or force them awkwardly. They should feel like natural parts of the story.
+//     - Use the words in ways that reveal their definitions through context clues, actions, or character dialogue.
+//     - If a word is abstract, embody it through concrete situations or character decisions.
+//     - The story should remain engaging and coherent — never sacrifice readability for vocabulary insertion.
+//     - Aim for at least ONE meaningful usage of each provided word.` : ''}
+
+//     Structure:
+//     - Title: Attractive and relevant.
+//     - Content: Polished prose, well-structured paragraphs.
+//     - Length Guidelines: ${length === 'short' ? 'Short (~250 words)' : length === 'medium' ? 'Medium (~500 words)' : 'Long (~1000 words)'}
+
+//     Format the output as a JSON object with 'title' and 'content' keys.
+//   `;
+
+//   const response = await ai.models.generateContent({
+//     model,
+//     contents: [{ text: "Write the story now." }],
+//     config: { 
+//       systemInstruction,
+//       responseMimeType: "application/json",
+//       responseSchema: {
+//         type: "object",
+//         properties: {
+//           title: { type: "string" },
+//           content: { type: "string" }
+//         },
+//         required: ["title", "content"]
+//       }
+//     }
+//   });
+
+//   return JSON.parse(response.text || "{}");
+// }
 
 export async function chatWithAI(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) {
   const model = "gemini-3-flash-preview";
@@ -243,54 +270,6 @@ export async function chatWithAI(message: string, history: { role: 'user' | 'mod
   });
   
   return response.text;
-}
-
-export async function generateWordsTest(category: string, words: string, count: number): Promise<ParsedTest> {
-  const model = "gemini-3-flash-preview";
-  const systemInstruction = `
-    You are a language teacher. Create a high-level vocabulary test.
-    Focus on these specific words: ${words}.
-    Target Category/Context: ${category}.
-    
-    Create ${count} questions. 
-    Every question MUST be context-based (sentence completion or passage analysis) within the ${category} field.
-    Use the provided words as the primary focus for correct answers or essential context.
-    Metdata: For every question, include its "difficulty" (assign based on complexity) and "category" (matching Vocabulary: ${category}).
-    CRITICAL: Clean all text from artifacts like "\\n*".
-  `;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: `Create a ${count} question ${category} test using these words: ${words}` }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          questions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                text: { type: Type.STRING },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER },
-                difficulty: { type: Type.STRING },
-                category: { type: Type.STRING }
-              },
-              required: ["id", "text", "options", "correctAnswerIndex", "difficulty", "category"]
-            }
-          }
-        },
-        required: ["title", "questions"]
-      }
-    }
-  });
-
-  return cleanTest(JSON.parse(response.text || "{}"));
 }
 
 export async function translateText(text: string, from: string, to: string): Promise<string> {

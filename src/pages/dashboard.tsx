@@ -433,11 +433,11 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
                     animate={{ opacity: 1 }}
                     className="group p-4 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex md:items-center items-start justify-between flex-wrap gap-3">
                       {/* Test Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <h3 className="font-medium text-gray-800 truncate">
+                          <h3 className="md:font-medium text-sm! text-gray-800 truncate">
                             {test.title}
                           </h3>
                           {test.difficulty && (
@@ -461,36 +461,36 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">
-                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <div className="md:opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                           <button 
                             onClick={() => handleUpdateTimeLimit(test._id, test.timeLimit || 30)} 
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                            className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
                             title="Edit Time"
                           >
-                            <Clock className="w-3.5 h-3.5" />
+                            <Clock className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
                           </button>
                           <button 
                             onClick={() => handleRenameTest(test._id, test.title)} 
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                            className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
                             title="Rename"
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
+                            <Edit2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteTest(test._id)} 
-                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                            className="md:p-1.5 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
                             title="Delete"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
                           </button>
                         </div>
                         
                         <button 
                           onClick={() => startTest(test._id)} 
-                          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1
+                          className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
                             ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
                         >
-                          Start <ChevronRight className="w-3.5 h-3.5" />
+                          Start <ChevronRight className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
                         </button>
                       </div>
                     </div>

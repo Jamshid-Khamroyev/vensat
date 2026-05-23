@@ -1,6 +1,6 @@
 import {motion} from 'framer-motion';
 import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } from "lucide-react"
-import { generateSATTest, generateWordsTest } from '../services/geminiService';
+import { generateSATTest } from '../services/geminiService';
 import axios from '../services/api';
 import { GroupWord, TestRecord } from '../types';
 import { group } from 'console';

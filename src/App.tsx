@@ -339,12 +339,15 @@ export default function App() {
 
   const handleCompleteTest = async (answers: {questionId: string, selectedIndex: number}[], id: string) => {
     try {
+      setIsProcessing(true)
       const response = await api.post(`/api/tests/${id}/check`, { answers });
       console.log(response.data);
       setResult(response.data);
       setViewWithRoute('results');
     } catch (error) {
       console.log(`Error completing test: ${error}`);
+    } finally {
+      setIsProcessing(false)
     }
   };
 
@@ -402,7 +405,7 @@ export default function App() {
             </motion.div>
           } />
           <Route path="/testing" element={
-            currentTest ? <TestingPage eliminated={eliminated} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} isHighlighterActive={isHighlighterActive} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
+            currentTest ? <TestingPage eliminated={eliminated} isProcessing={isProcessing} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} isHighlighterActive={isHighlighterActive} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
           } />
           <Route path="/results" element={
             currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
@@ -423,7 +426,7 @@ export default function App() {
           } />
           <Route path="/word-group/:groupName" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <WordGroupView group={currentWordGroup} setView={setViewWithRoute} handleDeleteWord={handleDeleteWord} />
+              <WordGroupView group={currentWordGroup} user={user} setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/nytimes-story" element={
