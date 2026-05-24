@@ -112,7 +112,7 @@ const WordGroupView = ({ setView, group, user, setDbStories, setCurrentStory }: 
     
     try {
       const allWords = words.map(w => w.term).join(", ");
-      const result = await generateStory("Fantasy", "Any", "medium", allWords);
+      const result = await generateStory("Fantasy", "Any fantasty and professional theme", "medium", allWords);
       
       if (!result.title || !result.content) throw new Error('Story not generated');
       

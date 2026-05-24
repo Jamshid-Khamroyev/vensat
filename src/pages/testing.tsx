@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Highlighter, X, Minimize2, Maximize2, Flag, BookOpen, Loader2, PlusCircle, RotateCcw, Strikethrough, ChevronRight, ChevronLeft, FileText } from "lucide-react";
+import { X, Minimize2, Maximize2, Flag, BookOpen, Loader2, PlusCircle, RotateCcw, Strikethrough, ChevronRight, ChevronLeft, FileText } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { ParsedTest } from "../services/geminiService";
@@ -10,21 +10,17 @@ interface TestingPageProps {
     setEliminated: (eliminated: Record<number, number[]> | ((prev: Record<number, number[]>) => Record<number, number[]>)) => void;
     setLocalWords: (words: { term: string; definition?: string }[]) => void;
     localWords: { term: string; definition?: string }[];
-    isHighlighterActive: boolean;
     isProcessing: boolean;
     timeLeft: number;
     currentTest: ParsedTest;
     setCurrentQuestionIndex: Dispatch<SetStateAction<number>>;
     handleCompleteTest: (userAnswers: any, id: string) => void;
-    setIsHighlighterActive: (active: boolean) => void;
 }
 
 const TestingPage = ({ 
     eliminated, currentQuestionIndex, setEliminated, setLocalWords, localWords, 
-    isHighlighterActive, timeLeft, currentTest, setCurrentQuestionIndex, 
-    handleCompleteTest, setIsHighlighterActive, isProcessing
+    timeLeft, currentTest, setCurrentQuestionIndex, handleCompleteTest, isProcessing
 }: TestingPageProps) => {
-    const [highlightColor, setHighlightColor] = useState<'yellow' | 'pink' | 'green'>('yellow');
     const [loadingVocab, setLoadingVocab] = useState<string | null>(null);
     const [vocabMeanings, setVocabMeanings] = useState<Record<string, string>>({});
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -32,7 +28,38 @@ const TestingPage = ({
     const [notes, setNotes] = useState<Record<number, string>>({});
     const [showNotes, setShowNotes] = useState(false);
     const [tempNote, setTempNote] = useState("");
-    const passageRef = useRef<HTMLDivElement>(null);
+    const [isFinishing, setIsFinishing] = useState(false);
+    const [isTestDisabled, setIsTestDisabled] = useState(false);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const testCompletedRef = useRef(false);
+
+    const currentQ = currentTest.questions[currentQuestionIndex];
+    const isVocabQuestion = currentQ.category?.toLowerCase().includes('vocab');
+    const currentAnswer = userAnswers.find(a => a.questionId === currentQ._id)?.selectedIndex;
+    const currentNote = notes[currentQuestionIndex];
+
+    // Format time display
+    const formatTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Check if time is up and auto-submit
+    useEffect(() => {
+        if (timeLeft <= 0 && !testCompletedRef.current && !isTestDisabled) {
+            setIsTestDisabled(true);
+            testCompletedRef.current = true;
+            toast.error("Time's up! Submitting your test...");
+            
+            // Auto submit after 1 second
+            const timer = setTimeout(() => {
+                handleAutoComplete();
+            }, 1000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [timeLeft]);
 
     // Load saved answers from localStorage on mount
     useEffect(() => {
@@ -48,15 +75,34 @@ const TestingPage = ({
 
     // Save answers to localStorage whenever they change
     useEffect(() => {
-        localStorage.setItem('aero_user_answers', JSON.stringify(userAnswers));
-    }, [userAnswers]);
+        if (!isTestDisabled) {
+            localStorage.setItem('aero_user_answers', JSON.stringify(userAnswers));
+        }
+    }, [userAnswers, isTestDisabled]);
 
     // Save notes to localStorage
     useEffect(() => {
-        localStorage.setItem('aero_test_notes', JSON.stringify(notes));
-    }, [notes]);
+        if (!isTestDisabled) {
+            localStorage.setItem('aero_test_notes', JSON.stringify(notes));
+        }
+    }, [notes, isTestDisabled]);
+
+    const handleAutoComplete = async () => {
+        if (testCompletedRef.current) return;
+        testCompletedRef.current = true;
+        setIsFinishing(true);
+        
+        try {
+            localStorage.removeItem('aero_test_notes');
+            await handleCompleteTest(userAnswers, currentTest._id);
+        } finally {
+            setIsFinishing(false);
+        }
+    };
 
     const handleSelectAnswer = (selectedIdx: number) => {
+        if (isTestDisabled) return;
+        
         const currentQuestion = currentTest.questions[currentQuestionIndex];
         
         setUserAnswers(prev => {
@@ -88,6 +134,8 @@ const TestingPage = ({
     };
 
     const toggleEliminate = (qIdx: number, oIdx: number) => {
+        if (isTestDisabled) return;
+        
         setEliminated(prev => {
             const qElim = prev[qIdx] || [];
             
@@ -104,74 +152,9 @@ const TestingPage = ({
         });
     };
     
-    const applyHighlight = () => {
-        if (!isHighlighterActive) return;
-        
-        const selection = window.getSelection();
-        if (!selection || selection.isCollapsed) return;
-        
-        const range = selection.getRangeAt(0);
-        
-        // Only allow highlighting within passage container
-        if (passageRef.current && !passageRef.current.contains(range.commonAncestorContainer)) {
-            selection.removeAllRanges();
-            return;
-        }
-        
-        if (range.collapsed) return;
-        
-        const selectedText = range.toString();
-        if (!selectedText.trim()) return;
-        
-        try {
-            const span = document.createElement('span');
-            if (highlightColor === 'yellow') {
-                span.style.backgroundColor = '#fef08a';
-            } else if (highlightColor === 'pink') {
-                span.style.backgroundColor = '#fbcfe8';
-            } else if (highlightColor === 'green') {
-                span.style.backgroundColor = '#bbf7d0';
-            }
-            span.style.padding = '0';
-            span.style.borderRadius = '0';
-            span.className = `highlight-${highlightColor}`;
-            
-            range.deleteContents();
-            span.appendChild(document.createTextNode(selectedText));
-            range.insertNode(span);
-            selection.removeAllRanges();
-        } catch (e) {
-            // Fallback for complex selections
-            const span = document.createElement('span');
-            if (highlightColor === 'yellow') {
-                span.style.backgroundColor = '#fef08a';
-            } else if (highlightColor === 'pink') {
-                span.style.backgroundColor = '#fbcfe8';
-            } else if (highlightColor === 'green') {
-                span.style.backgroundColor = '#bbf7d0';
-            }
-            span.style.padding = '0';
-            span.style.borderRadius = '0';
-            span.className = `highlight-${highlightColor}`;
-            span.textContent = selectedText;
-            range.deleteContents();
-            range.insertNode(span);
-            selection.removeAllRanges();
-        }
-    };
-    
-    const clearHighlights = () => {
-        const highlights = document.querySelectorAll('[class^="highlight-"]');
-        highlights.forEach(el => {
-            const parent = el.parentNode;
-            if (parent) {
-                parent.replaceChild(document.createTextNode(el.textContent || ''), el);
-                parent.normalize();
-            }
-        });
-    };
-    
     const saveNote = () => {
+        if (isTestDisabled) return;
+        
         if (tempNote.trim()) {
             setNotes(prev => ({
                 ...prev,
@@ -183,6 +166,8 @@ const TestingPage = ({
     };
 
     const deleteNote = () => {
+        if (isTestDisabled) return;
+        
         setNotes(prev => {
             const newNotes = { ...prev };
             delete newNotes[currentQuestionIndex];
@@ -193,7 +178,9 @@ const TestingPage = ({
     };
     
     const fetchVocabMeaning = async (word: string) => {
+        if (isTestDisabled) return;
         if (vocabMeanings[word]) return;
+        
         setLoadingVocab(word);
         try {
             const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
@@ -218,66 +205,48 @@ const TestingPage = ({
     };
     
     const saveWordTemporarily = (word: string) => {
+        if (isTestDisabled) return;
+        
         const newLocalWords = [...localWords, { term: word }];
         setLocalWords(newLocalWords);
         localStorage.setItem('aero_local_words', JSON.stringify(newLocalWords));
         toast.success(`"${word}" saqlandi`);
     };
 
-    const handleFinishTest = () => {
-        localStorage.removeItem('aero_test_notes');
-        handleCompleteTest(userAnswers, currentTest._id);
+    const handleFinishTest = async () => {
+        if (isTestDisabled || testCompletedRef.current) return;
+        
+        setIsFinishing(true);
+        testCompletedRef.current = true;
+        try {
+            localStorage.removeItem('aero_test_notes');
+            await handleCompleteTest(userAnswers, currentTest._id);
+        } finally {
+            setIsFinishing(false);
+        }
     };
 
-    const currentQ = currentTest.questions[currentQuestionIndex];
-    const isVocabQuestion = currentQ.category?.toLowerCase().includes('vocab');
-    const currentAnswer = userAnswers.find(a => a.questionId === currentQ._id)?.selectedIndex;
-    const currentNote = notes[currentQuestionIndex];
-    
+    // Show time warning when 1 minute remaining
+    useEffect(() => {
+        if (timeLeft === 60) {
+            toast.warning("1 minute remaining!");
+        }
+    }, [timeLeft]);
+
     return (
         <motion.div key="testing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex flex-col bg-white">
             {/* Header */}
             <div className="h-12 border-b border-slate-200 bg-white flex items-center px-2 sm:px-4 gap-1 shrink-0">
-                <span className="font-mono text-xs sm:text-sm text-slate-700">
-                    {Math.floor(timeLeft/60)}:{String(timeLeft%60).padStart(2,"0")}
+                <span className={`font-mono text-sm sm:text-base font-bold ${timeLeft <= 60 ? 'text-red-600 animate-pulse' : 'text-slate-700'}`}>
+                    {formatTime(timeLeft)}
                 </span>
                 
-                <div className="flex items-center gap-0.5">
-                    <button onClick={() => setIsHighlighterActive(!isHighlighterActive)}
-                        className={`h-8 px-2 sm:px-3 rounded-md flex items-center gap-1 text-[10px] sm:text-xs font-semibold uppercase transition ${
-                            isHighlighterActive ? "bg-slate-900 text-white" : "text-slate-500 hover:bg-slate-100"
-                        }`}>
-                        <Highlighter className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">{isHighlighterActive ? "Active" : "Highlight"}</span>
-                    </button>
-                    
-                    {isHighlighterActive && (
-                        <div className="flex items-center gap-0.5 ml-1">
-                            <button onClick={() => setHighlightColor('yellow')}
-                                className={`w-5 h-5 rounded-full transition-all ${highlightColor === 'yellow' ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
-                                style={{ backgroundColor: '#fef08a' }} />
-                            <button onClick={() => setHighlightColor('pink')}
-                                className={`w-5 h-5 rounded-full transition-all ${highlightColor === 'pink' ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
-                                style={{ backgroundColor: '#fbcfe8' }} />
-                            <button onClick={() => setHighlightColor('green')}
-                                className={`w-5 h-5 rounded-full transition-all ${highlightColor === 'green' ? 'ring-2 ring-offset-1 ring-slate-400' : ''}`}
-                                style={{ backgroundColor: '#bbf7d0' }} />
-                        </div>
-                    )}
-                    
-                    <button onClick={clearHighlights}
-                        className="h-8 w-8 sm:w-auto sm:px-3 rounded-md flex items-center justify-center sm:gap-1 text-slate-500 hover:bg-slate-100">
-                        <X className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline text-[10px] font-semibold">Clear</span>
-                    </button>
-                </div>
-                
                 <div className="ml-auto flex items-center gap-1">
-                    <button onClick={() => setShowNotes(!showNotes)}
+                    <button onClick={() => setShowNotes(!showNotes)} disabled={isTestDisabled}
                         className={`h-8 px-2 sm:px-3 rounded-md flex items-center gap-1 text-[10px] sm:text-xs font-semibold transition ${
                             currentNote ? "bg-blue-100 text-blue-900" : "text-slate-500 hover:bg-slate-100"
-                        }`}>
+                        } ${isTestDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
                         <FileText className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Notes</span>
                     </button>
@@ -288,16 +257,16 @@ const TestingPage = ({
                         <span className="hidden sm:inline text-[10px] font-semibold">{isFullscreen ? "Exit" : "Full"}</span>
                     </button>
                     
-                    <button onClick={handleFinishTest}
-                        className="h-8 px-2 sm:px-4 rounded-md bg-blue-900 hover:bg-blue-950 text-white flex items-center gap-1 text-[10px] sm:text-xs font-bold">
-                        <Flag className="w-3.5 h-3.5 sm:hidden" />
-                        <span>{window.innerWidth < 640 ? "End" : "Finish"}</span>
+                    <button onClick={handleFinishTest} disabled={isFinishing || isTestDisabled}
+                        className="h-8 px-2 sm:px-4 rounded-md bg-blue-900 hover:bg-blue-950 text-white flex items-center gap-1 text-[10px] sm:text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isFinishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Flag className="w-3.5 h-3.5 sm:hidden" />}
+                        <span>{window.innerWidth < 640 ? (isFinishing ? "" : "End") : (isFinishing ? "Processing..." : "Finish")}</span>
                     </button>
                 </div>
             </div>
             
             {/* Notes Modal */}
-            {showNotes && (
+            {showNotes && !isTestDisabled && (
                 <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-xl max-w-lg w-full p-4">
                         <div className="flex justify-between items-center mb-3">
@@ -311,13 +280,16 @@ const TestingPage = ({
                             onChange={(e) => setTempNote(e.target.value)}
                             placeholder="Write your notes here..."
                             className="w-full h-32 p-3 border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                            disabled={isTestDisabled}
                         />
                         <div className="flex gap-2 mt-3">
-                            <button onClick={saveNote} className="flex-1 bg-blue-900 text-white py-2 rounded-lg text-sm font-medium">
+                            <button onClick={saveNote} disabled={isTestDisabled}
+                                className="flex-1 bg-blue-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                                 Save Note
                             </button>
                             {currentNote && (
-                                <button onClick={deleteNote} className="px-4 bg-red-50 text-red-600 py-2 rounded-lg text-sm font-medium">
+                                <button onClick={deleteNote} disabled={isTestDisabled}
+                                    className="px-4 bg-red-50 text-red-600 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
                                     Delete
                                 </button>
                             )}
@@ -326,10 +298,22 @@ const TestingPage = ({
                 </div>
             )}
             
+            {/* Time's Up Overlay */}
+            {isTestDisabled && (
+                <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center pointer-events-none">
+                    <div className="bg-white rounded-xl p-6 text-center pointer-events-auto">
+                        <div className="text-5xl mb-4">⏰</div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-2">Time's Up!</h3>
+                        <p className="text-slate-600">Your test is being submitted...</p>
+                        {isFinishing && <Loader2 className="w-6 h-6 animate-spin mx-auto mt-4 text-blue-900" />}
+                    </div>
+                </div>
+            )}
+            
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-8" onMouseUp={applyHighlight}>
+            <div className={`flex-1 overflow-y-auto p-4 sm:p-8 ${isTestDisabled ? 'opacity-50' : ''}`}>
                 <div className="max-w-3xl mx-auto space-y-6">
-                    <div ref={passageRef} className="space-y-4">
+                    <div className="space-y-4">
                         <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
                             {currentQ.text}
                         </p>
@@ -349,12 +333,12 @@ const TestingPage = ({
                                 <div key={idx} className="relative group/opt">
                                     <button 
                                         onClick={() => handleSelectAnswer(idx)} 
-                                        disabled={isEliminated}
+                                        disabled={isEliminated || isTestDisabled}
                                         className={`w-full flex items-start gap-3 p-3 text-left border rounded-lg transition-all duration-150 ${
                                             isSelected ? 'border-blue-900 bg-blue-50/30' : 
                                             isEliminated ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' : 
                                             'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
-                                        }`}>
+                                        } ${isTestDisabled ? 'cursor-not-allowed' : ''}`}>
                                         <span className={`w-6 h-6 shrink-0 flex items-center justify-center rounded border text-xs font-semibold transition-all ${
                                             isSelected ? 'bg-blue-900 border-blue-900 text-white' : 
                                             'border-slate-300 text-slate-500 bg-white'
@@ -374,20 +358,20 @@ const TestingPage = ({
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                                         {isVocabQuestion && (
                                             <>
-                                                <button onClick={() => fetchVocabMeaning(opt)} disabled={loadingVocab === opt}
-                                                    className="p-1.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200">
+                                                <button onClick={() => fetchVocabMeaning(opt)} disabled={loadingVocab === opt || isTestDisabled}
+                                                    className="p-1.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50">
                                                     {loadingVocab === opt ? <Loader2 className="w-3 h-3 animate-spin" /> : <BookOpen className="w-3 h-3" />}
                                                 </button>
-                                                <button onClick={() => saveWordTemporarily(opt)}
-                                                    className="p-1.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200">
+                                                <button onClick={() => saveWordTemporarily(opt)} disabled={isTestDisabled}
+                                                    className="p-1.5 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50">
                                                     <PlusCircle className="w-3 h-3" />
                                                 </button>
                                             </>
                                         )}
-                                        <button onClick={() => toggleEliminate(currentQuestionIndex, idx)}
+                                        <button onClick={() => toggleEliminate(currentQuestionIndex, idx)} disabled={isTestDisabled}
                                             className={`p-1.5 rounded transition-all ${
                                                 isEliminated ? 'bg-slate-100 text-slate-500' : 'text-slate-300 hover:bg-slate-100 hover:text-slate-500'
-                                            }`}>
+                                            } ${isTestDisabled ? 'cursor-not-allowed' : ''}`}>
                                             {isEliminated ? <RotateCcw className="w-3 h-3" /> : <Strikethrough className="w-3 h-3" />}
                                         </button>
                                     </div>
@@ -396,7 +380,7 @@ const TestingPage = ({
                         })}
                     </div>
                     
-                    {currentNote && (
+                    {currentNote && !isTestDisabled && (
                         <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                             <div className="flex items-center gap-2 text-xs font-medium text-blue-900 mb-1">
                                 <FileText className="w-3 h-3" />
@@ -411,7 +395,7 @@ const TestingPage = ({
             {/* Footer */}
             <footer className="h-14 border-t border-slate-200 px-3 sm:px-6 bg-white flex items-center justify-between">
                 <button 
-                    disabled={currentQuestionIndex === 0} 
+                    disabled={currentQuestionIndex === 0 || isTestDisabled} 
                     onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
                     className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200 disabled:opacity-0 flex items-center gap-1 text-sm">
                     <ChevronLeft className="w-4 h-4" /> <span className="hidden sm:inline">Prev</span>
@@ -432,13 +416,13 @@ const TestingPage = ({
                 </div>
                 
                 {currentQuestionIndex === currentTest.questions.length - 1 ? (
-                    <button onClick={handleFinishTest} 
-                        className="bg-blue-900 text-white px-4 py-1.5 rounded-lg hover:opacity-90 text-sm">
-                        {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Finish"}
+                    <button onClick={handleFinishTest} disabled={isFinishing || isTestDisabled}
+                        className="bg-blue-900 text-white px-4 py-1.5 rounded-lg hover:opacity-90 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        {isFinishing ? <Loader2 className="w-4 h-4 animate-spin" /> : "Finish"}
                     </button>
                 ) : (
-                    <button onClick={() => setCurrentQuestionIndex(prev => prev + 1)} 
-                        className="bg-slate-800 text-white px-4 py-1.5 rounded-lg hover:bg-slate-900 flex items-center gap-1 text-sm">
+                    <button onClick={() => setCurrentQuestionIndex(prev => prev + 1)} disabled={isTestDisabled}
+                        className="bg-slate-800 text-white px-4 py-1.5 rounded-lg hover:bg-slate-900 flex items-center gap-1 text-sm disabled:opacity-50">
                         <span className="hidden sm:inline">Next</span> <ChevronRight className="w-4 h-4" />
                     </button>
                 )}
