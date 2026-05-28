@@ -11,12 +11,8 @@ import AuthRouter from "./backend/controller/auth.controller";
 import HistoryRouter from "./backend/controller/history.controller"
 import storyRouter from "./backend/controller/story.controller"
 import WordRouter from "./backend/controller/words.controller"
+import practiceRouter from './backend/controller/practice-word'
 
-// Models
-import { User } from "./backend/models/user.model";
-import { Story } from "./backend/models/story.model";
-import { GroupWords } from "./backend/models/group.words.model";
-import { authenticateToken } from "./backend/midlewere/auth.midlewere";
 
 dotenv.config();
 
@@ -93,6 +89,9 @@ async function startServer() {
 
   // Stories
   app.use('/api/stories', storyRouter)
+
+  // Word practice
+  app.use('/api/word/practice', practiceRouter)
 
   // Global error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

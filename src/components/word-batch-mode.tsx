@@ -54,11 +54,6 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
             return;
         }
         
-        if (parsedPairs.length > 30) {
-            toast.error('Bir martada 30 tadan ko\'p so\'z qo\'shib bo\'lmaydi');
-            return;
-        }
-        
         if (isProcessing) return;
         
         setIsProcessing(true);
@@ -75,6 +70,7 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
                 toast.warning('Ba\'zi so\'zlar uchun gap yaratilmadi, keyin qo\'shishingiz mumkin');
                 generatedData = [];
             }
+            console.log(generatedData);
             
             const sentenceMap = new Map(generatedData.map(item => [item.term, item.sentence]));
 
@@ -84,7 +80,7 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
                 sentence: sentenceMap.get(pair.term) || `${pair.term} uchun misol gap keyin qo'shiladi.`
             }));
 
-            await handleAddWord(wordsToAdd, `Batch Import ${new Date().toLocaleDateString()}`);
+            await handleAddWord(wordsToAdd, `Batch Import ${new Date().toLocaleDateString()} ${Math.floor(Math.random()*1200).toFixed(0)}`);
             
             toast.success(`${wordsToAdd.length} ta so'z muvaffaqiyatli qo'shildi!`, { id: loadingToast });
             setBatchMode(false);

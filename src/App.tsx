@@ -72,7 +72,7 @@ export default function App() {
   const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
   const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
   const [currentSpringerArticle, setCurrentSpringerArticle] = useState<{ title: string; abstract: string; url: string; authors: { name: string }[]; publicationDate: string; journal: string; doi: string; keywords: string[] } | null>(null);
-  const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[] } | null>(null);
+  const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[], _id: string } | null>(null);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
   const [localWords, setLocalWords] = useState<{ term: string; definition?: string }[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -134,7 +134,7 @@ export default function App() {
         navigate('/story-reader');
         break;
       case 'word-group':
-        navigate(`/word-group/${currentWordGroup?.name}`);
+        navigate(`/word-group/${currentWordGroup._id}`);
         break;
       case 'nytimes-story':
         navigate('/nytimes-story');
@@ -180,9 +180,6 @@ export default function App() {
           syncViewWithRoute(viewParam);
         } else if (location.pathname === '/') {
           setView('landing');
-        } else {
-          setView('dashboard');
-          navigate('/dashboard');
         }
       } else {
         if (viewParam) setView(viewParam);
@@ -200,6 +197,7 @@ export default function App() {
     if (view !== 'word-group' || currentWordGroup || userWords.length === 0) return;
     const params = new URLSearchParams(window.location.search);
     const groupName = params.get('groupName');
+    
     if (groupName) {
       const group = userWords.find(g => g.title === groupName);
       if (group) {
@@ -210,7 +208,7 @@ export default function App() {
           category: group.category,
           createdAt: group.createdAt
         }));
-        setCurrentWordGroup({ name: groupName, words: wordRecords });
+        setCurrentWordGroup({ name: groupName, words: wordRecords, _id: group._id });
       }
     }
   }, [view, userWords, currentWordGroup]);
@@ -405,7 +403,7 @@ export default function App() {
             </motion.div>
           } />
           <Route path="/testing" element={
-            currentTest ? <TestingPage eliminated={eliminated} isProcessing={isProcessing} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} isHighlighterActive={isHighlighterActive} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
+            currentTest ? <TestingPage eliminated={eliminated} isProcessing={isProcessing} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
           } />
           <Route path="/results" element={
             currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
@@ -426,7 +424,7 @@ export default function App() {
           } />
           <Route path="/word-group/:groupName" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <WordGroupView group={currentWordGroup} user={user} setView={setViewWithRoute} />
+              <WordGroupView group={currentWordGroup} setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/nytimes-story" element={

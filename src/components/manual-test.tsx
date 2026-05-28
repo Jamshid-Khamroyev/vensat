@@ -29,43 +29,60 @@ const ManualTest = ({ selectedTime, dbTests, setDbTests, setSelectedTime, setVie
         const blocks = cleanText.split(/\n(?=\d+\.\s+)/);
         
         for (const block of blocks) {
-            const numMatch = block.match(/^(\d+)\.\s+(.+?)(?=\n[A-D][\.\)]|\n\d+\.|$)/s);
+            const numMatch = block.match(/^(\d+)\.\s+(.+?)(?=\n\d+\.|$)/s);
             if (!numMatch) continue;
             
-            let content = numMatch[2];
-            let passage = "", questionStem = "";
+            let remainingText = numMatch[2].trim();
+            let passage = "";
+            let questionStem = "";
+            const options: string[] = [];
             
-            const qMatch = content.match(/((?:Which|What|Based|According|The author's|The main|The primary)[^?!]*[?])/i);
-            if (qMatch) {
-                passage = content.substring(0, qMatch.index!).trim();
-                questionStem = qMatch[0];
-            } else if (content.includes('?')) {
-                const idx = content.lastIndexOf('?');
-                let start = content.lastIndexOf('.', idx) + 1;
-                if (start < 0 || start > idx) start = 0;
-                questionStem = content.substring(start, idx + 1).trim();
-                passage = content.substring(0, start).trim();
-            } else if (content.length > 0) {
-                const sentences = content.split(/[.!?]\s+/);
-                if (sentences.length > 1) {
-                    questionStem = sentences.pop() || "Select the best answer";
-                    if (!questionStem.includes('?')) questionStem += "?";
-                    passage = sentences.join('. ') + (sentences.length > 0 ? '.' : '');
+            // 1. Yulduzchalar ichidagi savol matnini topish
+            const questionMatch = remainingText.match(/\*(.+?)\*/s);
+            
+            if (questionMatch) {
+                // Yulduzchalar topildi - savol matni yulduzchalar ichida
+                questionStem = questionMatch[1].trim();
+                // Yulduzchalardan oldingi qism passage
+                passage = remainingText.substring(0, questionMatch.index!).trim();
+                // Yulduzchalardan keyingi qism answer choices
+                const afterQuestion = remainingText.substring(questionMatch.index! + questionMatch[0].length).trim();
+                
+                // Answer choices ni parse qilish
+                const optMatches = afterQuestion.matchAll(/\n?([A-D])[\.\)]\s+(.+?)(?=\n[A-D][\.\)]|\n\n|$)/gs);
+                for (const m of optMatches) {
+                    options.push(m[2].trim());
+                }
+            } else {
+                // Fallback: eski usul - yulduzchalar bo'lmasa
+                const qMatch = remainingText.match(/((?:Which|What|Based|According)[^?!]*[?])/i);
+                if (qMatch) {
+                    passage = remainingText.substring(0, qMatch.index!).trim();
+                    questionStem = qMatch[0];
+                } else if (remainingText.includes('?')) {
+                    const idx = remainingText.lastIndexOf('?');
+                    let start = remainingText.lastIndexOf('.', idx) + 1;
+                    if (start < 0 || start > idx) start = 0;
+                    questionStem = remainingText.substring(start, idx + 1).trim();
+                    passage = remainingText.substring(0, start).trim();
                 } else {
-                    passage = content;
+                    passage = remainingText;
                     questionStem = "Select the best answer";
                 }
+                
+                // Optionlarni topish
+                const optMatches = block.matchAll(/\n([A-D])[\.\)]\s+(.+?)(?=\n[A-D][\.\)]|\n\n|$)/gs);
+                for (const m of optMatches) options.push(m[2].trim());
             }
             
-            const options: string[] = [];
-            const optMatches = block.matchAll(/\n([A-D])[\.\)]\s+(.+?)(?=\n[A-D][\.\)]|\n\n|$)/gs);
-            for (const m of optMatches) options.push(m[2].trim());
+            // Agar passage bo'sh bo'lsa, placeholder qo'yish
+            if (!passage) passage = " ";
             
             if (options.length >= 2) {
                 while(options.length < 4) options.push(`Option ${String.fromCharCode(65+options.length)}`);
                 questions.push({
-                    text: passage || " ",
-                    question: questionStem || " ",
+                    text: passage,  // Yulduzchalarsiz passage
+                    question: questionStem,  // Yulduzchalarsiz savol matni
                     options: options.slice(0,4),
                     correctAnswerIndex: 0,
                     difficulty: "medium",
@@ -76,90 +93,84 @@ const ManualTest = ({ selectedTime, dbTests, setDbTests, setSelectedTime, setVie
         return questions;
     };
 
-    const parseAnswers = (key: string, count: number) => {
-        const map = new Map();
-        const clean = key.toUpperCase().replace(/\s/g, '');
-        const matches = clean.matchAll(/(\d+)[\s\-]?([A-D])/g);
-        for (const m of matches) {
-            const q = parseInt(m[1]);
-            const idx = m[2].charCodeAt(0) - 65;
-            if (q >= 1 && q <= count && idx >= 0 && idx < 4) map.set(q, idx);
-        }
-        return map;
-    };
+const parseAnswers = (key: string, count: number) => {
+    const map = new Map();
+    const clean = key.toUpperCase().replace(/\s/g, '');
+    const matches = clean.matchAll(/(\d+)[\s\-]?([A-D])/g);
+    for (const m of matches) {
+        const q = parseInt(m[1]);
+        const idx = m[2].charCodeAt(0) - 65;
+        if (q >= 1 && q <= count && idx >= 0 && idx < 4) map.set(q, idx);
+    }
+    return map;
+};
 
-    const handlePreview = async () => {
-        if (!testText.trim()) return toast.error("Please enter test content");
-        setIsProcessing(true);
-        
-        const questions = parseQuestions(testText);
-        if (questions.length === 0) {
-            toast.error("No valid questions found. Use: 1. Passage\\nQuestion?\\nA) Opt\\nB) Opt\\nC) Opt\\nD) Opt");
-            setIsProcessing(false);
-            return;
-        }
-        
-        let answerMap = parseAnswers(keyText, questions.length);
-        if (answerMap.size === 0 && keyText !== testText) {
-            const answerSection = testText.match(/ANSWER\s*KEY\s*:?\s*([\s\S]+)$/i);
-            if (answerSection) answerMap = parseAnswers(answerSection[1], questions.length);
-        }
-        
-        const finalQuestions = questions.map((q, i) => ({ ...q, correctAnswerIndex: answerMap.get(i+1) ?? 0 }));
-        const missing = [];
-        for (let i = 1; i <= questions.length; i++) if (!answerMap.has(i)) missing.push(i);
-        if (missing.length) toast.warning(`Missing answers for Q: ${missing.join(',')}. Using A as default.`);
-        else toast.success(`${questions.length} questions parsed!`);
-        
-        setPreview({ data: { title: generateTitle(), category: selectedCategory, timeLimit: selectedTime, questions: finalQuestions }, preview: finalQuestions });
+const handlePreview = async () => {
+    if (!testText.trim()) return toast.error("Please enter test content");
+    setIsProcessing(true);
+
+    const questions = parseQuestions(testText);
+    if (questions.length === 0) {
+        toast.error("No valid questions found. Use: 1. Passage\\n\\nQuestion?\\n\\nA) Opt\\nB) Opt\\nC) Opt\\nD) Opt");
         setIsProcessing(false);
-    };
+        return;
+    }
+    
+    let answerMap = parseAnswers(keyText, questions.length);
+    if (answerMap.size === 0 && keyText !== testText) {
+        const answerSection = testText.match(/ANSWER\s*KEY\s*:?\s*([\s\S]+)$/i);
+        if (answerSection) answerMap = parseAnswers(answerSection[1], questions.length);
+    }
+    
+    const finalQuestions = questions.map((q, i) => ({ ...q, correctAnswerIndex: answerMap.get(i+1) ?? 0 }));
+    const missing = [];
+    for (let i = 1; i <= questions.length; i++) if (!answerMap.has(i)) missing.push(i);
+    if (missing.length) toast.warning(`Missing answers for Q: ${missing.join(',')}. Using A as default.`);
+    else toast.success(`${questions.length} questions parsed!`);
+    
+    setPreview({ data: { title: generateTitle(), category: selectedCategory, timeLimit: selectedTime, questions: finalQuestions }, preview: finalQuestions });
+    setIsProcessing(false);
+};
 
-    const handleSave = async () => {
-        if (!preview) return;
-        setIsProcessing(true);
-        try {
-            const res = await fetch("/api/tests", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...preview.data, creatorId: user?._id })
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const saved = await res.json();
-            setDbTests([saved, ...dbTests]);
-            toast.success("Test saved!");
-            setPreview(null);
-            setTestText("");
-            setKeyText("");
-            setView('dashboard');
-        } catch (e: any) {
-            toast.error(e.message);
-        } finally {
-            setIsProcessing(false);
-        }
-    };
+const handleSave = async () => {
+    if (!preview) return
+    setIsProcessing(true);
+    try {
+        const res = await fetch("/api/tests", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...preview.data, creatorId: user?._id })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const saved = await res.json();
+        setDbTests([saved, ...dbTests]);
+        toast.success("Test saved!");
+        setPreview(null);
+        setTestText("");
+        setKeyText("");
+        setView('dashboard');
+    } catch (e: any) {
+        toast.error(e.message);
+    } finally {
+        setIsProcessing(false);
+    }
+};
 
-    const loadExample = () => {
-        setTestText(`1. Dr. Aris Thorne's 2025 study found that speakers of Kuuk Thaayorre demonstrate significantly better spatial awareness than English speakers.
-
-Which choice best states the main purpose of the text?
-
+   const loadExample = () => {
+    setTestText(`1. Dr. Aris Thorne's 2025 study found that speakers of Kuuk Thaayorre demonstrate significantly better spatial awareness than English speakers.
+*Which choice best states the main purpose of the text?*
 A) To criticize previous studies
 B) To present evidence supporting linguistic relativity
 C) To compare two languages
 D) To argue spatial awareness is genetic
 
 2. The industrial revolution altered labor patterns, yet some occupations proved resilient. Blacksmithing persisted in specialized niches like farriery.
-
-The author uses blacksmithing as an example to illustrate that
-
+*The author uses blacksmithing as an example to illustrate that*
 A) Mechanization eliminated crafts
 B) Some occupations survive technological change
 C) Only manufacturing was affected
-D) Specialized skills are less valuable
-
-ANSWER KEY: 1-B,2-B`);
-        setKeyText("");
+D) Specialized skills are less valuable`);
+        setKeyText("1-B,2-B");
     };
 
     return (

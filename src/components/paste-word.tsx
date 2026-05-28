@@ -13,7 +13,7 @@ interface PasteWordProps {
     handleDeleteGroup: (id: string) => void;
     userWords: GroupWord[];
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
-    setCurrentWordGroup: (group: { name: string; words: WordRecord[] } | null) => void;
+    setCurrentWordGroup: (group: { name: string; words: WordRecord[], _id: string } | null) => void;
 }
 
 const PasteWord = ({ handleAddWord, handleUpdateGroup, handleDeleteGroup, userWords, setView, setCurrentWordGroup }: PasteWordProps) => {

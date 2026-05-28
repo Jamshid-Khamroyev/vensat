@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 
 interface WordsCardsProps {
-    setCurrentWordGroup: (group: { name: string; words: WordRecord[] } | null) => void;
+    setCurrentWordGroup: (group: { name: string; words: WordRecord[], _id: string } | null) => void;
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
     userWords: GroupWord[];
     handleUpdateGroup: (id: string, words?: { term: string; definition: string }[], title?: string) => void;
@@ -19,11 +19,13 @@ const WordsCards = ({ userWords, setCurrentWordGroup, setView, handleUpdateGroup
     const [newGroupName, setNewGroupName] = useState("");
 
     const handleGroupClick = (group: GroupWord) => {
-        // group.words ni to'g'ridan-to'g'ri ishlatamiz
-        setCurrentWordGroup({ 
+        setCurrentWordGroup({
+            _id: group._id, 
             name: group._id, 
             words: group.words as WordRecord[]  // Type assertion
         });
+        console.log("Clicked", group);
+        
         setView('word-group');
     };
 

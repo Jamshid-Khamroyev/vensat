@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import axios from "axios";
+import { WordRecord } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -293,7 +294,7 @@ export async function translateText(text: string, from: string, to: string): Pro
 }
 
 export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
-  const model = "gemini-3-flash-preview";
+  const model = "llama-3.3-70b-versatile";
   const wordsList = words.join(', ');
   
   const systemInstruction = `
@@ -319,25 +320,111 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
     Format the output as a JSON array of objects, each with 'term' and 'sentence' keys.
   `;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: "Generate sentences for each word now." }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            term: { type: "string" },
-            sentence: { type: "string" }
-          },
-          required: ["term", "sentence"]
-        }
-      }
-    }
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer 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`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: "Generate sentences for each word now." }
+      ],
+      temperature: 0.7,
+      response_format: { type: "json_object" }
+    })
   });
 
-  return JSON.parse(response.text || "[]");
+  const data = await response.json();
+  const result = JSON.parse(data.choices[0].message.content || "[]");
+  
+  // Agar javob array bo'lmasa, ichidan array topish
+  if (Array.isArray(result)) {
+    return result;
+  }
+  
+  // Ba'zi modellar { sentences: [...] } formatida qaytarishi mumkin
+  if (result.vocab && Array.isArray(result.vocab)) {
+    return result.vocab;
+  }
+  
+  return [];
+}
+
+interface PracticeQuestion {
+  sentence: string;
+  correctWord: string;
+  options: string[];
+  explanation: string;
+  wordDefinition: string;
+}
+
+interface GeneratePracticeParams {
+  words: string[];  
+}
+
+export async function generatePracticeQuestionsAI(
+  params: GeneratePracticeParams
+): Promise<PracticeQuestion[]> {
+  const { words } = params;
+  
+  // So'zlarni stringga aylantirish
+  const wordsString = words.join(', ');
+  
+  const systemPrompt = `You are an English language teacher. Create fill-in-the-blank practice questions.
+Response format: JSON array of objects with fields:
+- sentence: string (a sentence with a blank like "____")
+- correctWord: string (the missing word)
+- options: string[] (array of 4 words: 1 correct + 3 from the given words list)
+- explanation: string (why this word fits here)
+- wordDefinition: string (definition of the correct word in simple Uzbek)
+
+Important: The correct word and all options MUST be selected from the provided words list.`;
+
+  const userPrompt = `Create for each word exist in list fill-in-the-blank practice questions using these words: ${wordsString}
+Each question should have a sentence with a blank (_____), and the missing word should be from the list.
+The 3 wrong options should also be from the same word list.
+Make sure each word is used naturally in context.`;
+
+  try {
+    const { data } = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+        response_format: { type: "json_object" }
+      },
+      {
+        headers: {
+          'Authorization': `Bearer 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`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    const response = JSON.parse(data.choices[0].message.content);
+    if (Array.isArray(response)) {
+      return response;
+    }
+    if (response.questions && Array.isArray(response.questions)) {
+      return response.questions;
+    }
+    const possibleArrays = Object.values(response).filter(v => Array.isArray(v));
+    if (possibleArrays.length > 0) {
+      return possibleArrays[0] as PracticeQuestion[];
+    }
+    
+    throw new Error('Invalid response format from API');
+    
+  } catch (error) {
+    console.error('Error generating practice questions:', error);
+    throw new Error('Failed to generate practice questions');
+  }
 }
