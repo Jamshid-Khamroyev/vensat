@@ -34,6 +34,7 @@ const AiPracticeGenerator = ({
         const usedWords = userWords.filter(group => group._id === selectedGroupId).map(group => group.words.map(word => word.term).join(",")).join(",");
         try {
           const parsed: any = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, usedWords);
+          
           const res = await axios.post("/api/tests", {
             ...parsed, 
             creatorId: user?._id, 

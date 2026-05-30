@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import axios from "axios";
-import { WordRecord } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -38,159 +37,157 @@ function cleanTest(test: ParsedTest): ParsedTest {
   };
 }
 
-export async function parseTestContent(testText: string, keyText: string): Promise<ParsedTest> {
-  const model = "gemini-3-flash-preview";
-  
-  const systemInstruction = `
-    You are a professional exam parser. Your task is to take raw test text and a list of correct answers, 
-    then merge them into a structured JSON format.
-    
-    Rules:
-    1. Identify all questions from the test text.
-    2. Match them with the correct answers provided in the key text. 
-    3. If the key text is a numbered list (e.g., 1-A, 2-B), match by number.
-    4. Options should be extracted as an array of strings.
-    5. correctAnswerIndex should be 0-based.
-    6. Return a title for the test based on the content.
-    7. CRITICAL: Clean all text from artifacts like "\\n*" or weird formatting characters.
-  `;
+import { CohereClientV2 } from 'cohere-ai';
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: `TEST TEXT:\n${testText}\n\nANSWER KEY:\n${keyText}` }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          questions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                text: { type: Type.STRING },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER },
-                difficulty: { type: Type.STRING, description: "Infer from content (Easy, Medium, Hard)" },
-                category: { type: Type.STRING, description: "Infer from content (SAT Category)" }
-              },
-              required: ["id", "text", "options", "correctAnswerIndex", "difficulty", "category"]
-            }
-          }
-        },
-        required: ["title", "questions"]
-      }
-    }
-  });
-
-  return cleanTest(JSON.parse(response.text || "{}"));
-}
+const cohere = new CohereClientV2({ token: process.env.COHERE_API_KEY || 'VFd7U1jk9dql7eBgrWYtJqmaYdNpwRbfvuFp4XBL' });
 
 export async function generateSATTest(category: string, difficulty: string, count: number, words?: string): Promise<ParsedTest> {
-  const model = "gemini-3-flash-preview";
-  const systemInstruction = `
-  You are an expert Digital SAT (DSAT) Reading & Writing question writer.
+    const model = "command-a-plus-05-2026";
+    const systemInstruction = `
+    You are an expert Digital SAT (DSAT) Reading & Writing question writer.
 
-  Create ONLY official-style current DSAT questions.
+    Create ONLY official-style current DSAT questions.
 
-  Category: ${category}
-  Difficulty: ${difficulty}
-  Question Count: ${count}
+    Category: ${category}
+    Difficulty: ${difficulty}
+    Question Count: ${count}
 
-  ${words 
-    ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
-    : ''
+    ${words 
+      ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
+      : ''
+    }
+
+    CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
+    
+    1. EVERY question MUST be directly instantiated/adapted from REAL Bluebook Digital SAT tests
+    2. EVERY passage MUST be written in EXACT Bluebook style (same tone, length, complexity)
+    3. EVERY question format MUST be taken directly from College Board's official DSAT tests
+    4. DO NOT invent new question types - ONLY use formats that have appeared on REAL College Board DSAT exams
+    5. Each question should feel like it was copied directly from an official Bluebook practice test
+
+    STRICT RULES:
+    - ONLY use real DSAT Reading & Writing question formats that have appeared on actual College Board exams
+    - NEVER create custom or vocabulary-definition questions
+    - NEVER ask about the function or meaning of a specific word (unless it's the official vocabulary-in-context format)
+    - Questions must sound EXACTLY like official Bluebook DSAT questions - word-for-word style matching
+    - Every passage must mirror real Bluebook passages in: length (50-150 words), complexity, academic tone, and content type
+
+    Allowed stem styles (must match Bluebook exactly):
+    ## Information and Ideas
+    - "Which choice best states the main idea of the text?"
+    - "Which choice most logically completes the text?"
+    - "According to the text, ...?" (specific detail questions)
+    - "Based on the text, ...?" (inference questions)
+    - "Which finding, if true, would most directly support [someone's] hypothesis?"
+    - "Which finding, if true, would most directly undermine [someone's] claim?"
+    - "Which quotation from the interviews best illustrates [something]?"
+    - "Which choice most effectively uses data from the notes to complete the text?"
+    - Synthesis questions using student notes format
+
+    ## Craft and Structure
+    - "Which choice best completes the text with the most logical and precise word or phrase?"
+    - "Which choice best states the main purpose of the text?"
+    - "Which choice best describes the function of the [specific sentence] in the overall structure of the text?"
+    - "Which choice best describes the overall structure of the text?"
+    - "As used in the text, '[word]' most nearly means?"
+
+    ## Expression of Ideas
+    - Student notes revision questions (official format only)
+    - "Which choice completes the text with the most logical transition?"
+    - Rhetorical synthesis questions exactly as they appear on Bluebook
+
+    ## Standard English Conventions
+    - "Which choice completes the text so that it conforms to the conventions of Standard English?"
+    - Punctuation, grammar, and syntax questions in official Bluebook format
+
+    FORBIDDEN:
+    - Any question format not found on official College Board DSAT exams
+    - Made-up question stems
+    - Vocabulary definition questions (e.g., "What does X mean?")
+    - Questions asking about word function or role (e.g., "What is the function of the word X?")
+    - Any custom or hybrid formats
+
+    QUESTION DISTRIBUTION:
+    - Within each category, distribute different official DSAT subtypes as evenly as possible
+    - Each question must be traceable to a REAL Bluebook question pattern
+    - Example for craft-structure: balance vocabulary-in-context (as used in text), overall structure, main purpose, text function
+
+    PASSAGE REQUIREMENTS:
+    - Length: 50-150 words for single passage questions
+    - Content areas: Literature, History/Social Studies, Humanities, Science
+    - Authentic academic tone matching College Board style guides
+    - Realistic complexity for specified difficulty level
+    - Natural paragraph breaks where appropriate
+    - No artificial or forced content
+
+    OUTPUT:
+    - Return clean valid JSON only
+    - No markdown
+    - No explanations
+    - No formatting artifacts
+    - Each question must be indistinguishable from an official Bluebook question
+    `;
+
+    const prompt = `Generate a ${difficulty} difficulty practice test for ${category} with ${count} questions.${words ? ` Focus on these words: ${words}` : ''}
+
+  IMPORTANT: Every single question and passage MUST be directly inspired by/adapted from REAL College Board Bluebook Digital SAT tests. Do NOT create any original question formats. Every question pattern should be instantly recognizable as an official DSAT question.
+
+  Return ONLY valid JSON matching this exact schema:
+  {
+    "title": "string",
+    "category": "string",
+    "questions": [
+      {
+        "id": "string (e.g., 'q1', 'q2')",
+        "text": "string (Bluebook-style passage, 50-150 words, authentic academic content)",
+        "question": "string (EXACT Bluebook question stem format)",
+        "options": ["string", "string", "string", "string"],
+        "correctAnswerIndex": "number (0-3)",
+        "difficulty": "string (easy/medium/hard)",
+        "category": "string"
+      }
+    ]
   }
 
-  STRICT RULES:
-  - ONLY use real DSAT Reading & Writing question formats.
-  - NEVER create custom or vocabulary-definition questions.
-  - NEVER ask about the function or meaning of a specific word.
-  - Questions must sound exactly like official Bluebook DSAT questions.
+  VERIFICATION CHECKLIST FOR EACH QUESTION:
+  ✓ Passage reads exactly like a real Bluebook passage
+  ✓ Question stem matches official College Board wording
+  ✓ All 4 answer choices are plausible DSAT-style distractors  
+  ✓ Exactly 1 correct answer
+  ✓ Format has appeared on actual DSAT exams
+  ✓ No invented or hybrid question types
+  ✓ Difficulty level matches College Board standards`;
 
-  Allowed stem styles include:
-  ## Information and Ideas
-  - "Which choice best states the main idea of the text?"
-  - "Which choice most logically completes the text?"
-  - "Based on the text and According to the text questions! as real DSAT questions!"
-  - "Which finding, if true, would most directly support or undermine someone's hypothesis?"
-  - "Which quotation from the interviews best illustrates something or someone's claim or another!"
-  - "Notes/synthesis/revision/support/inference questions in official DSAT style."
-
-  ## Craft and Structure
-  - "Which choice best completes the text with the most logical and precise word or phrase?"
-  - "Which choice best states the main purpose of the text?"
-  - "Which choice best describes the function of the third sentence in the overall structure of the text?"
-  - "Which choice best describes the overall structure of the text?"
-
-  ## Expression of Ideas
-  - "The student Notes question"
-  - "Which choice completes the text with the most logical transition?"
-
-  ## Standard English Conventions
-  - "Which choice completes the text so that it conforms to the conventions of Standard English?"
-
-  QUESTION DISTRIBUTION:
-  - Within each category, distribute different official DSAT subtypes as evenly as possible instead of repeatedly generating the same subtype.
-  - Example for craft-structure: balance vocabulary-in-context, overall structure, main purpose, text function, and similar official DSAT subtypes.
-
-  REQUIREMENTS:
-  - Every question must contain a realistic DSAT-style passage.
-  - Use authentic SAT tone and difficulty.
-  - Include exactly 4 answer choices (A-D).
-  - One correct answer only.
-  - Wrong answers must be realistic DSAT distractors.
-  - Category must ONLY be:
-    information-ideas
-    craft-structure
-    expression-ideas
-    standard-conventions
-
-  OUTPUT:
-  - Return clean valid JSON only.
-  - No markdown.
-  - No explanations.
-  - No formatting artifacts.
-  `;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: `Generate a ${difficulty} difficulty practice test for ${category} with ${count} questions.${words ? ` Focus on these words: ${words}` : ''}` }],
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          title: { type: Type.STRING },
-          category: { type: Type.STRING },
-          questions: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                id: { type: Type.STRING },
-                text: { type: Type.STRING },
-                question: { type: Type.STRING },
-                options: { type: Type.ARRAY, items: { type: Type.STRING } },
-                correctAnswerIndex: { type: Type.INTEGER },
-                difficulty: { type: Type.STRING },
-                category: { type: Type.STRING }
-              },
-              required: ["id", "text", "options", "question", "correctAnswerIndex", "difficulty", "category"]
-            }
-          }
+    const response = await cohere.chat({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: systemInstruction
         },
-        required: ["title", "questions", "category"]
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
+      temperature: 0.6,
+      thinking: {
+        type: "enabled"
       }
-    }
-  });
+    });
 
-  return cleanTest(JSON.parse(response.text || "{}"));
-}
+    // Extract JSON from response
+    const responseText = response.message?.content?.[0]?.text || "{}";
+    
+    // Clean potential markdown code blocks
+    let cleanJson = responseText;
+    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      cleanJson = jsonMatch[1];
+    }
+    
+    return cleanTest(JSON.parse(cleanJson));
+  }
 
 export async function generateStory(
   genre: string,
@@ -271,26 +268,6 @@ export async function chatWithAI(message: string, history: { role: 'user' | 'mod
   });
   
   return response.text;
-}
-
-export async function translateText(text: string, from: string, to: string): Promise<string> {
-  const model = "gemini-2.0-flash";
-  const systemInstruction = `
-    You are a professional translator. Translate the given text accurately from ${from} to ${to}.
-    Preserve the meaning and tone of the original text.
-    Return only the translated text without any additional explanations or formatting.
-  `;
-
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ text: `Translate the following ${from} text to ${to}:\n\n${text}` }],
-    config: {
-      systemInstruction,
-      responseMimeType: "text/plain",
-    }
-  });
-
-  return response.text || "";
 }
 
 export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
