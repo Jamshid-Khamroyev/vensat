@@ -326,6 +326,10 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
   if (result.vocab && Array.isArray(result.vocab)) {
     return result.vocab;
   }
+
+  if (result.vocabulary && Array.isArray(result.vocabulary)) {
+    return result.vocabulary;
+  }
   
   return [];
 }
