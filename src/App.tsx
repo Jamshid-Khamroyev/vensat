@@ -31,28 +31,6 @@ const Profile = lazy(() => import('./pages/profile'));
 const Results = lazy(() => import('./components/results'));
 const WordGroupView = lazy(() => import('./pages/word-group'));
 const NYTStoryReader = lazy(() => import('./pages/nyt-story-reader'));
-const SpringerReader = lazy(() => import('./pages/springer-reader'));
-
-// Legacy view wrapper component - keeps old view system working
-function LegacyViewWrapper({ 
-  view, 
-  children 
-}: { 
-  view: string; 
-  children: React.ReactNode 
-}) {
-  const location = useLocation();
-  
-  // Hide legacy view if route path matches current view
-  const isRouteActive = location.pathname !== '/' && 
-    location.pathname !== '/dashboard' && 
-    view !== 'landing' && 
-    view !== 'dashboard';
-  
-  if (isRouteActive) return null;
-  
-  return <>{children}</>;
-}
 
 // --- App ---
 export default function App() {
@@ -71,7 +49,6 @@ export default function App() {
   const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
   const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
   const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
-  const [currentSpringerArticle, setCurrentSpringerArticle] = useState<{ title: string; abstract: string; url: string; authors: { name: string }[]; publicationDate: string; journal: string; doi: string; keywords: string[] } | null>(null);
   const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[], _id: string } | null>(null);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
   const [localWords, setLocalWords] = useState<{ term: string; definition?: string }[]>([]);
@@ -87,7 +64,7 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
-  const [storyOptions, setStoryOptions] = useState({ topic: '', category: 'Business', length: 'medium' as 'short' | 'medium' | 'long', words: '' });
+  const [storyOptions, setStoryOptions] = useState({ topic: '', genre: 'Business', length: 'medium' as 'extended' | 'medium' | 'long', words: '' });
   const [definition, setDefinition] = useState<{ word: string, meaning: string } | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -389,7 +366,7 @@ export default function App() {
           } />
           <Route path="/stories" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Stories setCurrentGNewsArticle={setCurrentArticle} dbStories={dbStories} setCurrentStory={setCurrentStory} setDbStories={setDbStories} setView={setViewWithRoute} setCurrentNYTStory={setCurrentNYTStory} setCurrentSpringerArticle={setCurrentSpringerArticle} />
+              <Stories setCurrentGNewsArticle={setCurrentArticle} dbStories={dbStories} setCurrentStory={setCurrentStory} setDbStories={setDbStories} setView={setViewWithRoute} setCurrentNYTStory={setCurrentNYTStory} />
             </Suspense>
           } />
           <Route path="/profile" element={
@@ -403,7 +380,7 @@ export default function App() {
             </motion.div>
           } />
           <Route path="/testing" element={
-            currentTest ? <TestingPage eliminated={eliminated} isProcessing={isProcessing} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} setIsHighlighterActive={setIsHighlighterActive} /> : <div>Loading...</div>
+            currentTest ? <TestingPage eliminated={eliminated} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} /> : <div>Loading...</div>
           } />
           <Route path="/results" element={
             currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
@@ -429,9 +406,6 @@ export default function App() {
           } />
           <Route path="/nytimes-story" element={
             currentNYTStory ? <NYTStoryReader currentStory={currentNYTStory} setView={setViewWithRoute} /> : <div>Loading...</div>
-          } />
-          <Route path="/springer-reader" element={
-            currentSpringerArticle ? <SpringerReader article={currentSpringerArticle} setView={setViewWithRoute} onSaveWord={handleAddWord} /> : <div>Loading...</div>
           } />
           <Route path="/article" element={
             currentArticle ? <GNewsReader article={currentArticle} setView={setViewWithRoute} /> : <div>Loading...</div>

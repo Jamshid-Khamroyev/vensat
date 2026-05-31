@@ -1,5 +1,5 @@
 import { motion } from "framer-motion"
-import { BrainCircuit, ChevronLeft, RotateCcw, Sparkles, FileText, BookOpen, PenTool, Type, Hash, Layers, ChevronDown, Trash2 } from "lucide-react";
+import { ChevronLeft, RotateCcw, Sparkles, FileText, PenTool, Type, Layers, ChevronDown, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { generateStory } from "../services/geminiService";
@@ -10,14 +10,8 @@ import api from "../services/api";
 interface StoryGenProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
   userWords: GroupWord[];
-  storyOptions: {
-    topic: string;
-    genre: string;
-    length: 'medium' | 'long' | 'extended';
-    words: string;
-    description: string;
-  }
-  setStoryOptions: (options: StoryGenProps['storyOptions']) => void;
+  storyOptions: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; };
+  setStoryOptions: (options: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; }) => void; // ✅
   isProcessing: boolean;
   setIsProcessing: (processing: boolean) => void;
   user: AppUser | null;
@@ -62,7 +56,6 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
       storyOptions.topic,
       storyOptions.length,
       allSelectedWords,
-      storyOptions.description
     );
     
     if (!result.title || !result.content) {
@@ -160,20 +153,6 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
                 onChange={e => setStoryOptions({...storyOptions, topic: e.target.value})} 
                 placeholder="Describe your story topic (e.g., 'A scientist discovering time travel')" 
                 className="bluebook-input bg-slate-50 border py-4 shadow-inner h-28 resize-none"
-                disabled={isProcessing}
-              />
-            </div>
-
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-xs font-black tracking-widest text-slate-700 uppercase">
-                <BookOpen className="w-4 h-4" />
-                Story Description (Optional)
-              </label>
-              <textarea 
-                value={storyOptions.description} 
-                onChange={e => setStoryOptions({...storyOptions, description: e.target.value})} 
-                placeholder="Additional context, characters, or specific elements you want in the story..."
-                className="bluebook-input bg-slate-50 border py-4 shadow-inner h-24 resize-none"
                 disabled={isProcessing}
               />
             </div>

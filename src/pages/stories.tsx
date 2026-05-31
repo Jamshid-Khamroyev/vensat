@@ -8,7 +8,6 @@ interface StoriesProps {
     setCurrentStory: (story: any) => void;
     setDbStories: (books: any[]) => void;
     setCurrentNYTStory: (story: NYTStory | null) => void;
-    setCurrentSpringerArticle: (article: SpringerArticle | null) => void;
     setCurrentGNewsArticle: (article: GNewsArticle | null) => void;
 }
 
@@ -84,7 +83,7 @@ const COUNTRIES = [
     { code: 'au', name: 'Australia' },
 ];
 
-const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrentNYTStory, setCurrentSpringerArticle, setCurrentGNewsArticle }: StoriesProps) => {
+const Stories = ({ dbStories, setDbStories, setCurrentStory, setView, setCurrentNYTStory, setCurrentGNewsArticle }: StoriesProps) => {
     const [activeTab, setActiveTab] = useState<'mening' | 'popular' | 'news'>('mening');
     
     // NY Times states

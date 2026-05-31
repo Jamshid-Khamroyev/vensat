@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -25,7 +25,7 @@ function cleanText(text: string): string {
   return text.replace(/\\n\*/g, " ").replace(/\n\*/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function cleanTest(test: ParsedTest): ParsedTest {
+function cleanTest(test: ParsedTest): ParsedTest {  
   return {
     ...test,
     title: cleanText(test.title),
@@ -98,7 +98,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
 
     ## Standard English Conventions
     - "Which choice completes the text so that it conforms to the conventions of Standard English?"
-    - Punctuation, grammar, and syntax questions in official Bluebook format
+    - Punctuation, grammar, and syntax questions in official Bluebook format as you see collegeBoard
 
     FORBIDDEN:
     - Any question format not found on official College Board DSAT exams
@@ -177,7 +177,7 @@ export async function generateSATTest(category: string, difficulty: string, coun
     });
 
     // Extract JSON from response
-    const responseText = response.message?.content?.[0]?.text || "{}";
+    const responseText = response.message?.content?.[1]?.text || "{}";
     
     // Clean potential markdown code blocks
     let cleanJson = responseText;

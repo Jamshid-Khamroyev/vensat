@@ -3,7 +3,6 @@ import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } fro
 import { generateSATTest } from '../services/geminiService';
 import axios from '../services/api';
 import { GroupWord, TestRecord } from '../types';
-import { group } from 'console';
 import { useState } from 'react';
 
 interface AiPracticeGeneratorProps {
@@ -44,7 +43,10 @@ const AiPracticeGenerator = ({
           const saved = res.data;
           setDbTests([saved, ...dbTests]);
           startTest(res.data._id);
-        } catch (e) { alert("Generation failed."); }
+        } catch (e) { 
+          console.error(e);
+          alert("Generation failed."); 
+        }
         finally { setIsProcessing(false); }
     }
 

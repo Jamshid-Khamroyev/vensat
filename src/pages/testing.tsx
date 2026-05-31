@@ -10,7 +10,6 @@ interface TestingPageProps {
     setEliminated: (eliminated: Record<number, number[]> | ((prev: Record<number, number[]>) => Record<number, number[]>)) => void;
     setLocalWords: (words: { term: string; definition?: string }[]) => void;
     localWords: { term: string; definition?: string }[];
-    isProcessing: boolean;
     timeLeft: number;
     currentTest: ParsedTest;
     setCurrentQuestionIndex: Dispatch<SetStateAction<number>>;
@@ -19,7 +18,7 @@ interface TestingPageProps {
 
 const TestingPage = ({ 
     eliminated, currentQuestionIndex, setEliminated, setLocalWords, localWords, 
-    timeLeft, currentTest, setCurrentQuestionIndex, handleCompleteTest, isProcessing
+    timeLeft, currentTest, setCurrentQuestionIndex, handleCompleteTest
 }: TestingPageProps) => {
     const [loadingVocab, setLoadingVocab] = useState<string | null>(null);
     const [vocabMeanings, setVocabMeanings] = useState<Record<string, string>>({});
