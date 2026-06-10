@@ -5,6 +5,7 @@ import { Test } from "../models/test.model";
 import { Question } from "../models/question.model";
 import { authenticateToken } from "../midlewere/auth.midlewere";
 import express from "express"
+import { User } from "../models/user.model";
 
 const router = Router()
 
@@ -14,7 +15,7 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
     };
 };
 
-router.get("", asyncHandler(async (req, res) => {
+  router.get("", asyncHandler(async (req, res) => {
     const { userId, category, limit = 100, page = 1 } = req.query;
     const match: any = {};
     if (userId) match.creatorId = userId;
@@ -98,9 +99,17 @@ router.get("", asyncHandler(async (req, res) => {
     if (!test) return res.status(404).json({ error: "Test not found" });
     
     const questions = await Question.find({ _id: { $in: test.questions } }).lean();
+
+    const UserSkillChanger = {
+      "information-ideas": 0,
+      "craft-structure": 0,
+      "expression-ideas": 0,
+      "standard-conventions": 0
+    }
     
     const results = questions.map(q => {
       const answer = answers.find(a => a.questionId === q._id.toString());
+      UserSkillChanger[q.category] += answer?.selectedIndex === q.correctAnswerIndex ? ( q.difficulty === "hard" ? 1.01 :1) : 0;
       return {
         questionId: q._id,
         isCorrect: answer?.selectedIndex === q.correctAnswerIndex,
@@ -122,8 +131,35 @@ router.get("", asyncHandler(async (req, res) => {
       total,
       completedAt: new Date()
     });
-    
-    res.json({ score, total });
-}));
+
+    const user = await User.findById(userId);
+if (!user) return;
+
+const categoryMap = {
+  "information-ideas": { skill: "iai_skill" },
+  "craft-structure": { skill: "cas_skill" },
+  "expression-ideas": { skill: "eoi_skill" },
+  "standard-conventions": { skill: "sec_skill" }
+};
+
+const category = categoryMap[test.category];
+if (!category) return;
+
+const skillData = user[category.skill] || { score: 0, questionTaken: 0 };
+
+user.accuracy.totalTestsTaken += 1;
+const currentAccuracy = (score / total) * 100;
+user.accuracy.score = Math.round((currentAccuracy + (user.accuracy.score || 0) * (user.accuracy.totalTestsTaken - 1)) / user.accuracy.totalTestsTaken);
+
+const categoryScore = (UserSkillChanger[test.category] / test.questions.length) * 100;
+user[category.skill] = {
+  score: Math.round((categoryScore + skillData.score * skillData.questionTaken) / (skillData.questionTaken + 1)),
+  questionTaken: skillData.questionTaken + test.questions.length
+};
+
+await user.save();
+      
+      res.json({ score, total });
+  }));
 
 export default router

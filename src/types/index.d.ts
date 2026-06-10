@@ -3,7 +3,14 @@ export interface AppUser {
     _id: string;
     email: string;
     displayName: string;
-    isAdmin?: boolean;
+    role?: string;
+    createdAt: string;
+    avatar?: string;
+    eoi_skill?: { score: number; questionTaken: number };
+    sec_skill?: { score: number; questionTaken: number };
+    iai_skill?: { score: number; questionTaken: number };
+    cas_skill?: { score: number; questionTaken: number };
+    accuracy?: { score: number; totalTestsTaken: number };
   }
   
   export interface TestRecord {

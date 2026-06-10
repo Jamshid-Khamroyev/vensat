@@ -8,11 +8,10 @@ import { AppUser } from '../types';
 interface landingProps {
     setUser: React.Dispatch<React.SetStateAction<any>>;
     setView: React.Dispatch<React.SetStateAction<string>>;
-    fetchAll: (userId: string) => void;
     user: AppUser | null;
 }
 
-const LandingPage = ({ fetchAll, setUser, user, setView }: landingProps) => {
+const LandingPage = ({ setUser, user, setView }: landingProps) => {
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     const [showPassword, setShowPassword] = useState(false);
@@ -46,7 +45,6 @@ const LandingPage = ({ fetchAll, setUser, user, setView }: landingProps) => {
         setUser(data.user);
         localStorage.setItem("aero_user", JSON.stringify(data.user));
         localStorage.setItem("aero_token", data.token);
-        fetchAll(data.user._id);
 
         toast.success(authMode === "login" ? "Xush kelibsiz!" : "Hisob yaratildi!");
         setAuthModalOpen(false);

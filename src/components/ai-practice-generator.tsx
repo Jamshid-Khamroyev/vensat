@@ -2,8 +2,9 @@ import {motion} from 'framer-motion';
 import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } from "lucide-react"
 import { generateSATTest } from '../services/geminiService';
 import axios from '../services/api';
-import { GroupWord, TestRecord } from '../types';
+import { GroupWord } from '../types';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface AiPracticeGeneratorProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -45,7 +46,7 @@ const AiPracticeGenerator = ({
           startTest(res.data._id);
         } catch (e) { 
           console.error(e);
-          alert("Generation failed."); 
+          toast.error("Generation failed."); 
         }
         finally { setIsProcessing(false); }
     }
@@ -74,7 +75,7 @@ const AiPracticeGenerator = ({
                           <optgroup label="DSAT Sections">
                             <option value={"craft-structure"}>Reading: Craft & Structure</option>
                             <option value={"information-ideas"}>Reading: Information & Ideas</option>
-                            <option value={"standard-conventions"}>Writing: Standard English Conventions</option>
+                            {/* <option value={"standard-conventions"}>Writing: Standard English Conventions</option> */}
                             <option value={"expression-ideas"}>Writing: Expression of Ideas</option>
                           </optgroup>
                        </select>

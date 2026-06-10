@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
+import { getSATInstructions } from "../utils/index";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -9,14 +10,28 @@ export interface ParsedQuestion {
   options: string[];
   correctAnswerIndex?: number;
   difficulty?: string;
-  question?: string ;
-  category?: string;
+  graph?: string;
+  question: string ;
+  isDual?: boolean;
+  category: string;
 }
 
 export interface ParsedTest {
   _id: string;
   title: string;
   questions: ParsedQuestion[];
+}
+
+interface PracticeQuestion {
+  sentence: string;
+  correctWord: string;
+  options: string[];
+  explanation: string;
+  wordDefinition: string;
+}
+
+interface GeneratePracticeParams {
+  words: string[];  
 }
 
 function cleanText(text: string): string {
@@ -37,157 +52,56 @@ function cleanTest(test: ParsedTest): ParsedTest {
   };
 }
 
-import { CohereClientV2 } from 'cohere-ai';
+// ===========================================================================
 
-const cohere = new CohereClientV2({ token: process.env.COHERE_API_KEY || 'VFd7U1jk9dql7eBgrWYtJqmaYdNpwRbfvuFp4XBL' });
+const mistral_api = process.env.MISTRAL_API || "Pw44z1Z70t9mBvIfRGOGxm8zgI3HoFBy"
 
-export async function generateSATTest(category: string, difficulty: string, count: number, words?: string): Promise<ParsedTest> {
-    const model = "command-a-plus-05-2026";
-    const systemInstruction = `
-    You are an expert Digital SAT (DSAT) Reading & Writing question writer.
+export async function generateSATTest(
+  category: string,
+  difficulty: string,
+  count: number,
+  words?: string
+) {
+  const { systemInstruction, prompt } = getSATInstructions(category, {
+    difficulty,
+    count,
+    words,
+  });
 
-    Create ONLY official-style current DSAT questions.
-
-    Category: ${category}
-    Difficulty: ${difficulty}
-    Question Count: ${count}
-
-    ${words 
-      ? `Use these vocabulary words naturally throughout passages and answer choices: ${words}. Try to distribute them naturally across as many passages as possible. In vocabulary-in-context questions, prefer using the words inside answer choices naturally, not inside the question stem.` 
-      : ''
-    }
-
-    CRITICAL REQUIREMENTS - MUST FOLLOW EXACTLY:
-    
-    1. EVERY question MUST be directly instantiated/adapted from REAL Bluebook Digital SAT tests
-    2. EVERY passage MUST be written in EXACT Bluebook style (same tone, length, complexity)
-    3. EVERY question format MUST be taken directly from College Board's official DSAT tests
-    4. DO NOT invent new question types - ONLY use formats that have appeared on REAL College Board DSAT exams
-    5. Each question should feel like it was copied directly from an official Bluebook practice test
-
-    STRICT RULES:
-    - ONLY use real DSAT Reading & Writing question formats that have appeared on actual College Board exams
-    - NEVER create custom or vocabulary-definition questions
-    - NEVER ask about the function or meaning of a specific word (unless it's the official vocabulary-in-context format)
-    - Questions must sound EXACTLY like official Bluebook DSAT questions - word-for-word style matching
-    - Every passage must mirror real Bluebook passages in: length (50-150 words), complexity, academic tone, and content type
-
-    Allowed stem styles (must match Bluebook exactly):
-    ## Information and Ideas
-    - "Which choice best states the main idea of the text?"
-    - "Which choice most logically completes the text?"
-    - "According to the text, ...?" (specific detail questions)
-    - "Based on the text, ...?" (inference questions)
-    - "Which finding, if true, would most directly support [someone's] hypothesis?"
-    - "Which finding, if true, would most directly undermine [someone's] claim?"
-    - "Which quotation from the interviews best illustrates [something]?"
-    - "Which choice most effectively uses data from the notes to complete the text?"
-    - Synthesis questions using student notes format
-
-    ## Craft and Structure
-    - "Which choice best completes the text with the most logical and precise word or phrase?"
-    - "Which choice best states the main purpose of the text?"
-    - "Which choice best describes the function of the [specific sentence] in the overall structure of the text?"
-    - "Which choice best describes the overall structure of the text?"
-    - "As used in the text, '[word]' most nearly means?"
-
-    ## Expression of Ideas
-    - Student notes revision questions (official format only)
-    - "Which choice completes the text with the most logical transition?"
-    - Rhetorical synthesis questions exactly as they appear on Bluebook
-
-    ## Standard English Conventions
-    - "Which choice completes the text so that it conforms to the conventions of Standard English?"
-    - Punctuation, grammar, and syntax questions in official Bluebook format as you see collegeBoard
-
-    FORBIDDEN:
-    - Any question format not found on official College Board DSAT exams
-    - Made-up question stems
-    - Vocabulary definition questions (e.g., "What does X mean?")
-    - Questions asking about word function or role (e.g., "What is the function of the word X?")
-    - Any custom or hybrid formats
-
-    QUESTION DISTRIBUTION:
-    - Within each category, distribute different official DSAT subtypes as evenly as possible
-    - Each question must be traceable to a REAL Bluebook question pattern
-    - Example for craft-structure: balance vocabulary-in-context (as used in text), overall structure, main purpose, text function
-
-    PASSAGE REQUIREMENTS:
-    - Length: 50-150 words for single passage questions
-    - Content areas: Literature, History/Social Studies, Humanities, Science
-    - Authentic academic tone matching College Board style guides
-    - Realistic complexity for specified difficulty level
-    - Natural paragraph breaks where appropriate
-    - No artificial or forced content
-
-    OUTPUT:
-    - Return clean valid JSON only
-    - No markdown
-    - No explanations
-    - No formatting artifacts
-    - Each question must be indistinguishable from an official Bluebook question
-    `;
-
-    const prompt = `Generate a ${difficulty} difficulty practice test for ${category} with ${count} questions.${words ? ` Focus on these words: ${words}` : ''}
-
-  IMPORTANT: Every single question and passage MUST be directly inspired by/adapted from REAL College Board Bluebook Digital SAT tests. Do NOT create any original question formats. Every question pattern should be instantly recognizable as an official DSAT question.
-
-  Return ONLY valid JSON matching this exact schema:
-  {
-    "title": "string",
-    "category": "string",
-    "questions": [
-      {
-        "id": "string (e.g., 'q1', 'q2')",
-        "text": "string (Bluebook-style passage, 50-150 words, authentic academic content)",
-        "question": "string (EXACT Bluebook question stem format)",
-        "options": ["string", "string", "string", "string"],
-        "correctAnswerIndex": "number (0-3)",
-        "difficulty": "string (easy/medium/hard)",
-        "category": "string"
-      }
-    ]
-  }
-
-  VERIFICATION CHECKLIST FOR EACH QUESTION:
-  ✓ Passage reads exactly like a real Bluebook passage
-  ✓ Question stem matches official College Board wording
-  ✓ All 4 answer choices are plausible DSAT-style distractors  
-  ✓ Exactly 1 correct answer
-  ✓ Format has appeared on actual DSAT exams
-  ✓ No invented or hybrid question types
-  ✓ Difficulty level matches College Board standards`;
-
-    const response = await cohere.chat({
-      model: model,
+  const response = await axios.post(
+    "https://api.mistral.ai/v1/chat/completions",
+    {
+      model: "ministral-3b-2512",
       messages: [
         {
           role: "system",
-          content: systemInstruction
+          content: systemInstruction,
         },
         {
           role: "user",
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
       temperature: 0.6,
-      thinking: {
-        type: "enabled"
-      }
-    });
-
-    // Extract JSON from response
-    const responseText = response.message?.content?.[1]?.text || "{}";
-    
-    // Clean potential markdown code blocks
-    let cleanJson = responseText;
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      cleanJson = jsonMatch[1];
+      response_format: {
+        type: "json_object",
+      },
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY || mistral_api}`,
+        "Content-Type": "application/json",
+      },
     }
-    
-    return cleanTest(JSON.parse(cleanJson));
-  }
+  );
+
+  const responseText = response.data.choices[0].message.content;
+
+  const data = cleanTest(JSON.parse(responseText));
+  return data
+} 
+// ====================================================
+
 
 export async function generateStory(
   genre: string,
@@ -334,17 +248,7 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
   return [];
 }
 
-interface PracticeQuestion {
-  sentence: string;
-  correctWord: string;
-  options: string[];
-  explanation: string;
-  wordDefinition: string;
-}
 
-interface GeneratePracticeParams {
-  words: string[];  
-}
 
 export async function generatePracticeQuestionsAI(
   params: GeneratePracticeParams

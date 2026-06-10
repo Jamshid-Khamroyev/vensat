@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Dispatch, SetStateAction, useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { 
     Clock,
     Wand2,
@@ -12,10 +12,12 @@ import {
   } from 'lucide-react';
 import axios from 'axios';
 import { categories } from "../constants";
+import { AppUser } from "../types";
+
 
 interface DashboardProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
-  user: { _id: string; displayName: string; email: string } | null;
+  user: AppUser | null;
   fetchAll: (userId: string) => void;
   startTest: (id: string) => void;
 }
@@ -82,21 +84,6 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
     return null;
   }, [user]);
 
-  // Save to cache
-  const saveToCache = useCallback((categoryId: DSATCategory, data: CategoryTestsData) => {
-    if (!user) return;
-    
-    try {
-      const cacheData = {
-        tests: data.tests,
-        lastFetched: data.lastFetched,
-        categoryId
-      };
-      localStorage.setItem(getCacheKey(categoryId), JSON.stringify(cacheData));
-    } catch (error) {
-      console.error('Cache write error:', error);
-    }
-  }, [user]);
 
   // Fetch tests by category
   const fetchTestsByCategory = useCallback(async (categoryId: DSATCategory, forceRefresh: boolean = false) => {
@@ -145,7 +132,6 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
         [categoryId]: newCategoryData
       }));
 
-      saveToCache(categoryId, newCategoryData);
 
     } catch (error: any) {
       console.error(`Error fetching ${categoryId} tests:`, error);
@@ -158,7 +144,7 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
         }
       }));
     }
-  }, [user, loadFromCache, saveToCache]);
+  }, [user, loadFromCache, ]);
 
   // Handle category change
   const handleCategoryChange = (categoryId: DSATCategory) => {
@@ -204,11 +190,6 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
         }
       }));
       
-      saveToCache(activeCategory, {
-        ...categoryData[activeCategory],
-        tests: updatedTests
-      });
-      
       if (user) fetchAll(user._id);
     } catch (e: any) {
       alert(e.response?.data?.message || "Rename failed.");
@@ -234,11 +215,6 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
         }
       }));
       
-      saveToCache(activeCategory, {
-        ...categoryData[activeCategory],
-        tests: updatedTests
-      });
-      
       if (user) fetchAll(user._id);
     } catch (e: any) {
       alert(e.response?.data?.message || "Update failed.");
@@ -260,11 +236,6 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
           tests: updatedTests
         }
       }));
-      
-      saveToCache(activeCategory, {
-        ...categoryData[activeCategory],
-        tests: updatedTests
-      });
       
       if (user) fetchAll(user._id);
     } catch (e: any) {
@@ -288,12 +259,12 @@ const Dashboard = ({ startTest, user, setView, fetchAll }: DashboardProps) => {
               </p>
             </div>
             <div className="flex gap-2">
-              <button 
+              {user?.role === 'admin' && <button 
                 onClick={() => setView('create')} 
                 className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-all"
               >
                 <FileJson className="w-4 h-4" /> Import
-              </button>
+              </button>}
               <button 
                 onClick={() => setView('ai-gen')} 
                 className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-all shadow-sm"

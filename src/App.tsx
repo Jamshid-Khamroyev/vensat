@@ -71,7 +71,7 @@ export default function App() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Sync React Router navigation with legacy view state
-  const syncViewWithRoute = (newView: typeof view) => {
+  const syncViewWithRoute = (newView: typeof view, id?: string) => {
     setView(newView);
     switch(newView) {
       case 'landing':
@@ -93,7 +93,7 @@ export default function App() {
         navigate('/words');
         break;
       case 'testing':
-        navigate('/testing');
+        navigate(`/testing/${id}`);
         break;
       case 'results':
         navigate('/results');
@@ -265,7 +265,7 @@ export default function App() {
 
   const startTest = async(id: string) => {
     try {
-      setViewWithRoute('testing');
+      syncViewWithRoute('testing', id);
       setEliminated({});
       setIsHighlighterActive(false);
       const response = await api.get(`/api/tests/${id}`)
@@ -351,7 +351,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={
             <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <LandingPage setUser={setUser} user={user} setView={setViewWithRoute} fetchAll={fetchAll} />
+              <LandingPage setUser={setUser} user={user} setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/dashboard" element={
@@ -379,8 +379,7 @@ export default function App() {
               <PasteWord handleDeleteGroup={handleDeleteWord} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setViewWithRoute} setCurrentWordGroup={setCurrentWordGroup} />
             </motion.div>
           } />
-          <Route path="/testing" element={
-            currentTest ? <TestingPage eliminated={eliminated} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} setLocalWords={setLocalWords} localWords={localWords} timeLeft={timeLeft} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} /> : <div>Loading...</div>
+          <Route path="/testing/:id" element={<TestingPage eliminated={eliminated} setCurrentTest={setCurrentTest} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} />
           } />
           <Route path="/results" element={
             currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>

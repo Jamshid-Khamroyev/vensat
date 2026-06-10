@@ -8,22 +8,22 @@ const UserSchema = new mongoose.Schema({
     avatar: { type: String },
     eoi_skill: {
       score: { type: Number, default: 0 },
-      testsTaken: { type: Number, default: 0 }
+      questionTaken: { type: Number, default: 0 }
     },
   
     sec_skill: {
       score: { type: Number, default: 0 },
-      testsTaken: { type: Number, default: 0 }
+      questionTaken: { type: Number, default: 0 }
     },
   
     iai_skill: {
       score: { type: Number, default: 0 },
-      testsTaken: { type: Number, default: 0 }
+      questionTaken: { type: Number, default: 0 }
     },
   
     cas_skill: {
       score: { type: Number, default: 0 },
-      testsTaken: { type: Number, default: 0 }
+      questionTaken: { type: Number, default: 0 }
     },
   
     accuracy: {

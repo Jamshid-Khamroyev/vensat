@@ -48,35 +48,6 @@ const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarPr
         }
     }, [user, isTesting, setView]);
 
-    const navButtons = useMemo(() => navItems.map((item) => {
-        const isActive = view === item.key;
-        const Icon = item.icon;
-        return (
-            <button
-                key={item.key}
-                onClick={() => handleNavigation(item.key)}
-                className={`relative group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
-                    isActive
-                        ? 'text-white shadow-lg shadow-blue-500/25'
-                        : 'text-slate-500 hover:text-slate-700'
-                }`}
-            >
-                {isActive && (
-                    <motion.div
-                        layoutId="activeNav"
-                        className={`absolute inset-0 bg-gradient-to-r ${item.color}`}
-                        initial={false}
-                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                    />
-                )}
-                <Icon className={`relative z-10 w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${
-                    isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
-                }`} />
-                <span className="relative z-10">{item.label}</span>
-            </button>
-        );
-    }), [view, handleNavigation]);
-
     return (
         <>
             <header className="relative h-16 px-4 sm:px-8 lg:px-12 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 flex items-center justify-between sticky top-0 z-50 shadow-sm">
@@ -96,9 +67,36 @@ const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarPr
                 </div>
 
                 {/* Desktop Navigation */}
-                {user && !isTesting && !isLanding && (
+                {!isTesting && (
                     <nav className="hidden md:flex items-center gap-1 bg-slate-100/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
-                        {navButtons}
+                        {navItems.map((item) => {
+                            const isActive = view === item.key;
+                            const Icon = item.icon;
+                            return (
+                                <button
+                                    key={item.key}
+                                    onClick={() => handleNavigation(item.key)}
+                                    className={`relative group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
+                                        isActive
+                                            ? 'text-white shadow-lg shadow-blue-500/25'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="activeNav"
+                                            className={`absolute inset-0 bg-gradient-to-r ${item.color}`}
+                                            initial={false}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        />
+                                    )}
+                                    <Icon className={`relative z-10 w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${
+                                        isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
+                                    }`} />
+                                    <span className="relative z-10">{item.label}</span>
+                                </button>
+                            );
+                        })}
                         
                         <div className="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-2" />
 

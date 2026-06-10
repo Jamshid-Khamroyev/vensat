@@ -3,6 +3,7 @@ import { Router } from "express"
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { authenticateToken} from "../midlewere/auth.midlewere"
 import { User } from "../models/user.model";
 import { GroupWords } from "../models/group.words.model";
 
@@ -88,12 +89,18 @@ router.post("/login", asyncHandler(async (req, res) => {
     res.json({
       message: "Login successful",
       token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        displayName: user.displayName
-      }
+      user
     });
+}));
+
+router.get("/me", authenticateToken, asyncHandler(async (req: any, res) => {
+    const user = await User.findById(req.user?.userId).select("-password");
+
+    if(!user){
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ user });
 }));
 
 export default router;
