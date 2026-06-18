@@ -17,6 +17,12 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
     res.json(stories);
   }));
 
+  router.get("/:userId/:id", asyncHandler(async (req, res) => {
+    if (!req.params.userId && !req.params.id) return res.status(400).json({ error: "User ID required" });
+    const stories = await Story.find({ userId: req.params.userId, _id: req.params.id }).sort({ createdAt: -1 }).limit(200);
+    res.json(stories);
+  }));
+
 
 
   router.post("/", asyncHandler(async (req, res) => {

@@ -14,10 +14,17 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
     };
 }
 
-router.get("/:userId", authenticateToken, asyncHandler(async (req, res) => {
+  router.get("/:userId", authenticateToken, asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
     const groups = await GroupWords.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(1000);
     res.json(groups);
+  }));
+
+  router.get("/:userId/:groupId", authenticateToken, asyncHandler(async (req, res) => {
+    if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
+    if (!req.params.groupId) return res.status(400).json({ error: "Group ID required" });
+    const group = await GroupWords.findOne({ userId: req.params.userId, _id: req.params.groupId });
+    res.json(group);
   }));
 
   // Get or create default group

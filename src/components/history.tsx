@@ -1,12 +1,19 @@
 // HistoryDetail.tsx - Clean Design without Ring, Outline & Explanation
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle, XCircle, Trophy, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  ArrowLeft, CheckCircle, XCircle, Trophy, Clock, 
+  ChevronLeft, ChevronRight, MinusCircle, Lightbulb, 
+  X, ChevronDown, ChevronUp 
+} from 'lucide-react';
+import { getHintForQuestion } from '../services/geminiService';
+import { useParams } from 'react-router-dom';
 import api from '../services/api';
 
 interface Question {
   _id: string;
   text: string;
   options: string[];
+  question: string;
   category: string;
   difficulty: string;
   correctAnswerIndex: number;
@@ -16,7 +23,7 @@ interface Result {
   questionId: string;
   isCorrect: boolean;
   correctAnswerIndex: number;
-  userSelectedIndex: number;
+  userSelectedIndex: number | null;
   question: Question;
 }
 
@@ -36,19 +43,32 @@ interface HistoryDetail {
   stats: {
     correctCount: number;
     incorrectCount: number;
+    omittedCount: number;
     percentage: number;
   };
 }
 
+interface HintData {
+  A: string;
+  B: string;
+  C: string;
+  D: string;
+  general_advice: string;
+}
+
 interface HistoryDetailProps {
-  historyId: string;
   onBack?: () => void;
 }
 
-const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
+const HistoryDetail = ({ onBack }: HistoryDetailProps) => {
   const [detail, setDetail] = useState<HistoryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [hintData, setHintData] = useState<HintData | null>(null);
+  const [hintLoading, setHintLoading] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const [expandedHint, setExpandedHint] = useState<string | null>(null);
+  const { id: historyId } = useParams();
 
   useEffect(() => {
     fetchDetail();
@@ -66,20 +86,77 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
     }
   };
 
+  const fetchHint = async () => {
+    if (!detail) return;
+    
+    const currentResult = detail.results[currentIndex];
+    if (!currentResult) return;
+
+    // Check if user selected an answer
+    if (currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined) {
+      alert('Please select an answer to get a hint.');
+      return;
+    }
+
+    setHintLoading(true);
+    setShowHint(true);
+    
+    try {
+      const question = currentResult.question;
+      const correctAnswerLetter = String.fromCharCode(65 + currentResult.correctAnswerIndex);
+      const userAnswerLetter = String.fromCharCode(65 + currentResult.userSelectedIndex);
+      
+      // Combine question text and question
+      const fullQuestionText = `${question.text}\n\n${question.question}`;
+      
+      const hint = await getHintForQuestion(
+        fullQuestionText,
+        correctAnswerLetter,
+        userAnswerLetter
+      );
+      
+      setHintData(hint);
+    } catch (error) {
+      console.error('Error fetching hint:', error);
+      alert('Failed to get hint. Please try again.');
+    } finally {
+      setHintLoading(false);
+    }
+  };
+
+  const closeHint = () => {
+    setShowHint(false);
+    setHintData(null);
+    setExpandedHint(null);
+  };
+
+  const toggleHintSection = (section: string) => {
+    setExpandedHint(expandedHint === section ? null : section);
+  };
+
   const goToNext = () => {
     if (detail && currentIndex < detail.total - 1) {
       setCurrentIndex(currentIndex + 1);
+      setShowHint(false);
+      setHintData(null);
+      setExpandedHint(null);
     }
   };
 
   const goToPrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
+      setShowHint(false);
+      setHintData(null);
+      setExpandedHint(null);
     }
   };
 
   const goToQuestion = (index: number) => {
     setCurrentIndex(index);
+    setShowHint(false);
+    setHintData(null);
+    setExpandedHint(null);
   };
 
   if (loading) {
@@ -112,10 +189,14 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
   const getOptionLetter = (index: number) => String.fromCharCode(65 + index);
 
   const getQuestionStatus = (result: Result) => {
+    if (result.userSelectedIndex === null || result.userSelectedIndex === undefined) {
+      return 'omitted';
+    }
     if (result.isCorrect) return 'correct';
-    if (!result.isCorrect && result.userSelectedIndex !== undefined) return 'incorrect';
-    return 'unanswered';
+    return 'incorrect';
   };
+
+  const omittedCount = detail.results.filter(r => r.userSelectedIndex === null || r.userSelectedIndex === undefined).length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -154,7 +235,7 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
               </div>
               <div className="w-px h-6 sm:h-8 bg-gray-200"></div>
               <div className="text-right">
-                <div className="text-base sm:text-xl font-bold text-blue-600">{percentage.toFixed(0)}%</div>
+                <div className="text-base sm:text-xl font-bold text-blue-950">{percentage.toFixed(0)}%</div>
                 <div className="text-[9px] sm:text-xs text-gray-500">Accuracy</div>
               </div>
             </div>
@@ -170,22 +251,26 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
             <h3 className="text-xs sm:text-sm font-medium text-gray-700">Questions</h3>
             <div className="flex items-center gap-2 sm:gap-3 text-[9px] sm:text-xs">
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-blue-600 rounded"></div>
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-600 rounded"></div>
                 <span className="text-gray-600 hidden sm:inline">Correct</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-600 rounded"></div>
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded"></div>
                 <span className="text-gray-600 hidden sm:inline">Incorrect</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-200 rounded border border-gray-400"></div>
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-200 rounded border border-gray-300"></div>
+                <span className="text-gray-600 hidden sm:inline">Omitted</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 sm:w-3 sm:h-3 bg-gray-800 rounded"></div>
                 <span className="text-gray-600 hidden sm:inline">Current</span>
               </div>
             </div>
           </div>
           
           {/* Grid - 10 columns fixed */}
-          <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
             {detail.results.map((result, idx) => {
               const status = getQuestionStatus(result);
               return (
@@ -193,15 +278,15 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
                   key={idx}
                   onClick={() => goToQuestion(idx)}
                   className={`
-                    aspect-square rounded-md sm:rounded-lg text-xs sm:text-sm font-medium
-                    flex items-center justify-center transition-colors
+                    rounded-md sm:rounded-lg aspect-square h-10 text-xs sm:text-sm font-medium
+                    flex items-center justify-center transition-all duration-200
                     ${currentIndex === idx 
                       ? 'bg-gray-800 text-white' 
                       : status === 'correct'
-                        ? 'bg-blue-950 text-white hover:bg-blue-700'
+                        ? 'bg-green-600 text-white hover:bg-green-700'
                         : status === 'incorrect'
-                          ? 'bg-red-600 text-white hover:bg-red-700'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          ? 'bg-red-500 text-white hover:bg-red-600'
+                          : 'bg-gray-100 text-gray-500 border border-gray-300 hover:bg-gray-200'
                     }
                   `}
                 >
@@ -244,17 +329,42 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
                 </span>
               )}
             </div>
-            <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-sm font-medium ${
-              currentResult.isCorrect 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
-            }`}>
-              {currentResult.isCorrect ? (
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-              ) : (
-                <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-sm font-medium ${
+                currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined
+                  ? 'bg-gray-100 text-gray-600'
+                  : currentResult.isCorrect 
+                    ? 'bg-green-100 text-green-700' 
+                    : 'bg-red-100 text-red-700'
+              }`}>
+                {currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined ? (
+                  <MinusCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                ) : currentResult.isCorrect ? (
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                ) : (
+                  <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined 
+                    ? 'Omitted' 
+                    : currentResult.isCorrect ? 'Correct' : 'Incorrect'
+                  }
+                </span>
+              </div>
+              
+              {/* Hint Button */}
+              {currentResult.userSelectedIndex !== null && currentResult.userSelectedIndex !== undefined && (
+                <button
+                  onClick={fetchHint}
+                  disabled={hintLoading}
+                  className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition-colors text-[9px] sm:text-xs font-medium disabled:opacity-50"
+                >
+                  <Lightbulb className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">
+                    {hintLoading ? 'Loading...' : 'Hint'}
+                  </span>
+                </button>
               )}
-              <span className="hidden sm:inline">{currentResult.isCorrect ? 'Correct' : 'Incorrect'}</span>
             </div>
           </div>
 
@@ -264,17 +374,25 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
               {currentQuestion?.text || 'Question text not available'}
             </p>
 
+            <p className="text-gray-800 text-xs sm:text-base leading-relaxed mb-4 sm:mb-6">
+              {currentQuestion?.question || 'Question text not available'}
+            </p>
+
             {/* Options */}
             <div className="space-y-2 sm:space-y-3">
               {currentQuestion?.options?.map((option, idx) => {
                 const isCorrect = idx === currentResult.correctAnswerIndex;
                 const isUserSelected = idx === currentResult.userSelectedIndex;
-                const showCorrectHighlight = isCorrect && !currentResult.isCorrect;
+                const isOmitted = currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined;
+                const showCorrectHighlight = isCorrect && !isOmitted && !currentResult.isCorrect;
                 
                 let optionStyle = 'border-gray-200 bg-white';
                 let textStyle = 'text-gray-700';
                 
-                if (isUserSelected && currentResult.isCorrect) {
+                if (isOmitted && isCorrect) {
+                  optionStyle = 'border-green-500 bg-green-50';
+                  textStyle = 'text-green-900 font-medium';
+                } else if (isUserSelected && currentResult.isCorrect) {
                   optionStyle = 'border-green-500 bg-green-50';
                   textStyle = 'text-green-900 font-medium';
                 } else if (isUserSelected && !currentResult.isCorrect) {
@@ -293,11 +411,12 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
                     <div className="flex items-start gap-2 sm:gap-3">
                       <div className={`
                         w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium flex-shrink-0
-                        ${isUserSelected || showCorrectHighlight ? 'bg-white border-2' : 'bg-gray-100'}
+                        ${isUserSelected || (isOmitted && isCorrect) || showCorrectHighlight ? 'bg-white border-2' : 'bg-gray-100'}
                         ${isUserSelected && currentResult.isCorrect ? 'border-green-500 text-green-600' : ''}
                         ${isUserSelected && !currentResult.isCorrect ? 'border-red-500 text-red-600' : ''}
+                        ${isOmitted && isCorrect ? 'border-green-500 text-green-600' : ''}
                         ${showCorrectHighlight ? 'border-green-500 text-green-600' : ''}
-                        ${!isUserSelected && !showCorrectHighlight ? 'text-gray-600' : ''}
+                        ${!isUserSelected && !showCorrectHighlight && !(isOmitted && isCorrect) ? 'text-gray-600' : ''}
                       `}>
                         {getOptionLetter(idx)}
                       </div>
@@ -306,9 +425,9 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
                           {option}
                         </p>
                       </div>
-                      {(isUserSelected || showCorrectHighlight) && (
+                      {(isUserSelected || (isOmitted && isCorrect) || showCorrectHighlight) && (
                         <div className="flex-shrink-0">
-                          {(isUserSelected && currentResult.isCorrect) || showCorrectHighlight ? (
+                          {(isUserSelected && currentResult.isCorrect) || (isOmitted && isCorrect) || showCorrectHighlight ? (
                             <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                           ) : isUserSelected && !currentResult.isCorrect ? (
                             <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
@@ -320,6 +439,116 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
                 );
               })}
             </div>
+
+            {/* Hint Display */}
+            {showHint && (
+              <div className="mt-4 sm:mt-6 border border-yellow-200 bg-yellow-50 rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-yellow-100 border-b border-yellow-200">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-700" />
+                    <h4 className="text-xs sm:text-sm font-medium text-yellow-900">Detailed Hint</h4>
+                  </div>
+                  <button
+                    onClick={closeHint}
+                    className="p-1 hover:bg-yellow-200 rounded transition-colors"
+                  >
+                    <X className="w-4 h-4 text-yellow-700" />
+                  </button>
+                </div>
+                
+                <div className="p-3 sm:p-4 space-y-3">
+                  {hintLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-yellow-600"></div>
+                    </div>
+                  ) : hintData ? (
+                    <>
+                      {/* General Advice */}
+                      {hintData.general_advice && (
+                        <div className="bg-white rounded-lg p-3 border border-yellow-100">
+                          <p className="text-xs sm:text-sm text-gray-700">{hintData.general_advice}</p>
+                        </div>
+                      )}
+                      
+                      {/* Option Analysis */}
+                      <div className="space-y-2">
+                        {['A', 'B', 'C', 'D'].map((letter) => {
+                          const content = hintData[letter as keyof HintData];
+                          if (!content) return null;
+                          
+                          const isExpanded = expandedHint === letter;
+                          const optionIndex = letter.charCodeAt(0) - 65;
+                          const isCorrect = optionIndex === currentResult.correctAnswerIndex;
+                          const isUserSelected = optionIndex === currentResult.userSelectedIndex;
+                          
+                          let bgColor = 'bg-white';
+                          let borderColor = 'border-gray-200';
+                          let titleColor = 'text-gray-700';
+                          
+                          if (isUserSelected && currentResult.isCorrect) {
+                            bgColor = 'bg-green-50';
+                            borderColor = 'border-green-200';
+                            titleColor = 'text-green-700';
+                          } else if (isUserSelected && !currentResult.isCorrect) {
+                            bgColor = 'bg-red-50';
+                            borderColor = 'border-red-200';
+                            titleColor = 'text-red-700';
+                          } else if (isCorrect) {
+                            bgColor = 'bg-blue-50';
+                            borderColor = 'border-blue-200';
+                            titleColor = 'text-blue-700';
+                          }
+                          
+                          return (
+                            <div 
+                              key={letter}
+                              className={`border rounded-lg ${borderColor} ${bgColor} overflow-hidden`}
+                            >
+                              <button
+                                onClick={() => toggleHintSection(letter)}
+                                className="w-full px-3 py-2 flex items-center justify-between hover:bg-opacity-50 transition-colors"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-medium text-xs sm:text-sm ${titleColor}`}>
+                                    Option {letter}
+                                  </span>
+                                  {isCorrect && (
+                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                                  )}
+                                  {isUserSelected && !currentResult.isCorrect && (
+                                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] sm:text-xs text-gray-500">
+                                    {isExpanded ? 'Hide' : 'Show'} explanation
+                                  </span>
+                                  {isExpanded ? (
+                                    <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                  ) : (
+                                    <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" />
+                                  )}
+                                </div>
+                              </button>
+                              
+                              {isExpanded && (
+                                <div className="px-3 pb-3">
+                                  <p className="text-[10px] sm:text-xs text-gray-600 leading-relaxed">
+                                    {content}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-gray-600">No hint available.</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Navigation */}
@@ -352,14 +581,18 @@ const HistoryDetail = ({ historyId, onBack }: HistoryDetailProps) => {
             <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-600" />
             <h3 className="text-xs sm:text-sm font-medium text-gray-900">Summary</h3>
           </div>
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+          <div className="grid grid-cols-4 gap-2 sm:gap-4">
             <div className="text-center">
               <div className="text-base sm:text-2xl font-bold text-green-600">{detail.stats.correctCount}</div>
               <div className="text-[9px] sm:text-xs text-gray-500">Correct</div>
             </div>
             <div className="text-center">
-              <div className="text-base sm:text-2xl font-bold text-red-600">{detail.stats.incorrectCount}</div>
+              <div className="text-base sm:text-2xl font-bold text-red-500">{detail.stats.incorrectCount}</div>
               <div className="text-[9px] sm:text-xs text-gray-500">Incorrect</div>
+            </div>
+            <div className="text-center">
+              <div className="text-base sm:text-2xl font-bold text-gray-400">{omittedCount}</div>
+              <div className="text-[9px] sm:text-xs text-gray-500">Omitted</div>
             </div>
             <div className="text-center">
               <div className="text-base sm:text-2xl font-bold text-blue-600">{detail.total}</div>

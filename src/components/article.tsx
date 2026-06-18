@@ -20,7 +20,7 @@ interface GNewsReaderProps {
         author?: string;
         lang?: string;
     };
-    setView: (view: "stories" | "story-reader" | "springer-reader" | "nytimes-story" | "word-group" | "words" | "profile" | "ai-gen" | "results" | "testing" | "article" | "history" | "create" | "dashboard" | "landing") => void;
+    setView: (view: "stories" | "story-reader" | "springer-reader" | "nytimes-story" | "word-group" | "words" | "profile" | "ai-gen" | "results" | "testing" | "article" | "create" | "dashboard" | "landing") => void;
 }
 
 const GNewsReader = ({ article, setView }: GNewsReaderProps) => {

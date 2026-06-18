@@ -2,6 +2,7 @@
 import { Dispatch, SetStateAction, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle, XCircle, BookOpen, Calendar, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface HistoryItem {
   _id: string;
@@ -27,15 +28,14 @@ interface HistoryResponse {
 
 interface HistorySectionProps {
   userId: string;
-  setView: Dispatch<SetStateAction<string>>;
-  setHistoryId: Dispatch<SetStateAction<string>>;
 }
 
-const HistorySection = ({ userId, setView, setHistoryId }: HistorySectionProps) => {
+const HistorySection = ({ userId }: HistorySectionProps) => {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchHistory();
@@ -94,7 +94,7 @@ const HistorySection = ({ userId, setView, setHistoryId }: HistorySectionProps) 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  onClick={() => {setView(`history`); setHistoryId(item._id)}}
+                  onClick={() => navigate(`/history/${item._id}`)}
                   className="bg-white rounded-lg border border-gray-200 p-4 cursor-pointer transition-all duration-200 hover:border-gray-300 hover:shadow-sm"
                 >
                   <div className="flex items-center justify-between gap-4">

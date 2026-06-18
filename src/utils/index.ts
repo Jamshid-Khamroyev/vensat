@@ -10,9 +10,9 @@ export function getSATInstructions(
 ) {
   // ─── Passage length by difficulty ─────────────────────────────────────────
   const passageLength =
-    difficulty === "Easy"
+    difficulty === "easy"
       ? "25–35 words"
-      : difficulty === "Medium"
+      : difficulty === "medium"
       ? "35-50 words"
       : "50–70 words";
 
@@ -36,7 +36,7 @@ VOCABULARY RULES:
   // ─── Shared passage authenticity block ────────────────────────────────────
   const authenticityBlock = `
 PASSAGE AUTHENTICITY REQUIREMENTS (MANDATORY):
-- Don't user * anywhere in the pessage!
+- Don't use * anywhere in the pessage!
 - All passages must closely simulate authentic College Board source material.
 - Acceptable source domains: peer-reviewed science journals, 19th-21st century American/British literary prose, U.S. or world history primary/secondary sources, humanities scholarship, and credible social science research.
 - Every passage must name a real or plausible real-world scholar, author, scientist, or historical figure as subject or author where contextually appropriate.
@@ -138,9 +138,6 @@ ${vocabBlock}
 ${authenticityBlock}
 
 PASSAGE LENGTH RULE (strictly enforced by difficulty):
-- easy: 25-60 words
-- medium: 60-100 words
-- hard: 100-150 words
 Current difficulty is "${difficulty}", so every passage in this set must be ${passageLength}.
 
 ALLOWED QUESTION TYPES — THREE TYPES ONLY:
@@ -151,20 +148,16 @@ TYPE 1 — VOCABULARY IN CONTEXT
 Passage: ${passageLength}, academic prose.
 
 Sub-type A — Blank Completion:
-  - Passage contains exactly one "______" blank inside a sentence (not at the end of the passage).
-  - The blank sits where a precise word or phrase is needed.
+  - Passage contains exactly one "______" blank inside a sentence <= YOU MUST USE BLANK.
+  - The blank must sits where a precise word is needed.
+  - Absolutely use blank in the pessage where a precise word is needed 
+  - Don't use any signature markers like asterisks or other special characters.
   - Question stem (exact): "Which choice completes the text with the most logical and precise word or phrase?"
-  - Answer choices: individual words or very short phrases only (no full sentences).
+  - Answer choices: individual words only (no full sentences).
   - NO asterisks, no markdown in the passage.
 
-Sub-type B — As Used in the Text:
-  - Passage contains a specific target word that has multiple plausible meanings.
-  - That word MUST be enclosed in ##double-hashtag## markers in the passage text, e.g. ##ephemeral##.
-  - The ##markers## are the ONLY special token permitted in this passage — no asterisks, no other symbols.
-  - Question stem (exact): "As used in the text, '[target word]' most nearly means?"
-  - Answer choices: single words or very short phrases only.
 
-FORBIDDEN for both sub-types: Do NOT combine "______" blank AND ##markers## in the same question.
+FORBIDDEN for both sub-types: Do NOT combine "______" blank AND ##markers## in the same question
 
 TYPE 2 — TEXT STRUCTURE AND PURPOSE
 Passage: ${passageLength}, dense academic prose.
@@ -192,25 +185,14 @@ TYPE 3 — CROSS-TEXT CONNECTIONS (DUAL TEXT)
 
 ANSWER CHOICE RULES:
 - Exactly 4 choices per question.
-- Vocabulary: single words or short phrases only.
+- Vocabulary: single words only.
 - Structure/Function and Dual-Text: complete, grammatically parallel statements.
 - One unambiguous correct answer. Three plausible distractors.
-
-MARKUP SUMMARY — PERMITTED TOKENS ONLY:
-- ##word## or ##sentence## — only in Vocabulary sub-type B and Structure/Function (target element).
-- &&text&& &&text&& — only in Dual-Text (separates the two passages).
-- "______" — only in Vocabulary sub-type A (blank inside a sentence, never at end of passage).
-- ZERO asterisks (*) anywhere in any text field.
-- ZERO markdown (no bold, no italics, no headers, no bullet dashes).
-- All other passage text must be standard prose punctuation only.
 
 OUTPUT FORMAT: Return ONLY clean, valid JSON. No markdown fences, no explanations, no trailing text.
 `,
         prompt: `Generate exactly ${count} Craft and Structure questions at ${difficulty} difficulty. Each passage must be ${passageLength}.
-Distribute types as equally as possible: vocabulary (mix sub-types A and B), structure-function, dual-text.
-Apply markup tokens EXACTLY as specified: ##...## for target elements in vocabulary sub-type B and structure-function; &&...&& &&...&& for dual-text; "______" only inside a sentence in vocabulary sub-type A.
-ZERO asterisks (*) anywhere. ZERO markdown formatting anywhere.
-${words ? `Naturally incorporate these vocabulary words in passages or answer choices: ${words}.` : ""}
+Distribute types as equally as possible.
 
 Return ONLY valid JSON matching this exact schema (no markdown, no extra keys):
 {
@@ -219,12 +201,11 @@ Return ONLY valid JSON matching this exact schema (no markdown, no extra keys):
   "questions": [
     {
       "id": "string (e.g., 'cs1', 'cs2')",
-      "text": "string (passage with correct markup tokens only; no asterisks; no markdown)",
-      "question": "string (exact allowed question stem)",
+      "text": "string",
+      "question": "string",
       "options": ["string", "string", "string", "string"],
       "correctAnswerIndex": number,
-      "difficulty": "${difficulty}",
-      "type": "string ('vocabulary' | 'structure-function' | 'dual-text')"
+      "difficulty": "${difficulty}"
     }
   ]
 }`,

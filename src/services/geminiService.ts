@@ -102,6 +102,72 @@ export async function generateSATTest(
 } 
 // ====================================================
 
+export async function getHintForQuestion(
+  questionText: string, 
+  correctAnswer: string, 
+  userAnswer: string
+) {
+  try {
+    const response = await axios.post(
+      "https://api.mistral.ai/v1/chat/completions",
+      {
+        model: "open-mistral-nemo",
+        messages: [
+          {
+            role: "system",
+            content: `You are a helpful assistant that provides hints for SAT questions. Your task is to provide clear and useful hints to the student based on the question text, correct answer, and their selected answer.
+
+When providing hints, follow these rules:
+1. The hint should be in English, but when quoting from the passage, keep the exact wording as it appears.
+2. Analyze each answer choice (A, B, C, D) separately and explain why it is correct or incorrect.
+3. If the user chose an incorrect answer, explain their mistake and show how to arrive at the correct answer.
+4. If the user chose the correct answer, validate their approach and reinforce why this answer is correct.
+5. The hint should be specific, concise, and easy to understand. Help the student understand the question.
+
+The response must be in the following JSON format:
+{
+  "A": "Analysis and hint for option A",
+  "B": "Analysis and hint for option B", 
+  "C": "Analysis and hint for option C",
+  "D": "Analysis and hint for option D",
+  "general_advice": "General advice and tips on how to approach this type of question"
+}`
+          },
+          {
+            role: "user",
+            content: `Please provide a hint for the following SAT question:
+
+Question text (passage):
+${questionText}
+
+Correct answer: ${correctAnswer}
+User selected answer: ${userAnswer}
+
+Please analyze each option (A, B, C, D) separately and provide general advice.`
+          }
+        ],
+        temperature: 0.6,
+        response_format: {
+          type: "json_object",
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.MISTRAL_API_KEY || mistral_api}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const responseText = response.data.choices[0].message.content;
+    return JSON.parse(responseText);
+  } catch (error) {
+    console.error('Error getting hint:', error);
+    return null;
+  }
+}
+
+// ====================================================
 
 export async function generateStory(
   genre: string,
@@ -128,48 +194,6 @@ export async function generateStory(
   
   return JSON.parse(data.choices[0].message.content);
 }
-
-// export async function generateStory(category: string, topic: string, length: 'short' | 'medium' | 'long', words?: string): Promise<{ title: string, content: string }> {
-//   const model = "gemini-3-flash-preview";
-//   const systemInstruction = `
-//     You are a creative writer and SAT tutor. Create a high-quality ${length} story about "${topic}" in the context of "${category}".
-//     ${words ? `INTEGRATION OBJECTIVE: You MUST naturally weave these specific SAT vocabulary words/concepts into the narrative: ${words}.
-
-//     WORD USAGE RULES (CRITICAL):
-//     - Each vocabulary word MUST be used in a context that makes its meaning clear and understandable from surrounding sentences.
-//     - Do NOT just list the words or force them awkwardly. They should feel like natural parts of the story.
-//     - Use the words in ways that reveal their definitions through context clues, actions, or character dialogue.
-//     - If a word is abstract, embody it through concrete situations or character decisions.
-//     - The story should remain engaging and coherent — never sacrifice readability for vocabulary insertion.
-//     - Aim for at least ONE meaningful usage of each provided word.` : ''}
-
-//     Structure:
-//     - Title: Attractive and relevant.
-//     - Content: Polished prose, well-structured paragraphs.
-//     - Length Guidelines: ${length === 'short' ? 'Short (~250 words)' : length === 'medium' ? 'Medium (~500 words)' : 'Long (~1000 words)'}
-
-//     Format the output as a JSON object with 'title' and 'content' keys.
-//   `;
-
-//   const response = await ai.models.generateContent({
-//     model,
-//     contents: [{ text: "Write the story now." }],
-//     config: { 
-//       systemInstruction,
-//       responseMimeType: "application/json",
-//       responseSchema: {
-//         type: "object",
-//         properties: {
-//           title: { type: "string" },
-//           content: { type: "string" }
-//         },
-//         required: ["title", "content"]
-//       }
-//     }
-//   });
-
-//   return JSON.parse(response.text || "{}");
-// }
 
 export async function chatWithAI(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) {
   const model = "gemini-3-flash-preview";

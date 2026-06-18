@@ -1,15 +1,12 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, BookOpen, Layers, ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, BrainCircuit, GraduationCap, CheckCircle, XCircle, RefreshCw, Trash2, BarChart3, List } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { WordRecord } from "../types";
+import { AppUser, WordRecord } from "../types";
 import { generatePracticeQuestionsAI } from "../services/geminiService";
 import api from "../services/api";
-
-interface WordGroupProps {
-  setView: (view: any) => void;
-  group: { name: string; words: WordRecord[]; _id?: string } | null;
-}
+import { useUserStore } from "../states/user.state";
 
 type Mode = "flashcard" | "practice";
 
@@ -21,6 +18,12 @@ interface PracticeQuestion {
   wordDefinition: string;
 }
 
+interface Group {
+  name: string;
+  words: WordRecord[];
+  _id?: string;
+}
+
 const gradients = [
   "from-rose-500 to-orange-400", "from-violet-500 to-purple-500", "from-emerald-500 to-teal-400",
   "from-amber-500 to-yellow-400", "from-cyan-500 to-blue-500", "from-pink-500 to-rose-400",
@@ -29,12 +32,14 @@ const gradients = [
 
 const getGradient = (index: number) => gradients[index % gradients.length];
 
-const WordGroupView = ({ setView, group }: WordGroupProps) => {
+const WordGroupView = () => {
+  const navigate = useNavigate();
+    const { user } = useUserStore()
+  const { groupId } = useParams<{ groupId: string }>();
+  
   const [mode, setMode] = useState<Mode>("flashcard");
   const [activeIndex, setActiveIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  const constraintsRef = useRef(null);
-  const [showPlaylist, setShowPlaylist] = useState(false);
   
   const [practiceQuestions, setPracticeQuestions] = useState<PracticeQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -45,25 +50,67 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingGroup, setIsLoadingGroup] = useState(true);
   const [showResultModal, setShowResultModal] = useState(false);
   const [resultDetails, setResultDetails] = useState<{ question: string; userAnswer: string; correctAnswer: string; isCorrect: boolean }[]>([]);
+  const [group, setGroup] = useState<Group | null>(null);
+  const [error, setError] = useState<string | null>(null);
   
   const words = group?.words && Array.isArray(group.words) ? group.words : [];
   const groupName = group?.name || "Word Group";
-  const groupId = group?._id;
+  const groupIdFromProps = group?._id;
+  
+  // Fetch group data when component mounts or groupId changes
+  useEffect(() => {
+    const fetchGroup = async () => {
+      if (!user || !user._id) {
+        setError('User not authenticated');
+        setIsLoadingGroup(false);
+        return;
+      }
+
+      if (!groupId) {
+        setError('Group ID is missing');
+        setIsLoadingGroup(false);
+        return;
+      }
+
+      try {
+        setIsLoadingGroup(true);
+        setError(null);
+        
+        const response = await api.get(`/api/words/${user._id}/${groupId}`);
+        setGroup(response.data);
+        
+      } catch (err: any) {
+        console.error('Failed to fetch group:', err);
+        if (err.response?.status === 404) {
+          setError('Word group not found');
+        } else if (err.response?.status === 403) {
+          setError('You do not have permission to view this group');
+        } else {
+          setError('Failed to load word group. Please try again.');
+        }
+      } finally {
+        setIsLoadingGroup(false);
+      }
+    };
+
+    fetchGroup();
+  }, [user, groupId]);
 
   useEffect(() => {
-    if (mode === "practice" && groupId) {
+    if (mode === "practice" && groupIdFromProps) {
       loadExistingPractice();
     }
-  }, [mode, groupId]);
+  }, [mode, groupIdFromProps]);
 
   const loadExistingPractice = async () => {
-    if (!groupId) return;
+    if (!groupIdFromProps) return;
     
     setIsLoading(true);
     try {
-      const response = await api.get(`/api/word/practice/${groupId}`);
+      const response = await api.get(`/word/practice/${groupIdFromProps}`);
       if (response.data && response.data.data) {
         setPracticeQuestions(response.data.data.questions);
         setCurrentQuestionIndex(0);
@@ -95,8 +142,8 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
       const questions = await generatePracticeQuestionsAI({ words: wordTerms });
 
       if (questions && questions.length > 0) {
-        await api.post(`/api/word/practice`, {
-          groupId: group._id,
+        await api.post(`/word/practice`, {
+          groupId: groupIdFromProps,
           questions
         });
 
@@ -119,11 +166,11 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
   };
 
   const deletePractice = async () => {
-    if (!groupId) return;
+    if (!groupIdFromProps) return;
     
     setIsDeleting(true);
     try {
-      await api.delete(`/api/word/practice/${groupId}`);
+      await api.delete(`/word/practice/${groupIdFromProps}`);
       setPracticeQuestions([]);
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
@@ -223,13 +270,36 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
     setActiveIndex(index);
   };
 
-  if (!group || words.length === 0) {
+  const handleBack = () => {
+    navigate('/words');
+  };
+
+  // Loading state
+  if (isLoadingGroup) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 px-4">
         <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-950 rounded-full animate-spin mx-auto" />
+          <p className="text-slate-600 font-medium">Loading word group...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !group || words.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 px-4">
+        <div className="text-center space-y-4 max-w-md">
           <BookOpen className="w-16 h-16 text-slate-300 mx-auto" />
-          <p className="text-slate-500 text-base font-medium">No words found</p>
-          <button onClick={() => setView("words")} className="px-5 py-2.5 bg-blue-950 text-white rounded-lg text-sm">
+          <p className="text-slate-500 text-base font-medium">{error || 'No words found'}</p>
+          {error && (
+            <p className="text-sm text-slate-400">{error}</p>
+          )}
+          <button 
+            onClick={handleBack} 
+            className="px-5 py-2.5 bg-blue-950 text-white rounded-lg text-sm hover:bg-blue-900 transition-colors"
+          >
             Back to Lexicon
           </button>
         </div>
@@ -241,7 +311,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-50">
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => setView("words")} className="p-2 rounded-full bg-slate-100 text-slate-600">
+          <button onClick={handleBack} className="p-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
@@ -251,13 +321,17 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
           <div className="flex bg-slate-100 rounded-lg p-0.5">
             <button 
               onClick={() => setMode("flashcard")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium ${mode === "flashcard" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400"}`}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                mode === "flashcard" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
+              }`}
             >
               <Layers className="w-3.5 h-3.5 inline mr-1" />Cards
             </button>
             <button 
               onClick={() => setMode("practice")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium ${mode === "practice" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400"}`}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                mode === "practice" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
+              }`}
             >
               <GraduationCap className="w-3.5 h-3.5 inline mr-1" />Practice
             </button>
@@ -269,10 +343,10 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
         <div className="flex flex-col lg:flex-row flex-1 gap-4 p-4">
           {/* Flashcard Section */}
           <div className="flex-1">
-            <div className="h-0.5 bg-slate-200 w-full mb-4">
-              <div className="h-full bg-blue-950 transition-all duration-300" style={{ width: `${progress}%` }} />
+            <div className="h-0.5 bg-slate-200 w-full mb-4 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-950 transition-all duration-300 rounded-full" style={{ width: `${progress}%` }} />
             </div>
-            <div className="flex items-center justify-center min-h-[400px]" ref={constraintsRef}>
+            <div className="flex items-center justify-center min-h-[400px]">
               <div className="w-full max-w-md relative">
                 <AnimatePresence mode="wait" custom={direction}>
                   {activeWord && (
@@ -282,19 +356,15 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                       initial={{ x: direction > 0 ? 300 : -300, opacity: 0 }} 
                       animate={{ x: 0, opacity: 1 }}
                       exit={{ x: direction > 0 ? -300 : 300, opacity: 0 }} 
-                      transition={{ duration: 0.25 }} 
-                      drag="x" 
-                      dragConstraints={constraintsRef} 
-                      dragElastic={0.5} 
-                      onDragEnd={(e, info) => { 
-                        if (info.offset.x > 50 && activeIndex > 0) goPrev(); 
-                        else if (info.offset.x < -50 && activeIndex < words.length - 1) goNext(); 
-                      }}
+                      transition={{ duration: 0.25 }}
                     >
                       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                         <div className={`bg-gradient-to-r ${getGradient(activeIndex)} p-6 text-white`}>
                           <div className="flex items-center justify-between mb-3">
-                            <button onClick={() => speakText(activeWord.term)} className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                            <button 
+                              onClick={() => speakText(activeWord.term)} 
+                              className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center hover:bg-white/30 transition-colors"
+                            >
                               <Volume2 className="w-5 h-5" />
                             </button>
                             <div className="text-5xl font-black text-white/20">{String(activeIndex + 1).padStart(2, "0")}</div>
@@ -316,7 +386,10 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                                   <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
                                   <span className="text-xs text-slate-400 uppercase tracking-wide">Example</span>
                                 </div>
-                                <button onClick={() => speakText(activeWord.sentence!)} className="p-1.5 rounded-full bg-slate-100">
+                                <button 
+                                  onClick={() => speakText(activeWord.sentence!)} 
+                                  className="p-1.5 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors"
+                                >
                                   <Volume2 className="w-3.5 h-3.5 text-slate-500" />
                                 </button>
                               </div>
@@ -330,12 +403,20 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                 </AnimatePresence>
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 mt-4">
-              <button onClick={goPrev} disabled={activeIndex === 0} className="flex-1 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm disabled:opacity-40">
+            <div className="flex items-center justify-between gap-3 mt-4 max-w-md mx-auto">
+              <button 
+                onClick={goPrev} 
+                disabled={activeIndex === 0} 
+                className="flex-1 py-3 rounded-xl bg-white border border-slate-200 text-slate-700 font-medium text-sm disabled:opacity-40 hover:bg-slate-50 transition-colors"
+              >
                 <ChevronLeft className="w-4 h-4 inline mr-1" />Prev
               </button>
-              <div className="text-xs text-slate-400 px-3">{activeIndex + 1} / {words.length}</div>
-              <button onClick={goNext} disabled={activeIndex === words.length - 1} className="flex-1 py-3 rounded-xl bg-blue-950 text-white font-medium text-sm disabled:opacity-40">
+              <div className="text-xs text-slate-400 px-3 font-medium">{activeIndex + 1} / {words.length}</div>
+              <button 
+                onClick={goNext} 
+                disabled={activeIndex === words.length - 1} 
+                className="flex-1 py-3 rounded-xl bg-blue-950 text-white font-medium text-sm disabled:opacity-40 hover:bg-blue-900 transition-colors"
+              >
                 Next<ChevronRight className="w-4 h-4 inline ml-1" />
               </button>
             </div>
@@ -343,7 +424,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
 
           {/* Playlist Section */}
           <div className="lg:w-80 flex-shrink-0">
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden sticky top-[73px]">
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden sticky top-[73px] shadow-sm">
               <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <List className="w-4 h-4 text-blue-950" />
@@ -379,7 +460,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                     </div>
                     <button 
                       onClick={(e) => { e.stopPropagation(); speakText(word.term); }}
-                      className="p-1.5 rounded-full hover:bg-slate-100"
+                      className="p-1.5 rounded-full hover:bg-slate-100 transition-colors"
                     >
                       <Volume2 className="w-3.5 h-3.5 text-slate-400" />
                     </button>
@@ -397,7 +478,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
             <button
               onClick={generatePracticeQuestions}
               disabled={isGenerating}
-              className="flex-1 min-w-[120px] py-2.5 bg-blue-950 text-white rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 min-w-[120px] py-2.5 bg-blue-950 text-white rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-blue-900 transition-colors"
             >
               {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <BrainCircuit className="w-4 h-4" />}
               {isGenerating ? "Generating..." : "Generate New"}
@@ -408,7 +489,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
               {practiceCompleted && (
                 <button
                   onClick={showResults}
-                  className="px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2"
+                  className="px-4 py-2.5 bg-green-600 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span className="hidden sm:inline">Results</span>
@@ -418,7 +499,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                 <button
                   onClick={deletePractice}
                   disabled={isDeleting}
-                  className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2 hover:bg-red-700 transition-colors"
                 >
                   {isDeleting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   <span className="hidden sm:inline">Delete</span>
@@ -455,18 +536,19 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
               </div>
 
               <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
-                <div className={`bg-gradient-to-r md:p-6 p-2`}>
+                <div className="p-6">
                   <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium flex items-center text-slate-700 gap-2">
+                      <GraduationCap className="w-6 h-6 text-blue-950" />
+                      <span>Complete the sentence</span>
+                    </h3>
                   </div>
-                  <h3 className="text-sm font-medium flex items-center text-slate-700 justify-start gap-2 mb-2">
-                    <GraduationCap className="w-6 h-6 " />
-                    <span>Complete the sentence</span></h3>
                   <p className="md:text-xl text-sm md:font-semibold leading-relaxed">
                     {practiceQuestions[currentQuestionIndex].sentence.split("______").map((part, i, arr) => (
                       <span key={i} className="text-slate-600">
                         {part}
                         {i < arr.length - 1 && (
-                          <span className={`rounded-lg text-center text-slate-700`}>
+                          <span className={`rounded-lg text-center text-slate-700 font-bold`}>
                             {showResult ? practiceQuestions[currentQuestionIndex].correctWord : "______"}
                           </span>
                         )}
@@ -475,7 +557,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                   </p>
                 </div>
 
-                <div className="p-6 max-md:px-2">
+                <div className="p-6 pt-0">
                   <div className="mb-6">
                     <p className="text-sm text-slate-500 mb-3">Choose the correct word:</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -489,7 +571,7 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                           else if (isSelected && !isCorrect) buttonClass += "bg-red-50 border-red-500 text-red-700 line-through";
                           else buttonClass += "bg-slate-50 border-slate-200 text-slate-400";
                         } else {
-                          buttonClass += isSelected ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-slate-200 hover:border-blue-300 text-slate-700";
+                          buttonClass += isSelected ? "bg-blue-50 border-blue-500 text-blue-700" : "bg-white border-slate-200 hover:border-blue-300 text-slate-700 hover:bg-slate-50";
                         }
                         
                         return (
@@ -518,7 +600,10 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                   )}
 
                   {showResult && (
-                    <button onClick={nextQuestion} className="w-full py-3 bg-blue-950 text-white rounded-xl font-medium flex items-center justify-center gap-2">
+                    <button 
+                      onClick={nextQuestion} 
+                      className="w-full py-3 bg-blue-950 text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-blue-900 transition-colors"
+                    >
                       {currentQuestionIndex + 1 === practiceQuestions.length ? "Finish Practice" : "Next Question"}
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -537,13 +622,13 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                   You got <span className="font-bold text-blue-950">{score.correct}</span> out of <span className="font-bold">{practiceQuestions.length}</span> correct
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  <button onClick={restartPractice} className="flex-1 py-3 bg-blue-950 text-white rounded-xl font-medium">
+                  <button onClick={restartPractice} className="flex-1 py-3 bg-blue-950 text-white rounded-xl font-medium hover:bg-blue-900 transition-colors">
                     Try Again
                   </button>
-                  <button onClick={generatePracticeQuestions} className="flex-1 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-medium">
+                  <button onClick={generatePracticeQuestions} className="flex-1 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition-colors">
                     New Practice
                   </button>
-                  <button onClick={showResults} className="px-4 py-3 bg-green-600 text-white rounded-xl font-medium">
+                  <button onClick={showResults} className="px-4 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-colors">
                     View Results
                   </button>
                 </div>
@@ -566,11 +651,14 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl"
           >
             <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-gradient-to-r from-blue-950 to-blue-800">
               <h3 className="text-lg font-bold text-white">Practice Results</h3>
-              <button onClick={() => setShowResultModal(false)} className="p-1 rounded-lg hover:bg-white/20">
+              <button 
+                onClick={() => setShowResultModal(false)} 
+                className="p-1 rounded-lg hover:bg-white/20 transition-colors"
+              >
                 <XCircle className="w-5 h-5 text-white" />
               </button>
             </div>
@@ -589,9 +677,9 @@ const WordGroupView = ({ setView, group }: WordGroupProps) => {
                   <div key={idx} className={`p-3 rounded-xl border ${detail.isCorrect ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                     <div className="flex items-start gap-2">
                       {detail.isCorrect ? (
-                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                        <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
+                        <XCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                       )}
                       <div className="flex-1">
                         <p className="text-sm text-slate-700 mb-1">{detail.question}</p>

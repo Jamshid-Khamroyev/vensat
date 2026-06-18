@@ -1,24 +1,49 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
+import { 
+    ArrowLeft,
+    Eye,
+    Save,
+    X,
+    Clock,
+    List,
+    FileText,
+    BookOpen,
+    Layers,
+    Target,
+    AlertCircle,
+    CheckCircle,
+    Sparkles,
+    Loader2,
+    ChevronDown,
+    ChevronUp,
+    Plus,
+    Minus,
+    Edit,
+    Zap,
+    Award,
+    Flame
+} from 'lucide-react';
+import { useUserStore } from "../states/user.state";
 
 type DSATCategory = 'information-ideas' | 'craft-structure' | 'expression-ideas' | 'standard-conventions';
+type Difficulty = 'easy' | 'medium' | 'hard';
 
 interface ManualTestProps {
     setView: (view: any) => void;
-    user: { _id: string; displayName: string; email: string } | null;
-    dbTests: any[];
-    setDbTests: (tests: any[]) => void;
     selectedTime: number;
     setSelectedTime: (time: number) => void;
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
 }
 
-const ManualTest = ({ selectedTime, dbTests, setDbTests, setSelectedTime, setView, user, isProcessing, setIsProcessing }: ManualTestProps) => {
+const ManualTest = ({ selectedTime, setSelectedTime, setView, isProcessing, setIsProcessing }: ManualTestProps) => {
+    const { user } = useUserStore()
     const [testText, setTestText] = useState("");
     const [keyText, setKeyText] = useState("");
     const [selectedCategory, setSelectedCategory] = useState<DSATCategory>('information-ideas');
+    const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
     const [preview, setPreview] = useState<any>(null);
 
     const generateTitle = () => `DSAT ${["Practice","Assessment","Quiz"][Math.floor(Math.random()*3)]} - ${new Date().toLocaleDateString()}`;
@@ -37,55 +62,29 @@ const ManualTest = ({ selectedTime, dbTests, setDbTests, setSelectedTime, setVie
             let questionStem = "";
             const options: string[] = [];
             
-            // 1. Yulduzchalar ichidagi savol matnini topish
             const questionMatch = remainingText.match(/\*(.+?)\*/s);
             
             if (questionMatch) {
-                // Yulduzchalar topildi - savol matni yulduzchalar ichida
                 questionStem = questionMatch[1].trim();
-                // Yulduzchalardan oldingi qism passage
                 passage = remainingText.substring(0, questionMatch.index!).trim();
-                // Yulduzchalardan keyingi qism answer choices
                 const afterQuestion = remainingText.substring(questionMatch.index! + questionMatch[0].length).trim();
                 
-                // Answer choices ni parse qilish
                 const optMatches = afterQuestion.matchAll(/\n?([A-D])[\.\)]\s+(.+?)(?=\n[A-D][\.\)]|\n\n|$)/gs);
                 for (const m of optMatches) {
                     options.push(m[2].trim());
                 }
-            } else {
-                // Fallback: eski usul - yulduzchalar bo'lmasa
-                const qMatch = remainingText.match(/((?:Which|What|Based|According)[^?!]*[?])/i);
-                if (qMatch) {
-                    passage = remainingText.substring(0, qMatch.index!).trim();
-                    questionStem = qMatch[0];
-                } else if (remainingText.includes('?')) {
-                    const idx = remainingText.lastIndexOf('?');
-                    let start = remainingText.lastIndexOf('.', idx) + 1;
-                    if (start < 0 || start > idx) start = 0;
-                    questionStem = remainingText.substring(start, idx + 1).trim();
-                    passage = remainingText.substring(0, start).trim();
-                } else {
-                    passage = remainingText;
-                    questionStem = "Select the best answer";
-                }
-                
-                // Optionlarni topish
-                const optMatches = block.matchAll(/\n([A-D])[\.\)]\s+(.+?)(?=\n[A-D][\.\)]|\n\n|$)/gs);
-                for (const m of optMatches) options.push(m[2].trim());
             }
             
-            // Agar passage bo'sh bo'lsa, placeholder qo'yish
             if (!passage) passage = " ";
             
             if (options.length >= 2) {
                 while(options.length < 4) options.push(`Option ${String.fromCharCode(65+options.length)}`);
                 questions.push({
-                    text: passage,  // Yulduzchalarsiz passage
-                    question: questionStem,  // Yulduzchalarsiz savol matni
+                    text: passage,
+                    question: questionStem,
                     options: options.slice(0,4),
                     correctAnswerIndex: 0,
-                    difficulty: "medium",
+                    difficulty: selectedDifficulty,
                     category: selectedCategory
                 });
             }
@@ -93,71 +92,84 @@ const ManualTest = ({ selectedTime, dbTests, setDbTests, setSelectedTime, setVie
         return questions;
     };
 
-const parseAnswers = (key: string, count: number) => {
-    const map = new Map();
-    const clean = key.toUpperCase().replace(/\s/g, '');
-    const matches = clean.matchAll(/(\d+)[\s\-]?([A-D])/g);
-    for (const m of matches) {
-        const q = parseInt(m[1]);
-        const idx = m[2].charCodeAt(0) - 65;
-        if (q >= 1 && q <= count && idx >= 0 && idx < 4) map.set(q, idx);
-    }
-    return map;
-};
+    const parseAnswers = (key: string, count: number) => {
+        const map = new Map();
+        const clean = key.toUpperCase().replace(/\s/g, '');
+        const matches = clean.matchAll(/(\d+)[\s\-]?([A-D])/g);
+        for (const m of matches) {
+            const q = parseInt(m[1]);
+            const idx = m[2].charCodeAt(0) - 65;
+            if (q >= 1 && q <= count && idx >= 0 && idx < 4) map.set(q, idx);
+        }
+        return map;
+    };
 
-const handlePreview = async () => {
-    if (!testText.trim()) return toast.error("Please enter test content");
-    setIsProcessing(true);
+    const handlePreview = async () => {
+        if (!testText.trim()) return toast.error("Please enter test content");
+        setIsProcessing(true);
 
-    const questions = parseQuestions(testText);
-    if (questions.length === 0) {
-        toast.error("No valid questions found. Use: 1. Passage\\n\\nQuestion?\\n\\nA) Opt\\nB) Opt\\nC) Opt\\nD) Opt");
-        setIsProcessing(false);
-        return;
-    }
-    
-    let answerMap = parseAnswers(keyText, questions.length);
-    if (answerMap.size === 0 && keyText !== testText) {
-        const answerSection = testText.match(/ANSWER\s*KEY\s*:?\s*([\s\S]+)$/i);
-        if (answerSection) answerMap = parseAnswers(answerSection[1], questions.length);
-    }
-    
-    const finalQuestions = questions.map((q, i) => ({ ...q, correctAnswerIndex: answerMap.get(i+1) ?? 0 }));
-    const missing = [];
-    for (let i = 1; i <= questions.length; i++) if (!answerMap.has(i)) missing.push(i);
-    if (missing.length) toast.warning(`Missing answers for Q: ${missing.join(',')}. Using A as default.`);
-    else toast.success(`${questions.length} questions parsed!`);
-    
-    setPreview({ data: { title: generateTitle(), category: selectedCategory, timeLimit: selectedTime, questions: finalQuestions }, preview: finalQuestions });
-    setIsProcessing(false);
-};
-
-const handleSave = async () => {
-    if (!preview) return
-    setIsProcessing(true);
-    try {
-        const res = await fetch("/api/tests", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...preview.data, creatorId: user?._id })
+        const questions = parseQuestions(testText);
+        if (questions.length === 0) {
+            toast.error("No valid questions found. Use: 1. Passage\n\nQuestion?\n\nA) Opt\nB) Opt\nC) Opt\nD) Opt");
+            setIsProcessing(false);
+            return;
+        }
+        
+        let answerMap = parseAnswers(keyText, questions.length);
+        if (answerMap.size === 0 && keyText !== testText) {
+            const answerSection = testText.match(/ANSWER\s*KEY\s*:?\s*([\s\S]+)$/i);
+            if (answerSection) answerMap = parseAnswers(answerSection[1], questions.length);
+        }
+        
+        const finalQuestions = questions.map((q, i) => ({ ...q, correctAnswerIndex: answerMap.get(i+1) ?? 0 }));
+        const missing = [];
+        for (let i = 1; i <= questions.length; i++) if (!answerMap.has(i)) missing.push(i);
+        if (missing.length) toast.warning(`Missing answers for Q: ${missing.join(',')}. Using A as default.`);
+        else toast.success(`${questions.length} questions parsed!`);
+        
+        setPreview({ 
+            data: { 
+                title: generateTitle(), 
+                category: selectedCategory, 
+                difficulty: selectedDifficulty,
+                timeLimit: selectedTime, 
+                questions: finalQuestions 
+            }, 
+            preview: finalQuestions 
         });
-        if (!res.ok) throw new Error(await res.text());
-        const saved = await res.json();
-        setDbTests([saved, ...dbTests]);
-        toast.success("Test saved!");
-        setPreview(null);
-        setTestText("");
-        setKeyText("");
-        setView('dashboard');
-    } catch (e: any) {
-        toast.error(e.message);
-    } finally {
         setIsProcessing(false);
-    }
-};
+    };
 
-   const loadExample = () => {
-    setTestText(`1. Dr. Aris Thorne's 2025 study found that speakers of Kuuk Thaayorre demonstrate significantly better spatial awareness than English speakers.
+    const handleSave = async () => {
+        if (!preview) return;
+        setIsProcessing(true);
+        try {
+            const res = await fetch("/api/tests", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    ...preview.data, 
+                    creatorId: user?._id, 
+                    isGlobal: true,
+                    difficulty: selectedDifficulty
+                })
+            });
+            if (!res.ok) throw new Error(await res.text());
+            await res.json();
+            toast.success("Test saved successfully!");
+            setPreview(null);
+            setTestText("");
+            setKeyText("");
+            setView('dashboard');
+        } catch (e: any) {
+            toast.error(e.message);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const loadExample = () => {
+        setTestText(`1. Dr. Aris Thorne's 2025 study found that speakers of Kuuk Thaayorre demonstrate significantly better spatial awareness than English speakers.
 *Which choice best states the main purpose of the text?*
 A) To criticize previous studies
 B) To present evidence supporting linguistic relativity
@@ -171,76 +183,310 @@ B) Some occupations survive technological change
 C) Only manufacturing was affected
 D) Specialized skills are less valuable`);
         setKeyText("1-B,2-B");
+        setSelectedDifficulty('medium');
     };
 
+    const getDifficultyConfig = (diff: Difficulty) => {
+        const configs = {
+            easy: { 
+                color: 'text-emerald-600', 
+                bg: 'bg-emerald-50', 
+                border: 'border-emerald-200',
+                icon: Zap,
+                label: 'Easy'
+            },
+            medium: { 
+                color: 'text-amber-600', 
+                bg: 'bg-amber-50', 
+                border: 'border-amber-200',
+                icon: Award,
+                label: 'Medium'
+            },
+            hard: { 
+                color: 'text-rose-600', 
+                bg: 'bg-rose-50', 
+                border: 'border-rose-200',
+                icon: Flame,
+                label: 'Hard'
+            }
+        };
+        return configs[diff] || configs.medium;
+    };
+
+    const categoryLabels = {
+        'information-ideas': { label: 'Information & Ideas', icon: BookOpen },
+        'craft-structure': { label: 'Craft & Structure', icon: Layers },
+        'expression-ideas': { label: 'Expression of Ideas', icon: FileText },
+        'standard-conventions': { label: 'Standard Conventions', icon: Target }
+    };
+
+    const DifficultyIcon = getDifficultyConfig(selectedDifficulty).icon;
+
     return (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 p-4">
+        <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            className="min-h-screen bg-gray-50 p-3 sm:p-4"
+        >
             <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-2xl shadow-xl p-6">
-                    {!preview ? (
-                        <>
-                            <div className="flex justify-between items-center mb-4">
-                                <h1 className="text-2xl font-bold">DSAT Test Importer</h1>
-                                <button onClick={loadExample} className="text-sm text-blue-600 hover:underline">📋 Load Example</button>
+                <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                            <button
+                                onClick={() => setView('dashboard')}
+                                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                            >
+                                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
+                            </button>
+                            <div className="min-w-0">
+                                <h1 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">Import DSAT Test</h1>
+                                <p className="text-xs sm:text-sm text-gray-500 truncate hidden sm:block">Create a new test from formatted text</p>
                             </div>
-                            
-                            <textarea value={testText} onChange={e => setTestText(e.target.value)} 
-                                className="w-full h-80 p-3 border rounded-lg font-mono text-sm mb-4 resize-none"
-                                placeholder="1. Passage text...&#10;&#10;Question stem?&#10;A) Option 1&#10;B) Option 2&#10;C) Option 3&#10;D) Option 4" />
-                            
-                            <textarea value={keyText} onChange={e => setKeyText(e.target.value)} 
-                                className="w-full h-16 p-3 border rounded-lg font-mono text-sm mb-4 resize-none"
-                                placeholder="Answer key: 1-B,2-C,3-A (optional)" />
-                            
-                            <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value as DSATCategory)} 
-                                className="w-full p-3 border rounded-lg mb-4 bg-white">
-                                <option value="information-ideas">Information and Ideas</option>
-                                <option value="craft-structure">Craft and Structure</option>
-                                <option value="expression-ideas">Expression of Ideas</option>
-                                <option value="standard-conventions">Standard English Conventions</option>
-                            </select>
-                            
-                            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg mb-4">
-                                <span>Time (minutes)</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setSelectedTime(Math.max(1, selectedTime-5))} className="w-8 h-8 bg-white border rounded">-</button>
-                                    <input type="number" value={selectedTime} onChange={e => setSelectedTime(Math.max(1, parseInt(e.target.value) || 0))} className="w-20 text-center border rounded p-1" />
-                                    <button onClick={() => setSelectedTime(Math.min(180, selectedTime+5))} className="w-8 h-8 bg-white border rounded">+</button>
+                        </div>
+                        <button
+                            onClick={loadExample}
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
+                        >
+                            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span className="hidden xs:inline">Load Example</span>
+                        </button>
+                    </div>
+
+                    {!preview ? (
+                        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                            {/* Test Content */}
+                            <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                                    Test Content
+                                    <span className="text-gray-400 text-xs ml-1 sm:ml-2">(Questions with passages and options)</span>
+                                </label>
+                                <textarea 
+                                    value={testText} 
+                                    onChange={e => setTestText(e.target.value)} 
+                                    className="w-full h-48 sm:h-64 p-3 border border-gray-200 rounded-lg font-mono text-xs sm:text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                                    placeholder="1. Passage text...&#10;&#10;*Question stem?*&#10;A) Option 1&#10;B) Option 2&#10;C) Option 3&#10;D) Option 4"
+                                />
+                            </div>
+
+                            {/* Answer Key */}
+                            <div>
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                                    Answer Key
+                                    <span className="text-gray-400 text-xs ml-1 sm:ml-2">(Optional)</span>
+                                </label>
+                                <textarea 
+                                    value={keyText} 
+                                    onChange={e => setKeyText(e.target.value)} 
+                                    className="w-full h-12 sm:h-16 p-2 sm:p-3 border border-gray-200 rounded-lg font-mono text-xs sm:text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                                    placeholder="1-B, 2-C, 3-A"
+                                />
+                            </div>
+
+                            {/* Settings Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                {/* Category */}
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                                        <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
+                                        Category
+                                    </label>
+                                    <select 
+                                        value={selectedCategory} 
+                                        onChange={e => setSelectedCategory(e.target.value as DSATCategory)} 
+                                        className="w-full px-2 sm:px-3 py-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                                    >
+                                        {Object.entries(categoryLabels).map(([key, { label }]) => (
+                                            <option key={key} value={key}>{label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Difficulty */}
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                                        <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
+                                        Difficulty
+                                    </label>
+                                    <select 
+                                        value={selectedDifficulty} 
+                                        onChange={e => setSelectedDifficulty(e.target.value as Difficulty)} 
+                                        className="w-full px-2 sm:px-3 py-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                                    >
+                                        <option value="easy">Easy</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
+
+                                {/* Time */}
+                                <div className="sm:col-span-2 lg:col-span-1">
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                                        <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
+                                        Time Limit
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                        <button 
+                                            onClick={() => setSelectedTime(Math.max(1, selectedTime-5))} 
+                                            className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0"
+                                        >
+                                            <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </button>
+                                        <input 
+                                            type="number" 
+                                            value={selectedTime} 
+                                            onChange={e => setSelectedTime(Math.max(1, parseInt(e.target.value) || 0))} 
+                                            className="w-full text-center border border-gray-200 rounded-lg py-1.5 sm:py-2 px-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                            min="1"
+                                        />
+                                        <button 
+                                            onClick={() => setSelectedTime(Math.min(180, selectedTime+5))} 
+                                            className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0"
+                                        >
+                                            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                        </button>
+                                        <span className="text-xs sm:text-sm text-gray-500">min</span>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <div className="flex gap-3">
-                                <button onClick={() => setView('dashboard')} className="flex-1 py-2 bg-slate-100 rounded-lg">Cancel</button>
-                                <button onClick={handlePreview} disabled={isProcessing} className="flex-[2] py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">
-                                    {isProcessing ? "⏳" : "Preview"}
+
+                            {/* Difficulty Badge */}
+                            <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
+                                <span className="text-xs sm:text-sm text-gray-600">Selected:</span>
+                                <span className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getDifficultyConfig(selectedDifficulty).bg} ${getDifficultyConfig(selectedDifficulty).color} ${getDifficultyConfig(selectedDifficulty).border}`}>
+                                    <DifficultyIcon className="w-3.5 h-3.5" />
+                                    {getDifficultyConfig(selectedDifficulty).label}
+                                </span>
+                                <span className="text-xs sm:text-sm text-gray-400 ml-1 sm:ml-2">
+                                    {categoryLabels[selectedCategory].label}
+                                </span>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 pt-2">
+                                <button 
+                                    onClick={() => setView('dashboard')} 
+                                    className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1"
+                                >
+                                    <X className="w-4 h-4" />
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handlePreview} 
+                                    disabled={isProcessing} 
+                                    className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Eye className="w-4 h-4" />
+                                            Preview Test
+                                        </>
+                                    )}
                                 </button>
                             </div>
-                        </>
+                        </div>
                     ) : (
-                        <>
-                            <h2 className="text-xl font-bold mb-4">Preview ({preview.data.questions.length} questions)</h2>
-                            <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto mb-4">
-                                {preview.data.questions.map((q: any, i: number) => (
-                                    <div key={i} className="mb-6 border-b pb-4">
-                                        <p className="font-semibold">Q{i+1}: {q.question}</p>
-                                        {q.text && q.text !== " " && <p className="text-sm text-slate-600 mt-1">{q.text.substring(0,150)}...</p>}
-                                        <div className="mt-2">
-                                            {q.options.map((opt: string, oi: number) => (
-                                                <p key={oi} className={`text-sm ml-4 ${oi === q.correctAnswerIndex ? "text-green-600 font-bold" : "text-slate-700"}`}>
-                                                    {String.fromCharCode(65+oi)}) {opt} {oi === q.correctAnswerIndex && "✓"}
-                                                </p>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex gap-3">
-                                <button onClick={() => setPreview(null)} className="flex-1 py-2 bg-slate-100 rounded-lg">Edit</button>
-                                <button onClick={handleSave} disabled={isProcessing} className="flex-[2] py-2 bg-green-600 text-white rounded-lg disabled:opacity-50">
-                                    {isProcessing ? "⏳" : "Save Test"}
+                        <div className="p-4 sm:p-6">
+                            {/* Preview Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                                        Preview
+                                    </h2>
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs sm:text-sm">
+                                        {preview.data.questions.length} Qs
+                                    </span>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border ${getDifficultyConfig(selectedDifficulty).bg} ${getDifficultyConfig(selectedDifficulty).color} ${getDifficultyConfig(selectedDifficulty).border}`}>
+                                        <DifficultyIcon className="w-3 h-3" />
+                                        {getDifficultyConfig(selectedDifficulty).label}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => setPreview(null)}
+                                    className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                >
+                                    <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                                 </button>
                             </div>
-                        </>
+
+                            {/* Questions List */}
+                            <div className="bg-gray-50 rounded-lg p-3 sm:p-4 max-h-[400px] sm:max-h-[500px] overflow-y-auto space-y-3 sm:space-y-4">
+                                {preview.data.questions.map((q: any, i: number) => {
+                                    const diffConfig = getDifficultyConfig(q.difficulty || selectedDifficulty);
+                                    const DiffIcon = diffConfig.icon;
+                                    return (
+                                        <div key={i} className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
+                                                        <span className="text-xs sm:text-sm font-semibold text-gray-700">
+                                                            Q{i+1}
+                                                        </span>
+                                                        <span className={`inline-flex items-center gap-0.5 sm:gap-1 text-xs px-1.5 sm:px-2 py-0.5 rounded-full border ${diffConfig.bg} ${diffConfig.color} ${diffConfig.border}`}>
+                                                            <DiffIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                                                            <span className="hidden xs:inline">{diffConfig.label}</span>
+                                                        </span>
+                                                        <span className="text-[10px] sm:text-xs text-gray-400 truncate">
+                                                            {categoryLabels[q.category || selectedCategory]?.label}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs sm:text-sm text-gray-800 mb-2 break-words">{q.question}</p>
+                                                    {q.text && q.text !== " " && (
+                                                        <p className="text-[10px] sm:text-xs text-gray-500 mb-2 line-clamp-2 break-words">{q.text}</p>
+                                                    )}
+                                                    <div className="space-y-0.5 sm:space-y-1">
+                                                        {q.options.map((opt: string, oi: number) => (
+                                                            <div 
+                                                                key={oi} 
+                                                                className={`text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded ${oi === q.correctAnswerIndex ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600'} break-words`}
+                                                            >
+                                                                <span className="font-mono">{String.fromCharCode(65+oi)})</span> {opt}
+                                                                {oi === q.correctAnswerIndex && (
+                                                                    <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline ml-1 text-green-600" />
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+                                <button 
+                                    onClick={() => setPreview(null)} 
+                                    className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Edit
+                                </button>
+                                <button 
+                                    onClick={handleSave} 
+                                    disabled={isProcessing} 
+                                    className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="w-4 h-4" />
+                                            Save Test
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
             </div>

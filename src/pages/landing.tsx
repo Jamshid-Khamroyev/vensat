@@ -3,15 +3,14 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { faqs, features, stats, testimonials } from '../constants';
 import api from '../services/api';
-import { AppUser } from '../types';
+import { useUserStore } from '../states/user.state';
 
 interface landingProps {
-    setUser: React.Dispatch<React.SetStateAction<any>>;
     setView: React.Dispatch<React.SetStateAction<string>>;
-    user: AppUser | null;
 }
 
-const LandingPage = ({ setUser, user, setView }: landingProps) => {
+const LandingPage = ({ setView }: landingProps) => {
+    const { login, user } = useUserStore()
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     const [showPassword, setShowPassword] = useState(false);
@@ -42,8 +41,7 @@ const LandingPage = ({ setUser, user, setView }: landingProps) => {
 
         const data = res.data;
 
-        setUser(data.user);
-        localStorage.setItem("aero_user", JSON.stringify(data.user));
+        login(data.user);
         localStorage.setItem("aero_token", data.token);
 
         toast.success(authMode === "login" ? "Xush kelibsiz!" : "Hisob yaratildi!");

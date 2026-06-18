@@ -6,6 +6,7 @@ import { generateStory } from "../services/geminiService";
 import { AppUser, GroupWord } from "../types";
 import { Button } from "@/components/ui/button";
 import api from "../services/api";
+import { useUserStore } from "../states/user.state";
 
 interface StoryGenProps {
   setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -14,14 +15,12 @@ interface StoryGenProps {
   setStoryOptions: (options: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; }) => void; // ✅
   isProcessing: boolean;
   setIsProcessing: (processing: boolean) => void;
-  user: AppUser | null;
-  setCurrentStory: (story: any) => void;
-  setDbStories: (stories: any[]) => void;
   dbStories: any[];
 }
 
-const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, setCurrentStory, setDbStories, user, setView, storyOptions, userWords }: StoryGenProps) => {
+const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, setView, storyOptions, userWords }: StoryGenProps) => {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const { user } = useUserStore()
 
   const availableGroups = useMemo(() => {
     return userWords.filter(group => group.words && group.words.length > 0);
@@ -32,12 +31,7 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
     toast.error('Iltimos, mavzu va janrni tanlang');
     return;
   }
-  
-  if (selectedGroupIds.length === 0) {
-    toast.error('Hech bo\'lmaganda bitta so\'z guruhini tanlang');
-    return;
-  }
-  
+
   if (isProcessing) return;
   
   setIsProcessing(true);
@@ -73,8 +67,6 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
       params: { userId: user?._id }
     });
     
-    setDbStories(updatedStories);
-    setCurrentStory(updatedStories[0]);
     toast.success('Hikoya muvaffaqiyatli yaratildi', { id: loadingToast });
     setView('stories');
   } catch (e: any) {
@@ -274,20 +266,6 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
                   </div>
                 </div>
               )}
-
-              {availableGroups.length === 0 && (
-                <div className="bg-amber-50 rounded-xl p-4 border border-amber-200 text-center">
-                  <p className="text-sm text-amber-800">
-                    No word groups available. Please add some words to your vocabulary first.
-                  </p>
-                  <button
-                    onClick={() => setView('words')}
-                    className="mt-2 text-sm text-amber-900 underline font-medium hover:text-amber-700"
-                  >
-                    Go to Words →
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -303,9 +281,6 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
                   <span className={storyOptions.genre ? 'text-green-600' : 'text-red-500'}>
                     {storyOptions.genre ? '✓ Genre selected' : '⚠ Genre required'}
                   </span>
-                  <span className={selectedGroupIds.length > 0 ? 'text-green-600' : 'text-red-500'}>
-                    {selectedGroupIds.length > 0 ? `✓ ${getTotalSelectedWords()} words selected` : '⚠ No word groups selected'}
-                  </span>
                 </div>
                 <div className="text-slate-400">
                   Estimated reading time: {storyOptions.length === 'medium' ? '2-3 min' : storyOptions.length === 'long' ? '4-5 min' : '8-10 min'}
@@ -314,7 +289,7 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, dbStories, s
             </div>
             <button 
               onClick={handleCreateStory}
-              disabled={isProcessing || !storyOptions.topic || !storyOptions.genre || selectedGroupIds.length === 0}
+              disabled={isProcessing || !storyOptions.topic || !storyOptions.genre}
               className="w-full sm:w-auto px-8 py-4 bluebook-button flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isProcessing ? (

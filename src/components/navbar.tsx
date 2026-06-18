@@ -3,14 +3,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, GraduationCap, FileQuestion } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dispatch, SetStateAction, useState, useCallback, useMemo } from "react";
+import { useLocation } from "react-router-dom";
+import { useUserStore } from "../states/user.state";
 
 interface NavbarProps {
     view: string;
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
-    setUser: Dispatch<SetStateAction<{ _id: string; displayName: string; email: string } | null>>;
-    user: { _id: string; displayName: string; email: string } | null;
-    formatTime?: (seconds: number) => string;
-    timeLeft?: number;
 }
 
 const navItems = [
@@ -22,20 +20,21 @@ const navItems = [
   { key: 'profile', label: 'Tahlil', icon: BarChart3, color: 'from-orange-500 to-red-500' },
 ] as const;
 
-const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarProps) => {
+const Navbar = ({ setView, view }: NavbarProps) => {
+    const { user, logout } = useUserStore()
     const [open, setOpen] = useState(false);
     const [mobileMenu, setMobileMenu] = useState(false);
-
-    const isTesting = view === 'testing';
-    const isLanding = view === 'landing';
+    const location = useLocation();
+    const searchParams = new URLSearchParams(location.search);
+    const isTesting = searchParams.get('mode') === 'testing';
 
     const handleLogout = useCallback(() => {
-        setUser(null);
+        logout();
         localStorage.removeItem('aero_user');
         setView('landing');
         setOpen(false);
         setMobileMenu(false);
-    }, [setUser, setView]);
+    }, [setView]);
 
     const handleNavigation = useCallback((key: string) => {
         setView(key as any);
@@ -78,7 +77,7 @@ const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarPr
                                     onClick={() => handleNavigation(item.key)}
                                     className={`relative group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
                                         isActive
-                                            ? 'text-white shadow-lg shadow-blue-500/25'
+                                            ? 'text-white shadow-lg sha dow-blue-500/25'
                                             : 'text-slate-500 hover:text-slate-700'
                                     }`}
                                 >
@@ -113,7 +112,7 @@ const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarPr
                 )}
 
                 {/* Mobile Menu Toggle */}
-                {user && !isTesting && !isLanding && (
+                {user && !isTesting && (
                     <motion.button
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setMobileMenu(!mobileMenu)}
@@ -146,7 +145,7 @@ const Navbar = ({ setUser, setView, view, user, formatTime, timeLeft }: NavbarPr
 
             {/* Mobile Navigation Sheet */}
             <AnimatePresence>
-                {mobileMenu && user && !isTesting && !isLanding && (
+                {mobileMenu && user && !isTesting && (
                     <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}

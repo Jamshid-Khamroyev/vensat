@@ -4,14 +4,13 @@ import Markdown from "react-markdown";
 import HistorySection from "../components/histories";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import api from "../services/api";
+import { useUserStore } from "../states/user.state";
 
 interface ProfileProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-    user: { displayName: string; email: string, _id: string } | null;
     chatMessages: { role: 'user' | 'model'; parts: { text: string }[] }[];
     setChatMessages: (messages: any[]) => void;
     chatInput: string;
-    setHistoryId: Dispatch<SetStateAction<string>>
     setChatInput: (input: string) => void;
     isChatting: boolean;
     setIsChatting: (chatting: boolean) => void;
@@ -19,17 +18,10 @@ interface ProfileProps {
     chatScrollRef: React.RefObject<HTMLDivElement>;
 }
 
-// Category mapping for SAT sections
-const skillCategories = {
-    eoi_skill: { name: "Information & Ideas", icon: Lightbulb, color: "from-blue-400 to-cyan-400", description: "Reading comprehension & analysis" },
-    sec_skill: { name: "Standard English", icon: MessageSquare, color: "from-indigo-400 to-blue-400", description: "Grammar & conventions" },
-    iai_skill: { name: "Craft & Structure", icon: Target, color: "from-violet-400 to-purple-400", description: "Vocabulary & text structure" },
-    cas_skill: { name: "Expression of Ideas", icon: TrendingUp, color: "from-sky-400 to-blue-400", description: "Effective writing & rhetoric" }
-};
-
-const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, setHistoryId, isChatting, setChatInput, setChatMessages, setView, user }: ProfileProps) => {
+const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, isChatting, setChatInput, setChatMessages, setView }: ProfileProps) => {
   const [userData, setUserData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUserStore()
 
   const getUser = async () => {
     try {
@@ -315,7 +307,7 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, se
         </motion.div>
       </div>
 
-      <HistorySection userId={user?._id} setView={setView} setHistoryId={setHistoryId}/>
+      <HistorySection userId={user?._id} />
     </motion.div>
   )
 }

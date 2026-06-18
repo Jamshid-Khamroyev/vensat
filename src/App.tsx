@@ -5,7 +5,7 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Toaster } from 'sonner';
+import { toast, Toaster } from 'sonner';
 import { 
   chatWithAI,
   ParsedTest 
@@ -18,6 +18,8 @@ import api from "./services/api"
 import HistoryDetail from './components/history';
 import GNewsReader from './components/article';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import MockTest from './pages/mock-test';
+import { useUserStore } from './states/user.state';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -34,24 +36,20 @@ const NYTStoryReader = lazy(() => import('./pages/nyt-story-reader'));
 
 // --- App ---
 export default function App() {
+  const { login, user } = useUserStore()
   const navigate = useNavigate();
   const location = useLocation();
   
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [historyId, setHistoryId] = useState<string>("")
   const [currentArticle, setCurrentArticle] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   // Legacy view state - kept for backward compatibility
-  const [view, setView] = useState<'landing' | 'dashboard' | 'create' | "history" | "article" | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
+  const [view, setView] = useState<'landing' | 'dashboard' | 'mock-test' | 'create' | "article" | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [result, setResult] = useState<any | null>(null);
-  const [dbTests, setDbTests] = useState<TestRecord[]>([]);
   const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
-  const [currentStory, setCurrentStory] = useState<StoryRecord | null>(null);
   const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
   const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[], _id: string } | null>(null);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
-  const [localWords, setLocalWords] = useState<{ term: string; definition?: string }[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
   const [selectedTime, setSelectedTime] = useState(30); // minutes
@@ -59,13 +57,11 @@ export default function App() {
   
   // Testing Tools
   const [eliminated, setEliminated] = useState<Record<number, number[]>>({});
-  const [isHighlighterActive, setIsHighlighterActive] = useState(false);
 
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const [storyOptions, setStoryOptions] = useState({ topic: '', genre: 'Business', length: 'medium' as 'extended' | 'medium' | 'long', words: '' });
-  const [definition, setDefinition] = useState<{ word: string, meaning: string } | null>(null);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -89,6 +85,9 @@ export default function App() {
       case 'profile':
         navigate('/profile');
         break;
+      case 'mock-test':
+        navigate('/mock-test');
+        break;
       case 'words':
         navigate('/words');
         break;
@@ -97,9 +96,6 @@ export default function App() {
         break;
       case 'results':
         navigate('/results');
-        break;
-      case 'history':
-        navigate('/history');
         break;
       case 'ai-gen':
         navigate('/ai-generator');
@@ -139,18 +135,10 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const viewParam = params.get('view') as typeof view | null;
 
-    if (savedLocalWords) {
-      try {
-        setLocalWords(JSON.parse(savedLocalWords));
-      } catch (e) {
-        console.error('Error parsing local words:', e);
-      }
-    }
-
     const init = async () => {
       if (savedUser) {
         const u = JSON.parse(savedUser);
-        setUser(u);
+        login(u);
         await fetchAll(u._id);
         if (viewParam && viewParam !== 'landing') {
           setView(viewParam);
@@ -168,38 +156,6 @@ export default function App() {
 
     init();
   }, []);
-
-  // Restore word-group from URL when words load
-  useEffect(() => {
-    if (view !== 'word-group' || currentWordGroup || userWords.length === 0) return;
-    const params = new URLSearchParams(window.location.search);
-    const groupName = params.get('groupName');
-    
-    if (groupName) {
-      const group = userWords.find(g => g.title === groupName);
-      if (group) {
-        const wordRecords: WordRecord[] = group.words.map((word, idx) => ({
-          _id: `${group._id}-${idx}`,
-          term: word.term,
-          definition: word.definition,
-          category: group.category,
-          createdAt: group.createdAt
-        }));
-        setCurrentWordGroup({ name: groupName, words: wordRecords, _id: group._id });
-      }
-    }
-  }, [view, userWords, currentWordGroup]);
-
-  // Restore story-reader from URL when stories load
-  useEffect(() => {
-    if (view !== 'story-reader' || currentStory || dbStories.length === 0) return;
-    const params = new URLSearchParams(window.location.search);
-    const storyId = params.get('storyId');
-    if (storyId) {
-      const story = dbStories.find(s => s._id === storyId);
-      if (story) setCurrentStory(story);
-    }
-  }, [view, dbStories, currentStory]);
 
   useEffect(() => {
     if (view === 'testing' && timeLeft > 0) {
@@ -231,6 +187,10 @@ export default function App() {
 
   const handleAddWord = async (words: { term: string, definition: string, sentence: string }[], title?: string) => {
     try {
+      if (userWords.length > 50) {
+        toast.error("You have too many words in your selected group. Please select a group with less than 50 words.");
+        return;
+      }
       const res = await api.post("/api/words", { userId: user?._id, words, title });
       setUserWords([res.data, ...userWords]);
     } catch (e) { alert("Failed to save word group."); }
@@ -267,26 +227,12 @@ export default function App() {
     try {
       syncViewWithRoute('testing', id);
       setEliminated({});
-      setIsHighlighterActive(false);
       const response = await api.get(`/api/tests/${id}`)
       setCurrentTest(response.data)
       setTimeLeft(selectedTime * 60);
       setCurrentQuestionIndex(0);
     } catch (error) {
       console.error("Failed to start test", error);
-    }
-  };
-
-  const handleLookup = async (word: string) => {
-    if (!word.trim()) return;
-    try {
-      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word.trim().toLowerCase().replace(/[.,!?;:()]/g, '')}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      const meaning = data[0].meanings[0].definitions[0].definition;
-      setDefinition({ word, meaning });
-    } catch (e) {
-      setDefinition({ word, meaning: "Definition unavailable for this word." });
     }
   };
 
@@ -319,7 +265,7 @@ export default function App() {
       console.log(response.data);
       setResult(response.data);
       setViewWithRoute('results');
-    } catch (error) {
+    } catch (error) { 
       console.log(`Error completing test: ${error}`);
     } finally {
       setIsProcessing(false)
@@ -340,10 +286,6 @@ export default function App() {
       <Navbar 
         view={view} 
         setView={setViewWithRoute} 
-        setUser={setUser} 
-        user={user} 
-        formatTime={formatTime} 
-        timeLeft={timeLeft}
       />
 
       <main className="flex-1 overflow-x-hidden">
@@ -351,58 +293,64 @@ export default function App() {
         <Routes>
           <Route path="/" element={
             <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <LandingPage setUser={setUser} user={user} setView={setViewWithRoute} />
+              <LandingPage setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/dashboard" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Dashboard fetchAll={fetchAll} startTest={startTest} user={user} setView={setViewWithRoute} />
+              <Dashboard fetchAll={fetchAll} startTest={startTest} setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/create" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <ManualTest selectedTime={selectedTime} setSelectedTime={setSelectedTime} dbTests={dbTests} setDbTests={setDbTests} setView={setViewWithRoute} user={user} isProcessing={isProcessing} setIsProcessing={setIsProcessing} />
+              <ManualTest selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} isProcessing={isProcessing} setIsProcessing={setIsProcessing} />
             </Suspense>
           } />
           <Route path="/stories" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Stories setCurrentGNewsArticle={setCurrentArticle} dbStories={dbStories} setCurrentStory={setCurrentStory} setDbStories={setDbStories} setView={setViewWithRoute} setCurrentNYTStory={setCurrentNYTStory} />
+              <Stories />
             </Suspense>
           } />
           <Route path="/profile" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Profile chatInput={chatInput} setChatInput={setChatInput} setHistoryId={setHistoryId} chatMessages={chatMessages} handleSendMessage={handleSendMessage} user={user} setView={setViewWithRoute} chatScrollRef={chatScrollRef} isChatting={isChatting} setChatMessages={setChatMessages} setIsChatting={setIsChatting} />
+              <Profile chatInput={chatInput} setChatInput={setChatInput} chatMessages={chatMessages} handleSendMessage={handleSendMessage} setView={setViewWithRoute} chatScrollRef={chatScrollRef} isChatting={isChatting} setChatMessages={setChatMessages} setIsChatting={setIsChatting} />
             </Suspense>
           } />
           <Route path="/words" element={
             <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="focus-mode space-y-8">
-              <PasteWord handleDeleteGroup={handleDeleteWord} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setViewWithRoute} setCurrentWordGroup={setCurrentWordGroup} />
+              <PasteWord handleDeleteGroup={handleDeleteWord} setCurrentWordGroup={setCurrentWordGroup} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setViewWithRoute} />
             </motion.div>
           } />
           <Route path="/testing/:id" element={<TestingPage eliminated={eliminated} setCurrentTest={setCurrentTest} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} />
           } />
           <Route path="/results" element={
-            currentTest && result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
+           result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
           } />
-          <Route path="/history" element={<HistoryDetail historyId={historyId} />} />
+          <Route path="/history/:id" element={<HistoryDetail  />} />
           <Route path="/ai-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} dbTests={dbTests} setDbTests={setDbTests} userWords={userWords} user={user} selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} startTest={startTest} />
+              <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} userWords={userWords} selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} startTest={startTest} />
             </Suspense>
           } />
           <Route path="/story-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <StoryGen user={user} userWords={userWords} storyOptions={storyOptions} setStoryOptions={setStoryOptions} setIsProcessing={setIsProcessing} isProcessing={isProcessing} setDbStories={setDbStories} dbStories={dbStories} setCurrentStory={setCurrentStory} setView={setViewWithRoute} />
+              <StoryGen userWords={userWords} storyOptions={storyOptions} setStoryOptions={setStoryOptions} setIsProcessing={setIsProcessing} isProcessing={isProcessing} dbStories={dbStories}  setView={setViewWithRoute} />
             </Suspense>
           } />
-          <Route path="/story-reader" element={
-            currentStory ? <StoryReading currentStory={currentStory} definition={definition} handleAddWord={handleAddWord} handleAddToDefaultGroup={handleAddToDefaultGroup} handleLookup={handleLookup} setDefinition={setDefinition} setView={setViewWithRoute} /> : <div>Loading...</div>
-          } />
-          <Route path="/word-group/:groupName" element={
+          <Route path="/story-reader/:id" element={<StoryReading handleAddToDefaultGroup={handleAddToDefaultGroup}/> } />
+
+          <Route path="/word-group/:groupId" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <WordGroupView group={currentWordGroup} setView={setViewWithRoute} />
+              <WordGroupView />
             </Suspense>
           } />
+
+          <Route path="/mock-test" element={
+            <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
+              <MockTest setView={setViewWithRoute} />
+            </Suspense>
+          } />
+
           <Route path="/nytimes-story" element={
             currentNYTStory ? <NYTStoryReader currentStory={currentNYTStory} setView={setViewWithRoute} /> : <div>Loading...</div>
           } />
