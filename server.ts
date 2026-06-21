@@ -120,7 +120,7 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 

@@ -1,10 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { createEmbedding, createTest } from '../../src/services/geminiService';
 import { setupCollection, saveToQdrant, searchInQdrant } from '../../src/services/qdrant';
+import fs from 'fs';
+import { PDFParse } from 'pdf-parse';
+import multer from 'multer';
 
 const ragRouter = Router();
 
-function splitIntoChunks(text: string, size: number = 300): string[] {
+export const upload = multer({
+  dest: 'uploads/'
+});
+
+
+function splitIntoChunks(text: string, size: number = 800): string[] {
   const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
   const chunks: string[] = [];
   let current = '';
@@ -21,6 +29,59 @@ function splitIntoChunks(text: string, size: number = 300): string[] {
   if (current.trim()) chunks.push(current.trim());
   return chunks;
 }
+
+ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'PDF required'
+      });
+    }
+
+    const pdfBuffer = fs.readFileSync(req.file.path);
+    const pdfData = await new PDFParse(new Uint8Array(pdfBuffer)).getText();
+    const text = pdfData.text;
+
+    const chunks = splitIntoChunks(text);
+
+    const embeddings = await Promise.all(chunks.map(chunk => createEmbedding(chunk)));
+
+    await setupCollection();
+
+    await saveToQdrant(
+      chunks.map((text, i) => ({
+        id: `${req.file?.filename}_chunk_${i}`,
+        text,
+        source: req.file?.originalname,
+        chunkIndex: i
+      })),
+      embeddings
+    );
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      data: {
+        fileName: req.file.originalname,
+        pages: pdfData.total,
+        chunks: chunks.length,
+        preview: chunks[0]?.substring(0, 100)
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  } finally {
+    fs.unlinkSync(req.file.path);
+  }
+});
+
 
 ragRouter.post('/upload', async (req: Request, res: Response) => {
   try {
@@ -89,8 +150,6 @@ ragRouter.post('/generate', async (req: Request, res: Response) => {
     }
     
     const test = await createTest(context, count, topic);
-    
-    
     res.json({
       success: true,
       data: { topic, context, ...test }

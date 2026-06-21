@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
 import { getSATInstructions } from "../utils/index";
+import Groq from 'groq-sdk';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ||  "AIzaSyAuX6Y4NVX7SrVmucsHF27WyE00diO5zNQ" });
 // AIzaSyCPaO2ZwchH1_vLCf9RlAYm5AKqR6IsR7s
@@ -341,61 +342,71 @@ Make sure each word is used naturally in context.`;
 
 
 // RAG ====================================================================
+import { OpenRouter } from '@openrouter/sdk';
+
+const openrouter = new OpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY || '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',
+});
+
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
     const cleanText = text.replace(/\n/g, ' ').trim();
-    const result = await ai.models.embedContent({
-      model: 'gemini-embedding-2',
-      contents: [{ parts: [{ text: cleanText }] }]
+    const result: any = await openrouter.embeddings.generate({
+      requestBody: {
+        model: "nvidia/llama-nemotron-embed-vl-1b-v2:free",
+        input: cleanText,
+        encodingFormat: "float"
+      }
     });
     
-    if (result.embeddings && result.embeddings.length > 0) {
-      return result.embeddings[0].values || [];
-    }
-    
-    return [];
+    return result?.data?.[0]?.embedding || 
+           (Array.isArray(result) ? result[0]?.embedding : []) ||
+           result?.embedding ||
+           [];
   } catch (error: any) {
     console.error('Embedding error:', error.message);
     return [];
   }
 }
 
-
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || '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',
+});
 
 export async function createTest(context: string, count: number = 5, topic: string): Promise<any> {
-  const prompt = `Kontekst:\n${context}\n\nYuqoridagi kontekst asosida ${count} ta test savoli tuz.\nHar bir savolga 4 variant va to'g'ri javob indeksi (0,1,2,3).\nSavollar mavzusi: ${topic}\n\nFAQAT JSON formatda javob ber:\n{\n  "questions": [\n    {\n      "question": "Savol",\n      "options": ["A", "B", "C", "D"],\n      "correctAnswer": 0,\n      "explanation": "Izoh"\n    }\n  ]\n}`;
+  const prompt = `Context:\n${context}\n\nBased on the context above, generate ${count} test questions.\nEach question must have 4 options and the correct answer index (0,1,2,3).\nTopic: ${topic}\n\nRespond ONLY in JSON format:\n{\n  "questions": [\n    {\n      "question": "Question",\n      "options": ["A", "B", "C", "D"],\n      "correctAnswer": 0,\n      "explanation": "Explanation"\n    }\n  ]\n}`;
 
   try {
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: [{ parts: [{ text: prompt }] }],
-      config: { temperature: 0.7 }
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'You are an assistant that responds only in JSON format.' },
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: 'json_object' }
     });
 
-    const text = result.text || '';
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const text = result.choices[0]?.message?.content || '';
     
-    if (!jsonMatch) {
-      throw new Error('JSON topilmadi');
-    }
-
     try {
-      return JSON.parse(jsonMatch[0]);
+      return JSON.parse(text);
     } catch {
-      const cleaned = jsonMatch[0]
+      const cleaned = text
         .replace(/,\s*}/g, '}')
         .replace(/,\s*\]/g, ']')
         .replace(/,\s*,/g, ',');
       return JSON.parse(cleaned);
     }
   } catch (error: any) {
-    console.error('Gemini error:', error);
+    console.error('Groq error:', error);
     return {
       questions: [{
-        question: 'Xatolik yuz berdi',
+        question: 'An error occurred',
         options: ['A', 'B', 'C', 'D'],
         correctAnswer: 0,
-        explanation: 'Qayta urinib ko\'ring'
+        explanation: 'Please try again'
       }]
     };
   }

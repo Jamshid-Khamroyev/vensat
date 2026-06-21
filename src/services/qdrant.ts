@@ -10,13 +10,19 @@ const COLLECTION_NAME = 'pdf_documents';
 
 export async function setupCollection(): Promise<void> {
   try {
-    await client.deleteCollection(COLLECTION_NAME);
-  } catch (error) {}
-  
-  await client.createCollection(COLLECTION_NAME, {
-    vectors: { size: 3072, distance: 'Cosine' }
-  });
-  console.log('Collection created');
+    await client.getCollection(COLLECTION_NAME);
+
+    console.log('Collection already exists');
+  } catch (error) {
+    await client.createCollection(COLLECTION_NAME, {
+      vectors: {
+        size: 2048,
+        distance: 'Cosine'
+      }
+    });
+
+    console.log('Collection created');
+  }
 }
 
 export async function saveToQdrant(chunks: { id: string; text: string }[], embeddings: number[][]): Promise<void> {
