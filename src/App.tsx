@@ -5,12 +5,12 @@ import {
   User as UserIcon,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast, Toaster } from 'sonner';
 import { 
   chatWithAI,
+  generateSentencesForWords,
   ParsedTest 
 } from './services/geminiService';
-import { AppUser, StoryRecord, TestRecord, WordRecord, GroupWord } from './types';
+import {  StoryRecord, TestRecord, WordRecord, GroupWord } from './types';
 import PasteWord from './components/paste-word';
 import Navbar from './components/navbar';
 import TestingPage from './pages/testing';
@@ -20,6 +20,7 @@ import GNewsReader from './components/article';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import MockTest from './pages/mock-test';
 import { useUserStore } from './states/user.state';
+import { toast } from 'sonner';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -32,13 +33,11 @@ const Stories = lazy(() => import('./pages/stories'));
 const Profile = lazy(() => import('./pages/profile'));
 const Results = lazy(() => import('./components/results'));
 const WordGroupView = lazy(() => import('./pages/word-group'));
-const NYTStoryReader = lazy(() => import('./pages/nyt-story-reader'));
 
 // --- App ---
 export default function App() {
   const { login, user } = useUserStore()
   const navigate = useNavigate();
-  const location = useLocation();
   
   const [currentArticle, setCurrentArticle] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
@@ -130,28 +129,18 @@ export default function App() {
 
   // Restore from URL params (legacy support)
   useEffect(() => {
-    const savedUser = localStorage.getItem('aero_user');
-    const savedLocalWords = localStorage.getItem('aero_local_words');
-    const params = new URLSearchParams(window.location.search);
-    const viewParam = params.get('view') as typeof view | null;
-
     const init = async () => {
-      if (savedUser) {
-        const u = JSON.parse(savedUser);
-        login(u);
-        await fetchAll(u._id);
-        if (viewParam && viewParam !== 'landing') {
-          setView(viewParam);
-          syncViewWithRoute(viewParam);
-        } else if (location.pathname === '/') {
-          setView('landing');
-        }
-      } else {
-        if (viewParam) setView(viewParam);
-        else if (location.pathname === '/') setView('landing');
-        else navigate('/');
+      if(!localStorage.getItem("aero_token")) return navigate('/');
+      setLoading(true)
+      try {
+        const { data } = await api.get("/api/auth/me")
+        login(data.user)
+      } catch (error) {
+        navigate('/')
+        console.log(error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     init();
@@ -171,47 +160,17 @@ export default function App() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [view, timeLeft]);
 
-  const fetchAll = async (id: string) => {
+  const handleAddToDefaultGroup = async (words: { term: string, definition: string , sentence?: string}[]) => {
     try {
-      const [wordsRes, storiesRes] = await Promise.all([
-        api.get(`/api/words/${id}`),
-        api.get(`/api/stories/${id}`)
-      ]);
+      const data = await generateSentencesForWords(words.map(w => w.term));
+      const sentenceMap = new Map(
+          data.map(item => [item.term, item.sentence])
+        );
+
+        words.forEach(word => {
+          word.sentence = sentenceMap.get(word.term) || "";
+        });
       
-      setUserWords(wordsRes.data);
-      setDbStories(storiesRes.data);
-    } catch (e) { 
-      console.error("Fetch failed", e);
-    }
-  };
-
-  const handleAddWord = async (words: { term: string, definition: string, sentence: string }[], title?: string) => {
-    try {
-      if (userWords.length > 50) {
-        toast.error("You have too many words in your selected group. Please select a group with less than 50 words.");
-        return;
-      }
-      const res = await api.post("/api/words", { userId: user?._id, words, title });
-      setUserWords([res.data, ...userWords]);
-    } catch (e) { alert("Failed to save word group."); }
-  };
-
-  const handleDeleteWord = async (id: string) => {
-    try {
-      await api.delete(`/api/words/${id}`);
-      setUserWords(userWords.filter(w => w._id !== id));
-    } catch (e) { alert("Delete failed."); }
-  };
-
-  const handleUpdateGroup = async (id: string, words: { term: string, definition: string }[], title?: string) => {
-    try {
-      const res = await api.patch(`/api/words/${id}`, { words, title });
-      setUserWords(userWords.map(w => w._id === id ? res.data : w));
-    } catch (e) { alert("Group update failed."); }
-  };
-
-  const handleAddToDefaultGroup = async (words: { term: string, definition: string }[]) => {
-    try {
       const res = await api.post(`/api/words/${user?._id}/default`, { words });
       
       const existingIndex = userWords.findIndex(w => w.isDefault);
@@ -220,7 +179,7 @@ export default function App() {
       } else {
         setUserWords([res.data, ...userWords]);
       }
-    } catch (e) { alert("Failed to save to default group."); }
+    } catch (e) { toast.error("Failed to save to default group.", e); }
   };
 
   const startTest = async(id: string) => {
@@ -283,22 +242,19 @@ export default function App() {
   return (
     <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
       {/* Navbar - using legacy view for navbar logic */}
-      <Navbar 
-        view={view} 
-        setView={setViewWithRoute} 
-      />
+      <Navbar />
 
       <main className="flex-1 overflow-x-hidden">
         {/* React Router Routes */}
         <Routes>
           <Route path="/" element={
             <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <LandingPage setView={setViewWithRoute} />
+              <LandingPage />
             </Suspense>
           } />
           <Route path="/dashboard" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <Dashboard fetchAll={fetchAll} startTest={startTest} setView={setViewWithRoute} />
+              <Dashboard startTest={startTest} />
             </Suspense>
           } />
           <Route path="/create" element={
@@ -318,7 +274,7 @@ export default function App() {
           } />
           <Route path="/words" element={
             <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="focus-mode space-y-8">
-              <PasteWord handleDeleteGroup={handleDeleteWord} setCurrentWordGroup={setCurrentWordGroup} handleAddWord={handleAddWord} handleUpdateGroup={handleUpdateGroup} userWords={userWords} setView={setViewWithRoute} />
+              <PasteWord setCurrentWordGroup={setCurrentWordGroup} setView={setViewWithRoute} />
             </motion.div>
           } />
           <Route path="/testing/:id" element={<TestingPage eliminated={eliminated} setCurrentTest={setCurrentTest} currentQuestionIndex={currentQuestionIndex} setEliminated={setEliminated} currentTest={currentTest} setCurrentQuestionIndex={setCurrentQuestionIndex} handleCompleteTest={handleCompleteTest} />
@@ -327,6 +283,7 @@ export default function App() {
            result ? <Results setView={setViewWithRoute} data={result} currentTest={currentTest} /> : <div>Loading...</div>
           } />
           <Route path="/history/:id" element={<HistoryDetail  />} />
+          
           <Route path="/ai-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
               <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} userWords={userWords} selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} startTest={startTest} />
@@ -351,12 +308,7 @@ export default function App() {
             </Suspense>
           } />
 
-          <Route path="/nytimes-story" element={
-            currentNYTStory ? <NYTStoryReader currentStory={currentNYTStory} setView={setViewWithRoute} /> : <div>Loading...</div>
-          } />
-          <Route path="/article" element={
-            currentArticle ? <GNewsReader article={currentArticle} setView={setViewWithRoute} /> : <div>Loading...</div>
-          } />
+          <Route path="/article" element={<GNewsReader /> } />
         </Routes>
       </main>
     </div>

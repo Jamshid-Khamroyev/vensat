@@ -2,8 +2,8 @@ import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
 import { getSATInstructions } from "../utils/index";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ||  "AIzaSyAuX6Y4NVX7SrVmucsHF27WyE00diO5zNQ" });
+// AIzaSyCPaO2ZwchH1_vLCf9RlAYm5AKqR6IsR7s
 export interface ParsedQuestion {
   _id: string;
   text: string;
@@ -335,5 +335,68 @@ Make sure each word is used naturally in context.`;
   } catch (error) {
     console.error('Error generating practice questions:', error);
     throw new Error('Failed to generate practice questions');
+  }
+}
+
+
+
+// RAG ====================================================================
+export async function createEmbedding(text: string): Promise<number[]> {
+  try {
+    const cleanText = text.replace(/\n/g, ' ').trim();
+    const result = await ai.models.embedContent({
+      model: 'gemini-embedding-2',
+      contents: [{ parts: [{ text: cleanText }] }]
+    });
+    
+    if (result.embeddings && result.embeddings.length > 0) {
+      return result.embeddings[0].values || [];
+    }
+    
+    return [];
+  } catch (error: any) {
+    console.error('Embedding error:', error.message);
+    return [];
+  }
+}
+
+
+
+export async function createTest(context: string, count: number = 5, topic: string): Promise<any> {
+  const prompt = `Kontekst:\n${context}\n\nYuqoridagi kontekst asosida ${count} ta test savoli tuz.\nHar bir savolga 4 variant va to'g'ri javob indeksi (0,1,2,3).\nSavollar mavzusi: ${topic}\n\nFAQAT JSON formatda javob ber:\n{\n  "questions": [\n    {\n      "question": "Savol",\n      "options": ["A", "B", "C", "D"],\n      "correctAnswer": 0,\n      "explanation": "Izoh"\n    }\n  ]\n}`;
+
+  try {
+    const result = await ai.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: [{ parts: [{ text: prompt }] }],
+      config: { temperature: 0.7 }
+    });
+
+    const text = result.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      throw new Error('JSON topilmadi');
+    }
+
+    try {
+      return JSON.parse(jsonMatch[0]);
+    } catch {
+      const cleaned = jsonMatch[0]
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*\]/g, ']')
+        .replace(/,\s*,/g, ',');
+      return JSON.parse(cleaned);
+    }
+  } catch (error: any) {
+    console.error('Gemini error:', error);
+    return {
+      questions: [{
+        question: 'Xatolik yuz berdi',
+        options: ['A', 'B', 'C', 'D'],
+        correctAnswer: 0,
+        explanation: 'Qayta urinib ko\'ring'
+      }]
+    };
   }
 }

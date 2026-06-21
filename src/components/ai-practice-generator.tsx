@@ -6,6 +6,8 @@ import { GroupWord } from '../types';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useUserStore } from '../states/user.state';
+import { useWordState } from '../states/word.state';
+import { useSearchParams } from 'react-router-dom';
 
 interface AiPracticeGeneratorProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
@@ -25,18 +27,25 @@ const AiPracticeGenerator = ({
         difficulty: 'medium',
         count: 10,
     });
-    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+    const [searchParams] = useSearchParams();
+    const groupTitle = searchParams.get("group");
+
       const { user } = useUserStore()
+      const { words } = useWordState()
 
     const handleAIGen = async (options: { type: 'sat' | 'words', value: string, count: number, difficulty?: string, category?: string }) => {
-        const usedWords = userWords.filter(group => group._id === selectedGroupId).map(group => group.words.map(word => word.term).join(",")).join(",");
-        if(userWords.length > 50){
-            toast.error("You have too many words in your selected group. Please select a group with less than 50 words.");
+        if(!words){
+            toast.error("No words found. Please add some words first.");
+            return;
+        }
+        const usedWords = words.map(word => word.term).join(",");
+        if(words.length > 50){
+            toast.error("You have too many words. Please select a group with less than 50 words.");
             return;
         }
         setIsProcessing(true);
         try {
-            const parsed: any = await generateSATTest(options.value, options.difficulty || 'Medium', options.count, usedWords);
+            const parsed: any = await generateSATTest(options.value, options.difficulty || 'medium', options.count, usedWords);
             
             const res = await axios.post("/api/tests", {
                 ...parsed, 
@@ -44,7 +53,6 @@ const AiPracticeGenerator = ({
                 category: parsed.category,
                 timeLimit: selectedTime 
             });
-            const saved = res.data;
             startTest(res.data._id);
         } catch (e) { 
             console.error(e);
@@ -127,43 +135,11 @@ const AiPracticeGenerator = ({
                             Context Words <span className="font-normal text-slate-400">(optional)</span>
                         </label>
                         <div className="bg-slate-50 rounded-xl border border-slate-200 p-2 sm:p-3 max-h-40 sm:max-h-52 overflow-y-auto">
-                            {userWords.length === 0 ? (
+                            {!words ? (
                                 <p className="text-xs sm:text-sm text-slate-400 text-center py-3 sm:py-4">No word groups available</p>
                             ) : (
                                 <div className="space-y-1.5 sm:space-y-2">
-                                    {userWords.map(group => (
-                                        <div 
-                                            key={group._id} 
-                                            className={`flex items-center justify-between p-2.5 sm:p-3 rounded-lg ${
-                                                selectedGroupId === group._id 
-                                                    ? 'bg-blue-950' 
-                                                    : 'bg-white border border-slate-200'
-                                            }`}
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <p className={`text-xs sm:text-sm font-medium truncate ${
-                                                    selectedGroupId === group._id ? 'text-white' : 'text-slate-800'
-                                                }`}>
-                                                    {group.title}
-                                                </p>
-                                                <p className={`text-[10px] sm:text-xs ${
-                                                    selectedGroupId === group._id ? 'text-blue-300' : 'text-slate-400'
-                                                }`}>
-                                                    {group.words.length} words
-                                                </p>
-                                            </div>
-                                            <button 
-                                                onClick={() => setSelectedGroupId(selectedGroupId === group._id ? null : group._id)} 
-                                                className="p-1 flex-shrink-0 ml-2"
-                                            >
-                                                {selectedGroupId === group._id ? (
-                                                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                                                ) : (
-                                                    <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-                                                )}
-                                            </button>
-                                        </div>
-                                    ))}
+                                   Added <span className='text-emerald-600'>{groupTitle ? `${groupTitle} group!` : `${words.length} words`}</span> 
                                 </div>
                             )}
                         </div>

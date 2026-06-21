@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Volume2, BookOpen, Layers, ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, BrainCircuit, GraduationCap, CheckCircle, XCircle, RefreshCw, Trash2, BarChart3, List } from "lucide-react";
+import { Volume2, BookOpen, Layers, ArrowLeft, ChevronLeft, ChevronRight, MessageSquare, BrainCircuit, GraduationCap, CheckCircle, XCircle, RefreshCw, Trash2, BarChart3, List, PlusCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { AppUser, WordRecord } from "../types";
 import { generatePracticeQuestionsAI } from "../services/geminiService";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
+import { useWordState } from "../states/word.state";
 
 type Mode = "flashcard" | "practice";
 
@@ -19,7 +20,7 @@ interface PracticeQuestion {
 }
 
 interface Group {
-  name: string;
+  title: string;
   words: WordRecord[];
   _id?: string;
 }
@@ -35,6 +36,7 @@ const getGradient = (index: number) => gradients[index % gradients.length];
 const WordGroupView = () => {
   const navigate = useNavigate();
     const { user } = useUserStore()
+  const { addWords } = useWordState()
   const { groupId } = useParams<{ groupId: string }>();
   
   const [mode, setMode] = useState<Mode>("flashcard");
@@ -57,7 +59,7 @@ const WordGroupView = () => {
   const [error, setError] = useState<string | null>(null);
   
   const words = group?.words && Array.isArray(group.words) ? group.words : [];
-  const groupName = group?.name || "Word Group";
+  const groupName = group?.title || "Word Group";
   const groupIdFromProps = group?._id;
   
   // Fetch group data when component mounts or groupId changes
@@ -236,6 +238,11 @@ const WordGroupView = () => {
     setPracticeCompleted(false);
   };
 
+  const creatingTest = () => {
+    addWords(group.words);
+    navigate(`/ai-generator?group=${group.title}`);
+  }
+
   const speakText = (text: string) => { 
     const utterance = new SpeechSynthesisUtterance(text); 
     utterance.lang = 'en-US'; 
@@ -318,18 +325,28 @@ const WordGroupView = () => {
             <h2 className="text-base font-bold text-blue-950 truncate">{groupName}</h2>
             <p className="text-xs text-slate-400">{words.length} words</p>
           </div>
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex gap-x-1 bg-slate-100 rounded-lg p-0.5">
             <button 
               onClick={() => setMode("flashcard")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
                 mode === "flashcard" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
               }`}
             >
               <Layers className="w-3.5 h-3.5 inline mr-1" />Cards
             </button>
+
+            <button 
+              onClick={creatingTest} 
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
+                "text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <PlusCircle className="w-3.5 h-3.5 inline mr-1" />Creating test
+            </button>
+
             <button 
               onClick={() => setMode("practice")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
                 mode === "practice" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
               }`}
             >

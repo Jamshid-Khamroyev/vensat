@@ -3,25 +3,22 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, GraduationCap, FileQuestion } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Dispatch, SetStateAction, useState, useCallback, useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "../states/user.state";
-
-interface NavbarProps {
-    view: string;
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
-}
 
 const navItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
-  { key: 'words', label: "So'zlar", icon: Library, color: 'from-emerald-500 to-teal-500' },
+  { key: 'words', label: "Words", icon: Library, color: 'from-emerald-500 to-teal-500' },
   { key: 'stories', label: 'Stories', icon: Newspaper, color: 'from-purple-500 to-pink-500' },
   { key: 'textbooks', label: 'TextBooks', icon: GraduationCap, color: 'from-indigo-500 to-blue-500' },
   { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
-  { key: 'profile', label: 'Tahlil', icon: BarChart3, color: 'from-orange-500 to-red-500' },
+  { key: 'profile', label: 'Analize', icon: BarChart3, color: 'from-orange-500 to-red-500' },
 ] as const;
 
-const Navbar = ({ setView, view }: NavbarProps) => {
+const Navbar = () => {
+    const currentPath = window.location.pathname.split("/")[1];
     const { user, logout } = useUserStore()
+    const navigate = useNavigate()
     const [open, setOpen] = useState(false);
     const [mobileMenu, setMobileMenu] = useState(false);
     const location = useLocation();
@@ -30,22 +27,21 @@ const Navbar = ({ setView, view }: NavbarProps) => {
 
     const handleLogout = useCallback(() => {
         logout();
-        localStorage.removeItem('aero_user');
-        setView('landing');
+        navigate('/');
         setOpen(false);
         setMobileMenu(false);
-    }, [setView]);
+    }, []);
 
     const handleNavigation = useCallback((key: string) => {
-        setView(key as any);
+        navigate(key as any);
         setMobileMenu(false);
-    }, [setView]);
+    }, []);
 
     const handleLogoClick = useCallback(() => {
         if (user && !isTesting) {
-            setView('dashboard');
+            navigate('/dashboard');
         }
-    }, [user, isTesting, setView]);
+    }, [user, isTesting]);
 
     return (
         <>
@@ -69,7 +65,7 @@ const Navbar = ({ setView, view }: NavbarProps) => {
                 {!isTesting && (
                     <nav className="hidden md:flex items-center gap-1 bg-slate-100/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
                         {navItems.map((item) => {
-                            const isActive = view === item.key;
+                            const isActive = currentPath === item.key;
                             const Icon = item.icon;
                             return (
                                 <button
@@ -155,7 +151,7 @@ const Navbar = ({ setView, view }: NavbarProps) => {
                     >
                         <div className="p-4 space-y-2">
                             {navItems.map((item, index) => {
-                                const isActive = view === item.key;
+                                const isActive = currentPath === item.key;
                                 const Icon = item.icon;
                                 return (
                                     <motion.button

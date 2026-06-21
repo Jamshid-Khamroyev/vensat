@@ -7,27 +7,27 @@ const UserSchema = new mongoose.Schema({
     role: { type: String, default: "user" },
     avatar: { type: String },
     eoi_skill: {
-      score: { type: Number, default: 0 },
+      score: { type: Number, default: 100 },
       questionTaken: { type: Number, default: 0 }
     },
   
     sec_skill: {
-      score: { type: Number, default: 0 },
+      score: { type: Number, default: 100 },
       questionTaken: { type: Number, default: 0 }
     },
   
     iai_skill: {
-      score: { type: Number, default: 0 },
+      score: { type: Number, default: 100 },
       questionTaken: { type: Number, default: 0 }
     },
   
     cas_skill: {
-      score: { type: Number, default: 0 },
+      score: { type: Number, default: 100 },
       questionTaken: { type: Number, default: 0 }
     },
   
     accuracy: {
-      score: { type: Number, default: 0 },
+      score: { type: Number, default: 100 },
       totalTestsTaken: { type: Number, default: 0 }
     },
     createdAt: { type: Date, default: Date.now }

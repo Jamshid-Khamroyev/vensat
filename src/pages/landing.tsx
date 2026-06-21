@@ -4,13 +4,12 @@ import { toast } from 'sonner';
 import { faqs, features, stats, testimonials } from '../constants';
 import api from '../services/api';
 import { useUserStore } from '../states/user.state';
+import { useNavigate } from 'react-router-dom';
 
-interface landingProps {
-    setView: React.Dispatch<React.SetStateAction<string>>;
-}
 
-const LandingPage = ({ setView }: landingProps) => {
+const LandingPage = () => {
     const { login, user } = useUserStore()
+    const navigate = useNavigate()
     const [authModalOpen, setAuthModalOpen] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
     const [showPassword, setShowPassword] = useState(false);
@@ -46,9 +45,9 @@ const LandingPage = ({ setView }: landingProps) => {
 
         toast.success(authMode === "login" ? "Xush kelibsiz!" : "Hisob yaratildi!");
         setAuthModalOpen(false);
-        setView("dashboard");        
-      } catch {
-        toast.error("Ulanish xatosi. Qayta urinib ko'ring.");
+        navigate('/dashboard')      
+      } catch (error) {
+        toast.error(error?.response ? error.response.data.error : "Ulanish xatosi. Qayta urinib ko'ring.");
       } finally {
         setLocalLoading(false);
       }
@@ -56,7 +55,7 @@ const LandingPage = ({ setView }: landingProps) => {
 
     useEffect(() => {
         if(user) {
-            setView("dashboard");
+            navigate("dashboard");
         }
     })
     

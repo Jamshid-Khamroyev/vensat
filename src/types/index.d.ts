@@ -49,10 +49,10 @@ export interface AppUser {
     term: string;
     definition: string;
     sentence?: string 
-    category: string;
-    createdAt: string;
-    groupId?: string;
   }
+
+  export interface UserWords { _id: string, title: string, wordsCount: number, createdAt: string, userId: string, isDefault: boolean }
+  
 
   export interface GroupWord {
     _id: string;
@@ -95,3 +95,60 @@ export interface AppUser {
     endTime?: number;
     status: 'in-progress' | 'completed';
   }
+
+
+  // Rag Types
+
+  export interface Chunk {
+  id: string;
+  text: string;
+  chunkIndex: number;
+}
+
+export interface QdrantPoint {
+  id: string;
+  vector: number[];
+  payload: {
+    text: string;
+    chunkIndex: number;
+    totalChunks: number;
+    timestamp: string;
+  };
+}
+
+export interface SearchResult {
+  id: string | number;
+  score: number;
+  payload?: {
+    text?: string;
+    chunkIndex?: number;
+    [key: string]: any;
+  };
+}
+
+export interface TestQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  explanation: string;
+}
+
+export interface TestResponse {
+  questions: TestQuestion[];
+}
+
+export interface EmbeddingRequest {
+  pdfPath: string;
+}
+
+export interface GenerateTestRequest {
+  topic: string;
+  numQuestions?: number;
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  error?: string;
+  data?: T;
+}

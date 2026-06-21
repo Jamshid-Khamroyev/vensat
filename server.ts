@@ -12,6 +12,7 @@ import HistoryRouter from "./backend/controller/history.controller"
 import storyRouter from "./backend/controller/story.controller"
 import WordRouter from "./backend/controller/words.controller"
 import practiceRouter from './backend/controller/practice-word'
+import ragRouter from './backend/controller/rag.controller'
 
 
 dotenv.config();
@@ -92,6 +93,9 @@ async function startServer() {
 
   // Word practice
   app.use('/api/word/practice', practiceRouter)
+
+  // RAG
+  app.use('/api/rag', ragRouter)
 
   // Global error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

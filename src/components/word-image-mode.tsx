@@ -1,11 +1,11 @@
 import { ArrowRight, Camera, CheckCircle, Loader2, Plus, X } from "lucide-react";
 import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { toast } from "sonner";
-import { GroupWord } from "../types";
+import { GroupWord, UserWords } from "../types";
 import { generateSentencesForWords } from "../services/geminiService";
 
 interface WordImageModeProps {
-    userWords: GroupWord[]
+    userWords: UserWords[]
     setImageMode: Dispatch<SetStateAction<boolean>>
     handleAddWord: (words: { term: string; definition: string }[], title?: string) => void;
     handleUpdateGroup: (id: string, words?: { term: string; definition: string }[], title?: string) => void; 
@@ -493,23 +493,23 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
                             <div className="text-sm text-slate-500 mt-2">Mavjud guruhlarga qo'shish:</div>
                             <div className="space-y-2 max-h-48 overflow-auto">
                                 {userWords
-                                    .filter(group => group.words.length + translatedWords.length <= 30)
+                                    .filter(group => group.wordsCount + translatedWords.length <= 30)
                                     .map(group => (
                                         <div
                                             key={group._id}
-                                            onClick={() => handleUpdateGroupWithWords(group)}
+                                            onClick={() => handleUpdateGroupWithWords({ ...group, words: translatedWords, category: 'image' })}
                                             className="p-3 border rounded-lg flex w-full justify-between items-center hover:bg-emerald-50 hover:border-emerald-300 cursor-pointer transition-all"
                                         >
                                             <div>
                                                 <h3 className="font-medium text-slate-700">{group.title}</h3>
                                                 <p className="text-xs text-slate-500">
-                                                    {group.words.length} ta so'z + {translatedWords.length} ta = {group.words.length + translatedWords.length}/30
+                                                    {group.wordsCount} ta so'z + {translatedWords.length} ta = {group.wordsCount + translatedWords.length}/30
                                                 </p>
                                             </div>
                                             <Plus className="w-4 h-4 text-emerald-600" />
                                         </div>
                                     ))}
-                                {userWords.filter(group => group.words.length + translatedWords.length <= 30).length === 0 && (
+                                {userWords.filter(group => group.wordsCount + translatedWords.length <= 30).length === 0 && (
                                     <p className="text-center text-slate-400 py-4">
                                         Qo'shish uchun bo'sh joyi bo'lgan guruh mavjud emas
                                     </p>

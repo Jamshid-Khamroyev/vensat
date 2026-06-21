@@ -15,12 +15,10 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { categories } from "../constants";
-import { AppUser } from "../types";
 import { useUserStore } from "../states/user.state";
+import { useNavigate } from "react-router-dom";
 
 interface DashboardProps {
-  setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group" | "textbooks" | "mock-test" | "history" | "article" | "nytimes-story" | "springer-reader") => void;
-  fetchAll: (userId: string) => void;
   startTest: (id: string) => void;
 }
 
@@ -36,19 +34,19 @@ interface CategoryTestsData {
   tests: any[];
   loading: boolean;
   error: string | null;
-  lastFetched: number | null;
 }
 
-const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
+const Dashboard = ({ startTest }: DashboardProps) => {
+  const navigate = useNavigate()
   const { user } = useUserStore()
   const [activeCategory, setActiveCategory] = useState<DSATCategory>('information-ideas');
   const [showGlobal, setShowGlobal] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
   const [categoryData, setCategoryData] = useState<Record<DSATCategory, CategoryTestsData>>({
-    'information-ideas': { tests: [], loading: false, error: null, lastFetched: null },
-    'craft-structure': { tests: [], loading: false, error: null, lastFetched: null },
-    'expression-ideas': { tests: [], loading: false, error: null, lastFetched: null },
-    'standard-conventions': { tests: [], loading: false, error: null, lastFetched: null }
+    'information-ideas': { tests: [], loading: false, error: null },
+    'craft-structure': { tests: [], loading: false, error: null },
+    'expression-ideas': { tests: [], loading: false, error: null },
+    'standard-conventions': { tests: [], loading: false, error: null }
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -58,43 +56,8 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
     [activeCategory]
   );
 
-  const getCacheKey = (categoryId: DSATCategory) => `sat_category_${categoryId}_${user?._id}_global_${showGlobal}_diff_${selectedDifficulty}`;
-  const CACHE_DURATION = 30 * 60 * 1000;
-
-  const loadFromCache = useCallback((categoryId: DSATCategory): CategoryTestsData | null => {
-    if (!user) return null;
-    try {
-      const cached = localStorage.getItem(getCacheKey(categoryId));
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.lastFetched && (Date.now() - parsed.lastFetched) < CACHE_DURATION) {
-          return {
-            tests: parsed.tests || [],
-            loading: false,
-            error: null,
-            lastFetched: parsed.lastFetched
-          };
-        }
-      }
-    } catch (error) {
-      console.error('Cache read error:', error);
-    }
-    return null;
-  }, [user, showGlobal, selectedDifficulty]);
-
-  const fetchTestsByCategory = useCallback(async (categoryId: DSATCategory, forceRefresh: boolean = false) => {
+  const fetchTestsByCategory = useCallback(async (categoryId: DSATCategory) => {
     if (!user?._id) return;
-
-    if (!forceRefresh) {
-      const cachedData = loadFromCache(categoryId);
-      if (cachedData && cachedData.tests.length > 0) {
-        setCategoryData(prev => ({
-          ...prev,
-          [categoryId]: cachedData
-        }));
-        return;
-      }
-    }
 
     setCategoryData(prev => ({
       ...prev,
@@ -107,37 +70,33 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
         sort: '-createdAt'
       };
 
+      // Agar showGlobal true bo'lsa, global testlarni olish
       if (showGlobal) {
         params.isGlobal = true;
         if (selectedDifficulty !== 'all') {
           params.difficulty = selectedDifficulty;
         }
       } else {
+        // Aks holda foydalanuvchining shaxsiy testlarini olish
         params.userId = user._id;
         if (selectedDifficulty !== 'all') {
           params.difficulty = selectedDifficulty;
         }
       }
 
+      // Kategoriya bo'yicha filter
       if (categoryId) params.category = categoryId;
 
       const response = await axios.get('/api/tests', { params });
       const testsData = response.data.tests || [];
-      const now = Date.now();
 
       setCategoryData(prev => ({
         ...prev,
         [categoryId]: {
           tests: testsData,
           loading: false,
-          error: null,
-          lastFetched: now
+          error: null
         }
-      }));
-
-      localStorage.setItem(getCacheKey(categoryId), JSON.stringify({
-        tests: testsData,
-        lastFetched: now
       }));
 
     } catch (error: any) {
@@ -151,32 +110,36 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
         }
       }));
     }
-  }, [user, showGlobal, selectedDifficulty, loadFromCache, getCacheKey]);
+  }, [user, showGlobal, selectedDifficulty]);
 
   const handleCategoryChange = (categoryId: DSATCategory) => {
     setActiveCategory(categoryId);
-    if (!categoryData[categoryId].tests.length && !categoryData[categoryId].loading) {
-      fetchTestsByCategory(categoryId);
-    }
+    // Har safar kategoriya o'zgarganda yangi ma'lumotlarni olish
+    fetchTestsByCategory(categoryId);
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchTestsByCategory(activeCategory, true);
+    await fetchTestsByCategory(activeCategory);
     setIsRefreshing(false);
   };
 
   const handleGlobalToggle = () => {
-    const newState = !showGlobal;
-    setShowGlobal(newState);
-    fetchTestsByCategory(activeCategory, true);
+    setShowGlobal(prev => !prev);
   };
 
   const handleDifficultyChange = (difficulty: Difficulty) => {
     setSelectedDifficulty(difficulty);
-    fetchTestsByCategory(activeCategory, true);
   };
 
+  // showGlobal yoki selectedDifficulty o'zgarganda testlarni qayta yuklash
+  useEffect(() => {
+    if (user?._id && !isInitialLoad) {
+      fetchTestsByCategory(activeCategory);
+    }
+  }, [showGlobal, selectedDifficulty]);
+
+  // Initial load
   useEffect(() => {
     if (user?._id) {
       if (isInitialLoad) {
@@ -202,7 +165,6 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
           tests: updatedTests
         }
       }));
-      if (user) fetchAll(user._id);
     } catch (e: any) {
       alert(e.response?.data?.message || "Rename failed.");
     }
@@ -224,7 +186,6 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
           tests: updatedTests
         }
       }));
-      if (user) fetchAll(user._id);
     } catch (e: any) {
       alert(e.response?.data?.message || "Update failed.");
     }
@@ -242,7 +203,6 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
           tests: updatedTests
         }
       }));
-      if (user) fetchAll(user._id);
     } catch (e: any) {
       alert(e.response?.data?.message || "Delete failed.");
     }
@@ -266,14 +226,14 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
             <div className="flex gap-2">
               {user?.role === 'admin' && (
                 <button 
-                  onClick={() => setView('create')} 
+                  onClick={() => navigate('create')} 
                   className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-all"
                 >
                   <FileJson className="w-4 h-4" /> Import
                 </button>
               )}
               <button 
-                onClick={() => setView('ai-gen')} 
+                onClick={() => navigate('/ai-generator')} 
                 className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-all shadow-sm"
               >
                 <Wand2 className="w-4 h-4" /> AI Generate
@@ -342,32 +302,30 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
             {/* Mode Indicator */}
             <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 rounded-full">
               <span className="text-xs text-gray-600">
-                {showGlobal ? 'Mening testlarim' : 'Ommaviy testlar'}
+                {showGlobal ? 'Global Tests' : 'My Tests'}
               </span>
             </div>
 
-            {/* Difficulty Filter - Only for Global */}
-            {!showGlobal && (
-              <div className="flex items-center gap-2 ml-auto">
-                <Filter className="w-4 h-4 text-gray-400" />
-                <select
-                  value={selectedDifficulty}
-                  onChange={(e) => handleDifficultyChange(e.target.value as Difficulty)}
-                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-950"
-                >
-                  <option value="all">All Difficulties</option>
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-            )}
+            {/* Difficulty Filter - Hamma holatda ham ko'rsatiladi */}
+            <div className="flex items-center gap-2 ml-auto">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <select
+                value={selectedDifficulty}
+                onChange={(e) => handleDifficultyChange(e.target.value as Difficulty)}
+                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-blue-950"
+              >
+                <option value="all">All Difficulties</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
 
             {/* Refresh */}
             <button
               onClick={handleRefresh}
               disabled={isRefreshing || currentData.loading}
-              className="p-2 text-gray-400 hover:text-gray-600 transition-all disabled:opacity-50 ml-auto"
+              className="p-2 text-gray-400 hover:text-gray-600 transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             </button>
@@ -402,11 +360,6 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
               </div>
               
               <div className="flex items-center gap-2">
-                {currentData.lastFetched && !currentData.loading && (
-                  <span className="text-[10px] text-gray-400">
-                    Updated {new Date(currentData.lastFetched).toLocaleTimeString()}
-                  </span>
-                )}
                 {currentData.tests.length > 0 && (
                   <span className="text-xs text-gray-500">
                     {currentData.tests.filter(t => t.isGlobal).length > 0 && `🌍 ${currentData.tests.filter(t => t.isGlobal).length}`}
@@ -437,7 +390,7 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
                   </div>
                   <p className="text-gray-600 mb-2">{currentData.error}</p>
                   <button
-                    onClick={() => fetchTestsByCategory(activeCategory, true)}
+                    onClick={() => fetchTestsByCategory(activeCategory)}
                     className="text-sm text-blue-600 hover:text-blue-700"
                   >
                     Try again →
@@ -457,7 +410,7 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
                   </p>
                   {!showGlobal && (
                     <button
-                      onClick={() => setView('ai-gen')}
+                      onClick={() => navigate('/ai-generator')}
                       className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
                     >
                       Generate with AI
@@ -476,7 +429,10 @@ const Dashboard = ({ startTest, setView, fetchAll }: DashboardProps) => {
                       <div className="flex md:items-center items-start justify-between flex-wrap gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="md:font-medium text-sm! text-gray-800 truncate">
+                            <h3 className="md:font-medium md:hidden text-sm! text-gray-800 truncate">
+                              {test.title.slice(0, 18)}...
+                            </h3>
+                            <h3 className="md:font-medium max-md:hidden text-sm! text-gray-800 truncate">
                               {test.title}
                             </h3>
                             {test.difficulty && (

@@ -2,21 +2,14 @@ import { motion } from "framer-motion"
 import { BookOpen, ChevronRight, Clock, Plus, Trash2, Loader2, ExternalLink, User, TrendingUp, ChevronDown, GraduationCap, Globe, Calendar, Newspaper } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { 
+    Edit2, 
+    Sparkles,
+    FileText
+} from 'lucide-react';
 import api from "../services/api";
-import { AppUser } from "../types";
 import { useUserStore } from "../states/user.state";
 
-// Types
-interface NYTStory {
-    title: string;
-    abstract: string;
-    url: string;
-    byline: string;
-    published_date: string;
-    section: string;
-    subsection: string;
-    multimedia: { url: string; format: string }[];
-}
 
 interface GNewsArticle {
     title: string;
@@ -36,17 +29,6 @@ interface DBStory {
     category: string;
     createdAt: string;
 }
-
-// Constants
-const NYT_SECTIONS = [
-    'arts', 'automobiles', 'books/review', 'business', 'fashion', 'food', 
-    'health', 'home', 'insider', 'magazine', 'movies', 'nyregion', 
-    'obituaries', 'opinion', 'politics', 'realestate', 'science', 'sports', 
-    'sundayreview', 'technology', 'theater', 't-magazine', 'travel', 
-    'upshot', 'us', 'world'
-] as const;
-
-type NYTSection = typeof NYT_SECTIONS[number];
 
 const NEWS_CATEGORIES = [
     'General', 'World', 'Nation', 'Business', 'Technology', 'Entertainment', 
@@ -129,172 +111,79 @@ const MyStoriesTab = ({ userId }: { userId: string }) => {
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {stories.map((story) => (
-                <div
-                    key={story._id}
-                    onClick={() => navigate(`/story-reader/${story._id}`)}
-                    className="group bg-white md:p-6 p-3 md:rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative"
-                >
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(story._id); }} 
-                        className="absolute top-4 right-4 p-2 text-slate-300 hover:text-red-500 rounded-xl hover:bg-red-50 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                        <Trash2 className="w-4 h-4" />
-                    </button>
-                    <div className="space-y-4">
-                        <div className="inline-flex px-3 py-1 bg-blue-50 text-[10px] font-black uppercase text-cyan-600 rounded-full tracking-widest">
-                            {story.category}
-                        </div>
-                        <h3 className="text-xl font-bold text-slate-800 group-hover:text-cyan-600 transition-colors line-clamp-2">
-                            {story.title}
-                        </h3>
-                        <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed">
-                            {story.content.substring(0, 150)}...
-                        </p>
-                        <div className="flex items-center gap-4 pt-2">
-                            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                                <Clock className="w-3.5 h-3.5" /> 
-                                {Math.ceil(story.content.split(' ').length / 200)} min read
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-all" />
-                        </div>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-};
-
-// ==================== POPULAR STORIES TAB (NYT) ====================
-const PopularStoriesTab = () => {
-    const navigate = useNavigate();
-    const [stories, setStories] = useState<NYTStory[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [selectedSection, setSelectedSection] = useState<NYTSection>('automobiles');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-
-    const fetchNYTStories = async (section: NYTSection) => {
-        setLoading(true);
-        try {
-            const response = await fetch(
-                `https://api.nytimes.com/svc/topstories/v2/${section}.json?api-key=Qyk6HlUqXmqy9SGFrflbY2u4tJnsIQhbxHAAZSkJbWPGbRsM`
-            );
-            if (!response.ok) throw new Error('Failed to fetch NYT stories');
-            const data = await response.json();
-            setStories(data.results || []);
-        } catch (e) {
-            console.error('Error fetching NYT stories:', e);
-            setStories([]);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSectionChange = (section: NYTSection) => {
-        setSelectedSection(section);
-        setIsDropdownOpen(false);
-        fetchNYTStories(section);
-    };
-
-    const handleStoryClick = (story: NYTStory) => {
-        navigate('/nytimes-story', { state: { story } });
-    };
-
-    useEffect(() => {
-        fetchNYTStories(selectedSection);
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="py-20 text-center">
-                <Loader2 className="w-12 h-12 text-orange-500 mx-auto mb-4 animate-spin" />
-                <p className="text-slate-500 font-medium">NY Times maqolalari yuklanmoqda...</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-6">
-            <div className="relative">
-                <button
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:border-slate-300 transition-colors"
-                >
-                    <span className="capitalize">{selectedSection.replace('/', ' / ')}</span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
+            {stories.map((story, index) => (
                 
-                {isDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-56 max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-lg z-50">
-                        {NYT_SECTIONS.map((section) => (
-                            <button
-                                key={section}
-                                onClick={() => handleSectionChange(section)}
-                                className={`w-full px-4 py-2 text-left text-sm capitalize hover:bg-slate-50 transition-colors ${
-                                    selectedSection === section ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-700'
-                                }`}
-                            >
-                                {section.replace('/', ' / ')}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {stories.map((story, idx) => (
-                    <div
-                        key={idx}
-                        onClick={() => handleStoryClick(story)}
-                        className="group bg-white md:p-6 p-4 md:rounded-3xl rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer overflow-hidden"
-                    >
-                        {story.multimedia && story.multimedia[0] && (
-                            <div className="relative aspect-video rounded-2xl overflow-hidden mb-4">
-                                <img 
-                                    src={story.multimedia[0].url} 
-                                    alt={story.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                />
-                                <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
-                            </div>
-                        )}
-                        
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <div className="inline-flex px-3 py-1 bg-orange-50 text-[10px] font-black uppercase text-orange-600 rounded-full tracking-widest">
-                                    {story.section}
-                                </div>
-                                {story.subsection && (
-                                    <div className="text-xs text-slate-400">{story.subsection}</div>
-                                )}
-                            </div>
-                            
-                            <h3 className="text-lg font-bold text-slate-800 group-hover:text-orange-600 transition-colors line-clamp-2">
-                                {story.title}
-                            </h3>
-                            
-                            <p className="text-slate-400 text-sm line-clamp-3 leading-relaxed">
-                                {story.abstract}
-                            </p>
-                            
-                            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                                <div className="text-xs text-slate-500 line-clamp-1">
-                                    {story.byline}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="text-xs text-slate-400">
-                                        {new Date(story.published_date).toLocaleDateString('en-US', { 
-                                            month: 'short', 
-                                            day: 'numeric' 
-                                        })}
-                                    </div>
-                                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:translate-x-1 transition-all" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+// ... component ichida
+
+<motion.div
+    key={story._id}
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.3, delay: index * 0.05 }}
+    className="group bg-white rounded-2xl border border-slate-200 shadow-sm md:hover:shadow-xl md:hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer"
+    onClick={() => navigate(`/story-reader/${story._id}`)}
+>
+    {/* Thumbnail Area */}
+    <div className="relative aspect-video bg-linear-to-br from-cyan-50 to-blue-100 overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center">
+            <BookOpen className="w-20 h-20 text-cyan-600/20 md:group-hover:scale-110 md:group-hover:text-cyan-600/30 transition-all duration-500" />
+        </div>
+        
+        {/* Play Overlay */}
+        <div className="absolute inset-0 bg-black/0 md:group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center">
+            <div className="w-14 h-14 bg-white/90 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg opacity-0 md:group-hover:opacity-100 scale-75 md:group-hover:scale-100 transition-all duration-300">
+                <ChevronRight className="w-6 h-6 text-cyan-600" />
             </div>
+        </div>
+
+        {/* Badges */}
+        <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-[10px] font-black px-2 py-1 rounded-md flex items-center gap-1.5">
+            <Clock className="w-3 h-3" />
+            {Math.ceil(story.content.split(' ').length / 200)} min
+        </div>
+        <div className="absolute top-2 left-2 bg-cyan-600 text-white text-[10px] font-black px-2 py-1 rounded-md shadow-md flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3" />
+            {story.category}
+        </div>
+    </div>
+
+    {/* Info Area */}
+    <div className="p-4">
+        <div className="flex items-center justify-between gap-2 mb-2">
+            <h3 className="font-bold text-slate-800 text-base transition-colors line-clamp-1 group-hover:text-cyan-600">
+                {story.title}
+            </h3>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <button 
+                    onClick={(e) => { e.stopPropagation(); handleDelete(story._id); }}
+                    className="p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span className="hidden sm:inline text-xs font-semibold">
+                        Remove
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <p className="text-[11px] text-slate-500 uppercase tracking-wider font-medium flex items-center gap-1.5">
+            <FileText className="w-3 h-3" />
+            Story • {story.content.split(' ').length} words
+        </p>
+
+        <div className="flex flex-wrap gap-1 mt-3">
+            <span className="px-2 py-0.5 bg-cyan-50 text-cyan-600 rounded-md text-[10px] font-bold flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {Math.ceil(story.content.split(' ').length / 200)} min
+            </span>
+            <span className="px-2 py-0.5 bg-purple-50 text-purple-600 rounded-md text-[10px] font-bold flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> {story.category}
+            </span>
+        </div>
+    </div>
+</motion.div>
+            ))}
         </div>
     );
 };
@@ -590,7 +479,7 @@ const Stories = () => {
                 </div>
                 {activeTab === 'mening' && (
                     <button 
-                        onClick={() => navigate('/story-gen')} 
+                        onClick={() => navigate('/story-generator')} 
                         className="bluebook-button flex items-center gap-3 active:scale-95 shadow-lg"
                     >
                         <Plus className="w-4 h-4" /> Create Story
@@ -609,18 +498,7 @@ const Stories = () => {
                     }`}
                 >
                     <User className="w-4 h-4" />
-                    Mening
-                </button>
-                <button
-                    onClick={() => handleTabChange('popular')}
-                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer rounded-lg text-sm font-medium transition-all ${
-                        activeTab === 'popular'
-                            ? 'bg-white text-blue-950 shadow-sm'
-                            : 'text-slate-500 hover:text-blue-950 hover:bg-white'
-                    }`}
-                >
-                    <TrendingUp className="w-4 h-4" />
-                    Popular
+                    My stories
                 </button>
                 <button
                     onClick={() => handleTabChange('news')}
@@ -637,7 +515,6 @@ const Stories = () => {
 
             {/* Tab Content */}
             {activeTab === 'mening' && <MyStoriesTab userId={user._id} />}
-            {activeTab === 'popular' && <PopularStoriesTab />}
             {activeTab === 'news' && <NewsTab />}
         </motion.div>
     );

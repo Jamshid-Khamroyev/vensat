@@ -23,6 +23,12 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, is
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUserStore()
 
+
+  const sendRAg = async () => {
+    const { data } = await api.post(`https://aerotest.app.n8n.cloud/webhook/2ed69dce-c6c0-48d1-8176-7b959322e51f`, { message: "Deep Work bilan ishlashni kim birinchilardan bo'lib targ'ib qila boshlagan?"})
+    console.log(data);
+  }
+
   const getUser = async () => {
     try {
       setIsLoading(true);

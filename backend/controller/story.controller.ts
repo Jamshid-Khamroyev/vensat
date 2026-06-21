@@ -13,13 +13,24 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
 
   router.get("/:userId", asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
-    const stories = await Story.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(200);
+    const stories = await Story.aggregate([
+      { $match: { userId: req.params.userId } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 50 },
+      {
+        $project: {
+          title: 1,
+          createdAt: 1,
+          content: { $substrCP: ["$content", 0, 110] }
+        }
+      }
+    ]);
     res.json(stories);
   }));
 
   router.get("/:userId/:id", asyncHandler(async (req, res) => {
-    if (!req.params.userId && !req.params.id) return res.status(400).json({ error: "User ID required" });
-    const stories = await Story.find({ userId: req.params.userId, _id: req.params.id }).sort({ createdAt: -1 }).limit(200);
+    if (!req.params.userId && !req.params.id) return res.status(400).json({ error: "User ID and story ID required" });
+    const stories = await Story.find({ userId: req.params.userId, _id: req.params.id }).sort({ createdAt: -1 }).limit(50);
     res.json(stories);
   }));
 

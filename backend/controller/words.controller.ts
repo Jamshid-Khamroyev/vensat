@@ -16,7 +16,20 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
 
   router.get("/:userId", authenticateToken, asyncHandler(async (req, res) => {
     if (!req.params.userId) return res.status(400).json({ error: "User ID required" });
-    const groups = await GroupWords.find({ userId: req.params.userId }).sort({ createdAt: -1 }).limit(1000);
+    const groups = await GroupWords.aggregate([
+      { $match: { userId: req.params.userId } },
+      { $sort: { createdAt: -1 } },
+      { $limit: 50 },
+      {
+        $project: {
+          title: 1,
+          createdAt: 1,
+          isDefault: 1,
+          userId: 1,
+          wordsCount: { $size: "$words" }
+        }
+      }
+    ]);
     res.json(groups);
   }));
 

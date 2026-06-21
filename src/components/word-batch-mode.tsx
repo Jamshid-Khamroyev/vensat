@@ -1,12 +1,12 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { GroupWord, WordRecord } from "../types";
+import { UserWords, WordRecord } from "../types";
 import { generateSentencesForWords } from "../services/geminiService";
 
 interface WordBatchModeProps {
     setBatchMode: (value: boolean) => void;
-    userWords: GroupWord[];
+    userWords: UserWords[];
     handleAddWord: (words: { term: string; definition: string }[], title?: string) => void;
     handleUpdateGroup: (id: string, words?: { term: string; definition: string }[], title?: string) => void;
 }
@@ -70,8 +70,6 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
                 toast.warning('Ba\'zi so\'zlar uchun gap yaratilmadi, keyin qo\'shishingiz mumkin');
                 generatedData = [];
             }
-            console.log(generatedData);
-            
             const sentenceMap = new Map(generatedData.map(item => [item.term, item.sentence]));
 
             const wordsToAdd = parsedPairs.map(pair => ({
@@ -94,13 +92,13 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
         }
     };
 
-    const handleUpdateGroupWithWords = async (group: GroupWord) => {
+    const handleUpdateGroupWithWords = async (group: any) => {
         if (parsedPairs.length === 0) {
             toast.error('Qo\'shish uchun so\'zlar mavjud emas');
             return;
         }
         
-        const newWordCount = group.words.length + parsedPairs.length;
+        const newWordCount = group.wordsCount + parsedPairs.length;
         if (newWordCount > 30) {
             toast.error(`Bu guruhga ${parsedPairs.length} ta so'z qo'shib bo'lmaydi (maksimal 30 ta so'z)`);
             return;
@@ -216,23 +214,23 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
 
                             <div className="text-sm text-slate-500 mt-4">Mavjud guruhlarga qo'shish:</div>
                             <div className="space-y-2 mt-2 max-h-48 overflow-auto">
-                                {userWords.filter(group => group.words.length + parsedPairs.length <= 30).length === 0 && (
+                                {userWords.filter(group => group.wordsCount + parsedPairs.length <= 30).length === 0 && (
                                     <p className="text-center text-slate-400 py-4">
                                         Qo'shish uchun bo'sh joyi bo'lgan guruh mavjud emas
                                     </p>
                                 )}
                                 {userWords
-                                    .filter(group => group.words.length + parsedPairs.length <= 30)
+                                    .filter(group => group.wordsCount + parsedPairs.length <= 30)
                                     .map(group => (
                                         <div
                                             key={group._id}
-                                            onClick={() => handleUpdateGroupWithWords(group)}
+                                            onClick={() => handleUpdateGroupWithWords({ ...group, words: parsedPairs, wordsCount: parsedPairs.length, category: 'batch' })}
                                             className="p-3 border rounded-lg flex w-full justify-between items-center hover:bg-emerald-50 hover:border-emerald-300 cursor-pointer transition-all"
                                         >
                                             <div>
                                                 <h3 className="font-medium text-slate-700">{group.title}</h3>
                                                 <p className="text-xs text-slate-500">
-                                                    {group.words.length} ta so'z + {parsedPairs.length} ta = {group.words.length + parsedPairs.length}/30
+                                                    {group.wordsCount} ta so'z + {parsedPairs.length} ta = {group.wordsCount + parsedPairs.length}/30
                                                 </p>
                                             </div>
                                             <Plus className="w-4 h-4 text-emerald-600" />
