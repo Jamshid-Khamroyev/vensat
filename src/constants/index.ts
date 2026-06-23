@@ -32,7 +32,7 @@ export const faqs = [
 
 export const categories: CategoryConfig[] = [
     { 
-      id: 'information-ideas',
+      id: 'information-and-ideas',
       name: 'Information and Ideas',
       shortName: 'Info & Ideas',
       icon: Target,
@@ -42,7 +42,7 @@ export const categories: CategoryConfig[] = [
       borderColor: 'border-blue-200'
     },
     { 
-      id: 'craft-structure',
+      id: 'craft-and-structure',
       name: 'Craft and Structure',
       shortName: 'Craft & Structure',
       icon: Layers,
@@ -52,7 +52,7 @@ export const categories: CategoryConfig[] = [
       borderColor: 'border-purple-200'
     },
     { 
-      id: 'expression-ideas',
+      id: 'expression-of-ideas',
       name: 'Expression of Ideas',
       shortName: 'Expression',
       icon: PenTool,

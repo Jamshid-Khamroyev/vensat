@@ -47,10 +47,9 @@ const router = Router()
         const test = await Test.findById(req.params.id).lean();
         if (!test) return res.status(404).json({ error: "Test not found" });
         
-        const questions = await Question.find({ _id: { $in: test.questions } }).lean();
-        const sanitizedQuestions = questions.map(({ correctAnswerIndex, ...q }) => q);
+        const questions = await Question.find({ _id: { $in: test.questions } }).select('-correctAnswerIndex -explanation').lean();
         
-        res.json({ ...test, questions: sanitizedQuestions });
+        res.json({ ...test, questions });
     }));
     
     router.post("", asyncHandler(async (req, res) => {

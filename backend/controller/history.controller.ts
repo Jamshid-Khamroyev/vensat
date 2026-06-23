@@ -40,7 +40,7 @@ router.get("/:userId", asyncHandler(async (req, res) => {
     if (!history) return res.status(404).json({ error: "History not found" });
     
     const questions = await Question.find({ _id: { $in: history.results.map(r => r.questionId) } })
-      .select('text options question category difficulty')
+      .select('text options question category difficulty explanation')
       .lean();
     
     const questionMap = new Map(questions.map(q => [q._id.toString(), q]));

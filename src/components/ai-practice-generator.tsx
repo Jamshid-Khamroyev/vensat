@@ -1,62 +1,52 @@
 import { motion } from 'framer-motion';
-import { BrainCircuit, CheckCircle, Clock, PlusCircle, RotateCcw, Wand2, X } from "lucide-react"
-import { generateSATTest } from '../services/geminiService';
+import { BrainCircuit, RotateCcw, Wand2, X } from "lucide-react"
 import axios from '../services/api';
-import { GroupWord } from '../types';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { useUserStore } from '../states/user.state';
 import { useWordState } from '../states/word.state';
 import { useSearchParams } from 'react-router-dom';
 
 interface AiPracticeGeneratorProps {
     setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-    selectedTime: number;
-    setSelectedTime: (time: number) => void;
     isProcessing: boolean;
     setIsProcessing: (processing: boolean) => void;
-    userWords: GroupWord[];
     startTest: (id: string) => void;
 }
 
 const AiPracticeGenerator = ({ 
-    selectedTime, setSelectedTime, setView, userWords, isProcessing, setIsProcessing, startTest
+    setView, isProcessing, setIsProcessing, startTest
 }: AiPracticeGeneratorProps) => {
-    const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, count: number, words?: string }>({
-        category: 'information-ideas',
+    const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, words?: string[] }>({
+        category: 'information-and-ideas',
         difficulty: 'medium',
-        count: 10,
     });
     const [searchParams] = useSearchParams();
     const groupTitle = searchParams.get("group");
 
-      const { user } = useUserStore()
       const { words } = useWordState()
 
-    const handleAIGen = async (options: { type: 'sat' | 'words', value: string, count: number, difficulty?: string, category?: string }) => {
+    const handleAIGen = async () => {
         if(!words){
             toast.error("No words found. Please add some words first.");
             return;
         }
-        const usedWords = words.map(word => word.term).join(",");
+        
         if(words.length > 50){
             toast.error("You have too many words. Please select a group with less than 50 words.");
             return;
         }
         setIsProcessing(true);
         try {
-            const parsed: any = await generateSATTest(options.value, options.difficulty || 'medium', options.count, usedWords);
-            
-            const res = await axios.post("/api/tests", {
-                ...parsed, 
-                creatorId: user?._id, 
-                category: parsed.category,
-                timeLimit: selectedTime 
+            const context = words.map(word => word.term).join(", ");
+            const res = await axios.post(`/api/rag/generate`, {
+                difficulty: genOptions.difficulty,
+                category: genOptions.category,
+                userWords: context
             });
-            startTest(res.data._id);
+            startTest(res.data.data._id);
         } catch (e) { 
             console.error(e);
-            toast.error("Generation failed."); 
+            toast.error("Generation failed.", e.response.data.message); 
         }
         finally { setIsProcessing(false); }
     }
@@ -101,9 +91,9 @@ const AiPracticeGenerator = ({
                             onChange={e => setGenOptions({...genOptions, category: e.target.value})} 
                             className="w-full px-3 sm:px-4 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 outline-none text-[14px]"
                         >
-                            <option value={"craft-structure"}>Reading: Craft & Structure</option>
-                            <option value={"information-ideas"}>Reading: Information & Ideas</option>
-                            <option value={"expression-ideas"}>Writing: Expression of Ideas</option>
+                            <option value={"craft-and-structure"}>Reading: Craft & Structure</option>
+                            <option value={"information-and-ideas"}>Reading: Information & Ideas</option>
+                            <option value={"expression-of-ideas"}>Writing: Expression of Ideas</option>
                         </select>
                     </div>
 
@@ -145,55 +135,11 @@ const AiPracticeGenerator = ({
                         </div>
                         <p className="text-[10px] sm:text-xs text-slate-400 mt-1.5 sm:mt-2">AI will prioritize these words in passages</p>
                     </div>
-
-                    {/* Count & Time */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                        <div>
-                            <label className="block text-[10px] sm:text-xs font-medium text-slate-600 uppercase tracking-wider mb-1.5 sm:mb-2">
-                                Questions
-                            </label>
-                            <div className="flex items-center gap-2 sm:gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
-                                <input 
-                                    type="range" 
-                                    min="5" 
-                                    max="20" 
-                                    step="5" 
-                                    value={genOptions.count} 
-                                    onChange={e => setGenOptions({...genOptions, count: Number(e.target.value)})} 
-                                    className="flex-1 accent-blue-950 h-1.5"
-                                />
-                                <span className="text-base sm:text-lg font-semibold text-blue-950 min-w-[1.5rem] sm:min-w-[2rem] text-center">
-                                    {genOptions.count}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-[10px] sm:text-xs font-medium text-slate-600 uppercase tracking-wider mb-1.5 sm:mb-2">
-                                Time (min)
-                            </label>
-                            <div className="flex items-center gap-2 sm:gap-3 bg-slate-50 border border-slate-200 rounded-xl px-3 sm:px-4 py-2.5 sm:py-3">
-                                <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 flex-shrink-0" />
-                                <input 
-                                    type="number" 
-                                    value={selectedTime} 
-                                    onChange={e => setSelectedTime(Number(e.target.value))} 
-                                    className="w-full bg-transparent border-none outline-none text-base sm:text-lg font-semibold text-blue-950"
-                                    min="1"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
+                    
                     {/* Generate Button */}
                     <button 
                         disabled={isProcessing} 
-                        onClick={() => handleAIGen({ 
-                            type: 'sat', 
-                            value: genOptions.category, 
-                            count: genOptions.count, 
-                            difficulty: genOptions.difficulty,
-                        })} 
+                        onClick={handleAIGen} 
                         className="w-full py-3.5 sm:py-4 bg-blue-950 text-white rounded-xl font-medium text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         {isProcessing ? (

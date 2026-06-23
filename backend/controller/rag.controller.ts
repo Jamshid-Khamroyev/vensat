@@ -1,9 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { createEmbedding, createTest } from '../../src/services/geminiService';
+import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateSATPassages } from '../../src/services/geminiService';
 import { setupCollection, saveToQdrant, searchInQdrant } from '../../src/services/qdrant';
 import fs from 'fs';
 import { PDFParse } from 'pdf-parse';
 import multer from 'multer';
+import { Test } from '../models/test.model';
+import { Question } from '../models/question.model';
+import { authenticateToken } from '../midlewere/auth.midlewere';
+
 
 const ragRouter = Router();
 
@@ -58,8 +62,6 @@ ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Re
       })),
       embeddings
     );
-
-    fs.unlinkSync(req.file.path);
 
     res.json({
       success: true,
@@ -118,42 +120,49 @@ ragRouter.post('/upload', async (req: Request, res: Response) => {
   }
 });
 
-ragRouter.post('/generate', async (req: Request, res: Response) => {
+ragRouter.post('/generate', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { topic, count = 4 } = req.body;
-    
-    if (!topic) {
-      return res.status(400).json({ success: false, error: 'Topic required' });
-    }
-
-    const queryEmbedding = await createEmbedding(topic);
-    const results = await searchInQdrant(queryEmbedding, 3);
+    const { difficulty = "medium", category = "", userWords = [] } = req.body
+    const results = await searchInQdrant()
     
     const context = results
       .map((r: any) => r.payload?.text || '')
       .filter(Boolean)
       .join('\n\n');
     
-    if (!context) {
-      return res.json({
-        success: true,
-        data: {
-          topic,
-          questions: [{
-            question: 'Ma\'lumot topilmadi. Avval matn yuklang.',
-            options: ['Ha', 'Yo\'q', 'OK', 'Keyin'],
-            correctAnswer: 0,
-            explanation: 'Matn yuklash kerak'
-          }]
-        }
-      });
-    }
+    if (!context) return res.json({ success: false, message: "Data is not exist on this query!" })
     
-    const test = await createTest(context, count, topic);
-    res.json({
-      success: true,
-      data: { topic, context, ...test }
-    });
+    
+    const test = await generateSATPassages({category, context, difficulty, userWords})
+    const passagesData = test.map(t => t.passageText)
+    const test1 = await generateQuestionsForPassages({ passages: passagesData, category, difficulty })
+
+    const test2 = await GenerateAnswers({ questions: test1, difficulty })  
+
+    const questions = await Promise.all(test2.map(async (t) => {
+      const q = await Question.create({ 
+        text: t.modifiedPassageText,
+        question: t.question,
+        options: t.options,
+        correctAnswerIndex: t.correctAnswerIndex,
+        explanation: t.explanation,
+        category,
+        difficulty
+      })
+
+      return q._id
+    }))
+
+    const NewTest = await Test.create({ 
+      questions,
+      category,
+      difficulty,
+      creatorId: (req as any).user.userId,
+      title: `${category} Test ${new Date().toISOString().split('T')[0]}`
+    })
+    
+    
+    res.json({ success: true, data: NewTest });
   } catch (error: any) {
     res.status(500).json({ success: false, error });
   }

@@ -45,15 +45,21 @@ export async function saveToQdrant(chunks: { id: string; text: string }[], embed
   console.log(`${points.length} embeddings saved`);
 }
 
-export async function searchInQdrant(queryEmbedding: number[], limit: number = 5): Promise<any[]> {
+export async function searchInQdrant(): Promise<any[]> {
   try {
-    const results = await client.search(COLLECTION_NAME, {
-      vector: queryEmbedding,
-      limit,
-      with_payload: true,
-      score_threshold: 0.3
+    const total = await client.count(COLLECTION_NAME);
+
+    const randomOffset = Math.floor(
+      Math.random() * Math.max(1, total.count - 100)
+    );
+
+    const result = await client.scroll(COLLECTION_NAME, {
+      limit: 4,
+      offset: randomOffset,
+      with_payload: true
     });
-    return results;
+
+    return result.points;
   } catch (error: any) {
     console.error('Search error:', error.message);
     return [];

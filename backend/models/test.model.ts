@@ -9,7 +9,6 @@ const TestSchema = new mongoose.Schema({
     difficulty: { type: String, enum: ['easy', 'medium', 'hard'], required: true },
     questions: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
     createdAt: { type: Date, default: Date.now }
-  });
-  
+});
   
 export const Test = mongoose.model("Test", TestSchema);

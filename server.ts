@@ -1,9 +1,11 @@
+import dotenv from "dotenv";
+dotenv.config({ path: ".env" });
+
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import mongoose from "mongoose";
 import cors from "cors";
 import path from "path";
-import dotenv from "dotenv";
 
 // Routes
 import TestRouter from "./backend/controller/test.controller"
@@ -15,7 +17,6 @@ import practiceRouter from './backend/controller/practice-word'
 import ragRouter from './backend/controller/rag.controller'
 
 
-dotenv.config();
 
 const app = express();
 app.use(cors({
@@ -26,8 +27,8 @@ app.use(cors({
 app.use(express.json({ limit: "10mb" }));
 
 const PORT = Number(process.env.PORT) || 3000;
-const MONGODB_URI = process.env.MONGODB_URI;
-export const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const MONGODB_URI = process.env.VITE_MONGODB_URI;
+export const JWT_SECRET = process.env.VITE_JWT_SECRET || 'your-secret-key-change-in-production';
 
 if (!MONGODB_URI) {
   console.error("FATAL: MONGODB_URI is not defined in environment variables");

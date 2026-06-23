@@ -5,7 +5,6 @@ import {
   ChevronLeft, ChevronRight, MinusCircle, Lightbulb, 
   X, ChevronDown, ChevronUp 
 } from 'lucide-react';
-import { getHintForQuestion } from '../services/geminiService';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 
@@ -83,44 +82,6 @@ const HistoryDetail = ({ onBack }: HistoryDetailProps) => {
       console.error('Error fetching detail:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchHint = async () => {
-    if (!detail) return;
-    
-    const currentResult = detail.results[currentIndex];
-    if (!currentResult) return;
-
-    // Check if user selected an answer
-    if (currentResult.userSelectedIndex === null || currentResult.userSelectedIndex === undefined) {
-      alert('Please select an answer to get a hint.');
-      return;
-    }
-
-    setHintLoading(true);
-    setShowHint(true);
-    
-    try {
-      const question = currentResult.question;
-      const correctAnswerLetter = String.fromCharCode(65 + currentResult.correctAnswerIndex);
-      const userAnswerLetter = String.fromCharCode(65 + currentResult.userSelectedIndex);
-      
-      // Combine question text and question
-      const fullQuestionText = `${question.text}\n\n${question.question}`;
-      
-      const hint = await getHintForQuestion(
-        fullQuestionText,
-        correctAnswerLetter,
-        userAnswerLetter
-      );
-      
-      setHintData(hint);
-    } catch (error) {
-      console.error('Error fetching hint:', error);
-      alert('Failed to get hint. Please try again.');
-    } finally {
-      setHintLoading(false);
     }
   };
 
@@ -355,7 +316,6 @@ const HistoryDetail = ({ onBack }: HistoryDetailProps) => {
               {/* Hint Button */}
               {currentResult.userSelectedIndex !== null && currentResult.userSelectedIndex !== undefined && (
                 <button
-                  onClick={fetchHint}
                   disabled={hintLoading}
                   className="flex items-center gap-1 px-2 sm:px-3 py-0.5 sm:py-1 bg-yellow-100 text-yellow-700 rounded-full hover:bg-yellow-200 transition-colors text-[9px] sm:text-xs font-medium disabled:opacity-50"
                 >

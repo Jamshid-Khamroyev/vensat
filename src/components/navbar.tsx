@@ -9,8 +9,8 @@ import { useUserStore } from "../states/user.state";
 const navItems = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
   { key: 'words', label: "Words", icon: Library, color: 'from-emerald-500 to-teal-500' },
-  { key: 'stories', label: 'Stories', icon: Newspaper, color: 'from-purple-500 to-pink-500' },
-  { key: 'textbooks', label: 'TextBooks', icon: GraduationCap, color: 'from-indigo-500 to-blue-500' },
+  { key: 'stories', label: 'Stories', icon: Newspaper, color: 'from-purple-500 to-pink-500' }, // Comprehending
+//   { key: 'textbooks', label: 'TextBooks', icon: GraduationCap, color: 'from-indigo-500 to-blue-500' },
   { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
   { key: 'profile', label: 'Analize', icon: BarChart3, color: 'from-orange-500 to-red-500' },
 ] as const;

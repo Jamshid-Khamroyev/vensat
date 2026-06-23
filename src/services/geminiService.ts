@@ -1,10 +1,16 @@
 import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
-import { getSATInstructions } from "../utils/index";
 import Groq from 'groq-sdk';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY ||  "AIzaSyAuX6Y4NVX7SrVmucsHF27WyE00diO5zNQ" });
-// AIzaSyCPaO2ZwchH1_vLCf9RlAYm5AKqR6IsR7s
+const isBrowser = typeof window !== 'undefined'
+
+const VITE_GEMINI_API_KEY = isBrowser ? (import.meta.env?.VITE_GEMINI_API_KEY || '') : (process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY || '') || 'AIzaSyCPaO2ZwchH1_vLCf9RlAYm5AKqR6IsR7s';
+const VITE_GROQ_API_KEY = isBrowser ? (import.meta.env?.VITE_GROQ_API_KEY || '') : (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY || '') || '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';
+const VITE_OPEN_ROUTER = isBrowser ? (import.meta.env?.VITE_OPEN_ROUTER || '') : (process.env?.VITE_OPEN_ROUTER || process.env?.OPEN_ROUTER || '') || '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';
+
+
+const ai = new GoogleGenAI({ apiKey: VITE_GEMINI_API_KEY});
+
 export interface ParsedQuestion {
   _id: string;
   text: string;
@@ -12,7 +18,7 @@ export interface ParsedQuestion {
   correctAnswerIndex?: number;
   difficulty?: string;
   graph?: string;
-  question: string ;
+  question: string;
   isDual?: boolean;
   category: string;
 }
@@ -33,139 +39,6 @@ interface PracticeQuestion {
 
 interface GeneratePracticeParams {
   words: string[];  
-}
-
-function cleanText(text: string): string {
-  if (!text) return "";
-  // Remove markdown artifacts like \n*, \r, etc. and normalize spacing
-  return text.replace(/\\n\*/g, " ").replace(/\n\*/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function cleanTest(test: ParsedTest): ParsedTest {  
-  return {
-    ...test,
-    title: cleanText(test.title),
-    questions: test.questions.map(q => ({
-      ...q,
-      text: cleanText(q.text),
-      options: q.options.map(cleanText)
-    }))
-  };
-}
-
-// ===========================================================================
-
-const mistral_api = process.env.MISTRAL_API || "Pw44z1Z70t9mBvIfRGOGxm8zgI3HoFBy"
-
-export async function generateSATTest(
-  category: string,
-  difficulty: string,
-  count: number,
-  words?: string
-) {
-  const { systemInstruction, prompt } = getSATInstructions(category, {
-    difficulty,
-    count,
-    words,
-  });
-
-  const response = await axios.post(
-    "https://api.mistral.ai/v1/chat/completions",
-    {
-      model: "ministral-3b-2512",
-      messages: [
-        {
-          role: "system",
-          content: systemInstruction,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.6,
-      response_format: {
-        type: "json_object",
-      },
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY || mistral_api}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  const responseText = response.data.choices[0].message.content;
-
-  const data = cleanTest(JSON.parse(responseText));
-  return data
-} 
-// ====================================================
-
-export async function getHintForQuestion(
-  questionText: string, 
-  correctAnswer: string, 
-  userAnswer: string
-) {
-  try {
-    const response = await axios.post(
-      "https://api.mistral.ai/v1/chat/completions",
-      {
-        model: "open-mistral-nemo",
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful assistant that provides hints for SAT questions. Your task is to provide clear and useful hints to the student based on the question text, correct answer, and their selected answer.
-
-When providing hints, follow these rules:
-1. The hint should be in English, but when quoting from the passage, keep the exact wording as it appears.
-2. Analyze each answer choice (A, B, C, D) separately and explain why it is correct or incorrect.
-3. If the user chose an incorrect answer, explain their mistake and show how to arrive at the correct answer.
-4. If the user chose the correct answer, validate their approach and reinforce why this answer is correct.
-5. The hint should be specific, concise, and easy to understand. Help the student understand the question.
-
-The response must be in the following JSON format:
-{
-  "A": "Analysis and hint for option A",
-  "B": "Analysis and hint for option B", 
-  "C": "Analysis and hint for option C",
-  "D": "Analysis and hint for option D",
-  "general_advice": "General advice and tips on how to approach this type of question"
-}`
-          },
-          {
-            role: "user",
-            content: `Please provide a hint for the following SAT question:
-
-Question text (passage):
-${questionText}
-
-Correct answer: ${correctAnswer}
-User selected answer: ${userAnswer}
-
-Please analyze each option (A, B, C, D) separately and provide general advice.`
-          }
-        ],
-        temperature: 0.6,
-        response_format: {
-          type: "json_object",
-        },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.MISTRAL_API_KEY || mistral_api}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    const responseText = response.data.choices[0].message.content;
-    return JSON.parse(responseText);
-  } catch (error) {
-    console.error('Error getting hint:', error);
-    return null;
-  }
 }
 
 // ====================================================
@@ -190,7 +63,7 @@ export async function generateStory(
     max_tokens: tokenMap[length],
     response_format: { type: "json_object" }
   }, {
-    headers: { 'Authorization': `Bearer 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`, 'Content-Type': 'application/json' }
+    headers: { 'Authorization': `Bearer ${VITE_GROQ_API_KEY}`, 'Content-Type': 'application/json' }
   });
   
   return JSON.parse(data.choices[0].message.content);
@@ -239,7 +112,7 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
   const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer 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`,
+      'Authorization': `Bearer ${VITE_GROQ_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
@@ -313,7 +186,7 @@ Make sure each word is used naturally in context.`;
       },
       {
         headers: {
-          'Authorization': `Bearer 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`,
+          'Authorization': `Bearer ${VITE_GROQ_API_KEY}`,
           'Content-Type': 'application/json'
         }
       }
@@ -345,7 +218,7 @@ Make sure each word is used naturally in context.`;
 import { OpenRouter } from '@openrouter/sdk';
 
 const openrouter = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY || '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',
+  apiKey: VITE_OPEN_ROUTER || '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',
 });
 
 export async function createEmbedding(text: string): Promise<number[]> {
@@ -370,44 +243,349 @@ export async function createEmbedding(text: string): Promise<number[]> {
 }
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || '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',
+  apiKey: VITE_GROQ_API_KEY || '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',
+  dangerouslyAllowBrowser: true
 });
 
-export async function createTest(context: string, count: number = 5, topic: string): Promise<any> {
-  const prompt = `Context:\n${context}\n\nBased on the context above, generate ${count} test questions.\nEach question must have 4 options and the correct answer index (0,1,2,3).\nTopic: ${topic}\n\nRespond ONLY in JSON format:\n{\n  "questions": [\n    {\n      "question": "Question",\n      "options": ["A", "B", "C", "D"],\n      "correctAnswer": 0,\n      "explanation": "Explanation"\n    }\n  ]\n}`;
+
+interface BulkQuestionParams {
+  passages: string[];
+  category: string;
+  difficulty: "easy" | "medium" | "hard";
+}
+
+const templateGroups = {
+  'information-and-ideas': [
+    'Which choice best states the main idea of the text?',
+    'Which choice most logically completes the text?',
+    'According to the text, [specific claim about passage content]?',
+    'Based on the text, [inference about passage content]?',
+    "Which finding, if true, would most directly support [researcher's / author's] hypothesis?",
+    "Which finding, if true, would most directly undermine [researcher's / author's] claim?",
+    'Which quotation from the source material best illustrates [claim about the text]?'
+  ],
+
+  'craft-and-structure': [
+    'Which choice best states the main purpose of the text?',
+    'Which choice best describes the function of the underlined sentence in the overall structure of the text?',
+    'Which choice best describes the overall structure of the text?',
+    'Which choice best states the main purpose of the underlined portion as a whole?',
+    'Which choice completes the text with the most logical and precise word or phrase?'
+  ],
+
+  'expression-of-ideas': [
+    // 'The student wants to emphasize [specific aspect] about [topic]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    // 'The student wants to highlight [specific aspect] regarding [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    // 'The student wants to present [topic] and its [conclusions/findings]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    // 'The student wants to contrast [aspect A] and [aspect B] in the two [subjects]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    // 'The student wants to emphasize the [duration/purpose/cause/effect] of [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'Which choice completes the text with the most logical transition?'
+  ]
+};
+
+
+export async function generateQuestionsForPassages({
+  passages,
+  category,
+  difficulty
+}: BulkQuestionParams): Promise<any[]> {
+
+  const categoryTemplates =
+    templateGroups[category as keyof typeof templateGroups] ||
+    templateGroups['information-and-ideas'];
+
+  const selectedTemplates = passages.map(() => {
+    const randomIndex = Math.floor(Math.random() * categoryTemplates.length);
+    return categoryTemplates[randomIndex];
+  });
+    
+  const templates = selectedTemplates
+    .map((template, index) => `${index + 1}. "${template}"`)
+    .join('\n');    
+
+  const systemPrompt = `You are an SAT test maker.
+
+For EACH passage in the provided array, generate exactly ONE tailored question prompt.
+
+DO NOT generate multiple choice options (A, B, C, D), answers, or explanations.
+
+Respond ONLY as a JSON array containing objects matching the number of input passages.
+
+Rules per passage object:
+- Pick ONLY from the provided question templates.
+- Tailor brackets to fit the context.
+- If "Which choice most logically completes the text?" is chosen, add "_____" in 'modifiedPassageText not questionText'.
+- If "Which choice best describes the function of the underlined sentence in the overall structure of the text?" is chosen, wrap the target sentence in #hash_symbols# in 'modifiedPassageText not questionText'.
+- If "Which choice best states the main purpose of the underlined portion as a whole?" is chosen, wrap the target portion in #hash_symbols# in 'modifiedPassageText not questionText'.
+- If "Which choice completes the text with the most logical and precise word or phrase?" is chosen, add a blank "_____" in 'modifiedPassageText not questionText' where the word or phrase should appear.
+- If a Transition question is selected ("Which choice completes the text with the most logical transition?"), transform the passage into a realistic SAT Transition task. Insert a blank "_____" at the point where a logical transition word or phrase is needed. The passage should contain two related ideas that require a logical bridge.
+- For all other question types, 'modifiedPassageText' must match the original text.
+- All questions must closely resemble official Digital SAT Reading and Writing questions.
+- Do not create generic classroom-style questions.`;
 
   try {
     const result = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
-        { role: 'system', content: 'You are an assistant that responds only in JSON format.' },
-        { role: 'user', content: prompt }
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `Question Templates For This Run:
+          
+Question Templates For Each Passage (use template 1 for passage 1, template 2 for passage 2, etc.):
+${templates}  
+
+Passages Array:
+${JSON.stringify(passages)}
+
+Category: ${category}
+Difficulty: ${difficulty}`
+        }
       ],
-      temperature: 0.7,
+      temperature: difficulty === 'hard' ? 0.5 : 0.3,
       max_tokens: 2000,
       response_format: { type: 'json_object' }
     });
 
-    const text = result.choices[0]?.message?.content || '';
-    
+    const text = result.choices[0]?.message?.content || '[]';
+
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed)
+        ? parsed
+        : Object.values(parsed)[0] as any[];
     } catch {
       const cleaned = text
         .replace(/,\s*}/g, '}')
         .replace(/,\s*\]/g, ']')
         .replace(/,\s*,/g, ',');
-      return JSON.parse(cleaned);
+
+      const parsed = JSON.parse(cleaned);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : Object.values(parsed)[0] as any[];
     }
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+}
+
+interface GenerateAnswersParams {
+  questions: any[];
+  difficulty: "easy" | "medium" | "hard";
+}
+
+export async function GenerateAnswers({ questions, difficulty }: GenerateAnswersParams): Promise<any[]> {
+  const systemPrompt = `You are an elite SAT psychometrician. Your sole task is to generate 4 multiple-choice options (A, B, C, D) for each provided SAT question. 
+  Respond ONLY as a valid JSON array of objects. No conversational filler, no markdown wrapping.
+
+  CRITICAL RULES FOR THE 100% CORRECT ANSWER:
+  - Must be completely unarguable and directly supported by explicit evidence or airtight literal inference in the text.
+  - Cannot require any outside assumptions or extrapolation. 
+  - Often uses paraphrased versions of the words in the text rather than repeating exact phrases.
+
+  CRITICAL RULES FOR TRAPS/DISTRACTORS (Based on official College Board SAT Specifications):
+  You must generate exactly 3 highly deceptive traps based on the "${difficulty}" level using these specific SAT-error archetypes:
+  1. "Too Broad" / "Overgeneralization": Takes a small detail from the text and blows it out of proportion, making a claim that applies to a whole field, world, or concept when the text only discussed a specific instance.
+  2. "Too Narrow" / "Detail Trap": Focuses on a completely true statement from the passage, but one that does NOT answer the specific question asked (e.g., states a minor fact instead of answering the main idea or the exact prompt question).
+  3. "Unsupported / New Information" / "Plausible but Absent": An option that sounds highly logical, scientifically accurate, or naturally true in the real world, but has absolutely ZERO explicit textual evidence in the provided passage. 
+  4. "Right Words, Wrong Relationship" / "Textual Mash-up": Uses exact, high-impact keywords directly lifted from the text, but rearranges them or alters the verbs/prepositions to invert, distort, or completely fake the logical relationship stated by the author.
+  5. "Extreme / Absolute Language": Uses words like "always", "never", "entirely", "completely", or "impossible" when the text only suggests a tendency, possibility, or nuanced probability.
+
+  For ${difficulty} level, make the distinctions between the correct answer and the traps extremely subtle.`;
+
+  const userPrompt = `
+  Input Questions & Passages Data:
+  ${JSON.stringify(questions)}
+
+  Output Schema (Return exactly this array structure, NO explanations):
+  [
+    {
+      "question": "The original question string",
+      "modifiedPassageText": "The original modifiedPassageText string",
+      "options": [
+       "Option text",
+       "Option text",
+       "Option text",
+       "Option text"
+      ],
+      "correctAnswerIndex": 0
+    }
+  ]`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: difficulty === 'hard' ? 0.6 : 0.4,
+      max_tokens: 3000,
+      response_format: { type: 'json_object' }
+    });
+
+    const text = result.choices[0]?.message?.content || '[]';
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
+    } catch {
+      const cleaned = text.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']').replace(/,\s*,/g, ',');
+      const parsed = JSON.parse(cleaned);
+      return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
+    }
+  } catch (error) {
+    console.error('Groq Answers Generation Error:', error);
+    throw error;
+  }
+}
+
+export async function GenerateExplanation(test2: any[]): Promise<any[]> {
+  const systemPrompt = `You are an expert SAT psychometrician and elite educator. Your task is to analyze the provided SAT questions and create a thorough, deeply contextual explanation for every single option (A, B, C, and D) based strictly on text evidence.
+  Respond ONLY as a valid JSON array of objects. No conversational filler, no markdown wrapping.
+
+  CRITICAL EXPLANATION RULES (College Board Style):
+  - Correct Answer Explanation: You must write a high-quality paragraph explicitly starting with "Choice [Letter] is the best answer because...". It must detail exactly how the option logically aligns with the passage, quoting or paraphrasing the text, and breaking down the precise contextual definition or reasoning.
+  - Incorrect Answer Explanations: For the remaining three options, you must write individual paragraphs explicitly starting with "Choice [Letter] is incorrect because...". Deconstruct why that word or statement does not make sense in context, explaining its literal definition and contrasting it directly against what the text actually states or implies. Do not use short bullet points; use full, sophisticated academic prose exactly like official SAT answer keys.`;
+
+  const userPrompt = `
+  Input Test Data:
+  ${JSON.stringify(test2)}
+
+  Output Schema (Return exactly this array structure):
+  [
+    {
+      "question": "The original question string",
+      "modifiedPassageText": "The original modifiedPassageText string",
+     "options": [
+       "Option text original",
+       "Option text original",
+       "Option text original",
+       "Option text original"
+      ],
+      "correctAnswerIndex": 0,
+      "explanation": {
+        0: "Choice A is the best answer because... OR Choice A is incorrect because...",
+        1: "Choice B is the best answer because... OR Choice B is incorrect because...",
+        2: "Choice C is the best answer because... OR Choice C is incorrect because...",
+        3: "Choice D is the best answer because... OR Choice D is incorrect because..."
+      }
+    }
+  ]`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.3,
+      max_tokens: 4000,
+      response_format: { type: 'json_object' }
+    });
+
+    const text = result.choices[0]?.message?.content || '[]';
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
+    } catch {
+      const cleaned = text.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']').replace(/,\s*,/g, ',');
+      const parsed = JSON.parse(cleaned);
+      return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
+    }
+  } catch (error) {
+    console.error('Groq Explanation Generation Error:', error);
+    throw error;
+  }
+}
+
+
+interface PassageParams {
+  context: string;    
+  category: "Information and Ideas" | "Craft and Structure" | "Standart English Convention" | "Expression of Ideas";
+  difficulty: "Easy" | "Medium" | "Hard";
+  userWords: string[]; 
+}
+
+interface SATPassage {
+  id: number;
+  title: string;
+  passageText: string;
+  difficulty: string;
+  category: string;
+  targetWordsUsed: string[]; 
+}
+
+export async function generateSATPassages({
+  context,
+  category,
+  difficulty,
+  userWords
+}: PassageParams): Promise<SATPassage[]> {
+  
+  const systemPrompt = `You are an expert SAT test maker and psychometrician. 
+Your task is to generate exactly 4 high-quality, authentic Digital SAT-style passages based STRICTLY on the provided Source Context.
+Respond ONLY in a valid JSON array format containing exactly 4 objects. No markdown formatting, no conversational filler.
+
+CRITICAL RULES FOR PASSAGES:
+1. Source Fidelity: Use the provided Source Context to extract facts, arguments, or data. Do not hallucinate external historical or scientific facts outside the context scope.
+2. Tone & Style: Strictly academic, cohesive, and professional, perfectly mirroring Digital SAT passages.
+3. Length: Each passage must be a single, focused paragraph between 80 to 150 words.
+4. Vocabulary & Difficulty Tuning:
+   - Vocabulary Injection: Analyze the user's target words: [${userWords}]. If any of these words or their direct synonyms fit logically into the passage context, you MUST weave them into the text, replacing weaker words without altering the sentence's meaning.
+   - 'easy': If difficulty is Easy, rewrite the context using clear, accessible, and common English vocabulary.
+   - 'medium': Use standard, high-school-level academic prose.
+   - 'hard': Use advanced, high-tier SAT vocabulary and sophisticated/complex sentence structures, ensuring the quality remains elite while preserving absolute clarity.`;
+
+  const userPrompt = `Source Context to build passages from:
+\"\"\"
+${context}
+\"\"\"
+
+Parameters:
+- Category: ${category} (Digital SAT style)
+- Difficulty Level: ${difficulty}
+- Target User Words to prioritize/substitute: [${userWords}]
+
+JSON Output Schema:
+[
+  {
+    "id": 1,
+    "passageText": "The refined, SAT-style academic passage text here...",
+  }
+]`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: difficulty === 'Hard' ? 0.5 : 0.3, 
+      max_tokens: 2500,
+      response_format: { type: 'json_object' }
+    });
+
+    const text = result.choices[0]?.message?.content || '[]';
+    
+    try {
+      const parsedData = JSON.parse(text);
+      return Array.isArray(parsedData) ? parsedData : (parsedData.passages || Object.values(parsedData)[0]);
+    } catch {
+      const cleaned = text
+        .replace(/,\s*}/g, '}')
+        .replace(/,\s*\]/g, ']')
+        .replace(/,\s*,/g, ',');
+      const parsedData = JSON.parse(cleaned);
+      return Array.isArray(parsedData) ? parsedData : (parsedData.passages || Object.values(parsedData)[0]);
+    }
+
   } catch (error: any) {
-    console.error('Groq error:', error);
-    return {
-      questions: [{
-        question: 'An error occurred',
-        options: ['A', 'B', 'C', 'D'],
-        correctAnswer: 0,
-        explanation: 'Please try again'
-      }]
-    };
+    console.error("SAT Passage generation pipeline error:", error);
+    throw error;
   }
 }

@@ -23,9 +23,9 @@ interface DashboardProps {
 }
 
 type DSATCategory = 
-  | 'information-ideas' 
-  | 'craft-structure' 
-  | 'expression-ideas' 
+  | 'information-and-ideas' 
+  | 'craft-and-structure' 
+  | 'expression-of-ideas' 
   | 'standard-conventions';
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'all';
@@ -39,13 +39,13 @@ interface CategoryTestsData {
 const Dashboard = ({ startTest }: DashboardProps) => {
   const navigate = useNavigate()
   const { user } = useUserStore()
-  const [activeCategory, setActiveCategory] = useState<DSATCategory>('information-ideas');
+  const [activeCategory, setActiveCategory] = useState<DSATCategory>('information-and-ideas');
   const [showGlobal, setShowGlobal] = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('all');
   const [categoryData, setCategoryData] = useState<Record<DSATCategory, CategoryTestsData>>({
-    'information-ideas': { tests: [], loading: false, error: null },
-    'craft-structure': { tests: [], loading: false, error: null },
-    'expression-ideas': { tests: [], loading: false, error: null },
+    'information-and-ideas': { tests: [], loading: false, error: null },
+    'craft-and-structure': { tests: [], loading: false, error: null },
+    'expression-of-ideas': { tests: [], loading: false, error: null },
     'standard-conventions': { tests: [], loading: false, error: null }
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -233,7 +233,7 @@ const Dashboard = ({ startTest }: DashboardProps) => {
                 </button>
               )}
               <button 
-                onClick={() => navigate('/ai-generator')} 
+                onClick={() => navigate('/words')} 
                 className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-all shadow-sm"
               >
                 <Wand2 className="w-4 h-4" /> AI Generate
@@ -410,7 +410,7 @@ const Dashboard = ({ startTest }: DashboardProps) => {
                   </p>
                   {!showGlobal && (
                     <button
-                      onClick={() => navigate('/ai-generator')}
+                      onClick={() => navigate('/words')}
                       className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors"
                     >
                       Generate with AI

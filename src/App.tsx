@@ -2,15 +2,14 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { 
   Loader2,
   RotateCcw,
-  User as UserIcon,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   chatWithAI,
   generateSentencesForWords,
   ParsedTest 
 } from './services/geminiService';
-import {  StoryRecord, TestRecord, WordRecord, GroupWord } from './types';
+import { WordRecord, GroupWord } from './types';
 import PasteWord from './components/paste-word';
 import Navbar from './components/navbar';
 import TestingPage from './pages/testing';
@@ -39,14 +38,11 @@ export default function App() {
   const { login, user } = useUserStore()
   const navigate = useNavigate();
   
-  const [currentArticle, setCurrentArticle] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   // Legacy view state - kept for backward compatibility
   const [view, setView] = useState<'landing' | 'dashboard' | 'mock-test' | 'create' | "article" | 'testing' | 'results' | 'ai-gen' | 'profile' | 'words' | 'stories' | 'story-gen' | 'story-reader' | 'word-group' | 'nytimes-story' | 'springer-reader'>('landing');
   const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
   const [result, setResult] = useState<any | null>(null);
-  const [dbStories, setDbStories] = useState<StoryRecord[]>([]);
-  const [currentNYTStory, setCurrentNYTStory] = useState<{ title: string; abstract: string; url: string; byline: string; published_date: string; section: string; subsection: string; multimedia: { url: string; format: string }[] } | null>(null);
   const [currentWordGroup, setCurrentWordGroup] = useState<{ name: string; words: WordRecord[], _id: string } | null>(null);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -286,12 +282,12 @@ export default function App() {
           
           <Route path="/ai-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} userWords={userWords} selectedTime={selectedTime} setSelectedTime={setSelectedTime} setView={setViewWithRoute} startTest={startTest} />
+              <AiPracticeGenerator isProcessing={isProcessing} setIsProcessing={setIsProcessing} userWords={userWords} setView={setViewWithRoute} startTest={startTest} />
             </Suspense>
           } />
           <Route path="/story-generator" element={
             <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>}>
-              <StoryGen userWords={userWords} storyOptions={storyOptions} setStoryOptions={setStoryOptions} setIsProcessing={setIsProcessing} isProcessing={isProcessing} dbStories={dbStories}  setView={setViewWithRoute} />
+              <StoryGen userWords={userWords} storyOptions={storyOptions} setStoryOptions={setStoryOptions} setIsProcessing={setIsProcessing} isProcessing={isProcessing} setView={setViewWithRoute} />
             </Suspense>
           } />
           <Route path="/story-reader/:id" element={<StoryReading handleAddToDefaultGroup={handleAddToDefaultGroup}/> } />

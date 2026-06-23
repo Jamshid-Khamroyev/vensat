@@ -15,7 +15,6 @@ interface StoryGenProps {
   setStoryOptions: (options: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; }) => void; // ✅
   isProcessing: boolean;
   setIsProcessing: (processing: boolean) => void;
-  dbStories: any[];
 }
 
 const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, setView, storyOptions, userWords }: StoryGenProps) => {
