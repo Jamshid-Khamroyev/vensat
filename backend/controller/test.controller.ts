@@ -6,6 +6,7 @@ import { Question } from "../models/question.model";
 import { authenticateToken } from "../midlewere/auth.midlewere";
 import express from "express"
 import { User } from "../models/user.model";
+import { GenerateExplanation } from "@/src/services/geminiService";
 
 const router = Router()
 
@@ -126,8 +127,28 @@ const router = Router()
             };
 
             // Process each question
-            const results = questions.map(q => {
-                const answer = answers.find(a => a.questionId === q._id.toString());
+            if(!questions[0].explanation){
+                const explanations = await GenerateExplanation(questions);
+                const bulkOps = explanations.map((item) => ({
+                    updateOne: {
+                        filter: {
+                            question: item.question,
+                            text: item.text
+                        },
+                        update: {
+                            $set: {
+                                explanation: item.explanation
+                            }
+                        }
+                    }
+                }));
+    
+                await Question.bulkWrite(bulkOps);
+            }
+
+            const results = (questions.map((q: any) => {
+                
+                const answer = answers.find((a: any) => a.questionId === q._id.toString());
                 const isCorrect = answer?.selectedIndex === q.correctAnswerIndex;
                 
                 // Track category scores
@@ -147,7 +168,7 @@ const router = Router()
                     userSelectedIndex: answer?.selectedIndex ?? null,
                     category: q.category
                 };
-            });
+            }));
 
             // Calculate overall score
             const score = results.filter(r => r.isCorrect).length;

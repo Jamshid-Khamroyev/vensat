@@ -458,14 +458,14 @@ export async function GenerateExplanation(test2: any[]): Promise<any[]> {
   [
     {
       "question": "The original question string",
-      "modifiedPassageText": "The original modifiedPassageText string",
+      "text": "The original text string",
      "options": [
        "Option text original",
        "Option text original",
        "Option text original",
        "Option text original"
       ],
-      "correctAnswerIndex": 0,
+      "correctAnswerIndex": 0 orginal,
       "explanation": {
         0: "Choice A is the best answer because... OR Choice A is incorrect because...",
         1: "Choice B is the best answer because... OR Choice B is incorrect because...",
@@ -536,9 +536,9 @@ CRITICAL RULES FOR PASSAGES:
 3. Length: Each passage must be a single, focused paragraph between 80 to 150 words.
 4. Vocabulary & Difficulty Tuning:
    - Vocabulary Injection: Analyze the user's target words: [${userWords}]. If any of these words or their direct synonyms fit logically into the passage context, you MUST weave them into the text, replacing weaker words without altering the sentence's meaning.
-   - 'easy': If difficulty is Easy, rewrite the context using clear, accessible, and common English vocabulary.
-   - 'medium': Use standard, high-school-level academic prose.
-   - 'hard': Use advanced, high-tier SAT vocabulary and sophisticated/complex sentence structures, ensuring the quality remains elite while preserving absolute clarity.`;
+   - 'easy': If difficulty is Easy, rewrite the context using clear, accessible, and common English vocabulary size: 30-40 words.
+   - 'medium': Use standard, high-school-level academic prose size: 40-55 words.
+   - 'hard': Use advanced, high-tier SAT vocabulary and sophisticated/complex sentence structures, ensuring the quality remains elite while preserving absolute clarity. size: 60-90 words`;
 
   const userPrompt = `Source Context to build passages from:
 \"\"\"
@@ -586,6 +586,97 @@ JSON Output Schema:
 
   } catch (error: any) {
     console.error("SAT Passage generation pipeline error:", error);
+    throw error;
+  }
+}
+
+
+export async function generateRulesQuestion(context: string) {
+  const systemPrompt = `
+You are an elite Digital SAT English Conventions item writer and psychometrician.
+
+Your task is to generate EXACTLY 5 authentic Digital SAT English Conventions questions based STRICTLY on the provided Rules Context.
+
+Respond ONLY with valid JSON.
+
+CRITICAL RULES:
+
+1. Use ONLY the grammar and writing rules found in the provided context.
+2. Do NOT introduce external grammar concepts.
+3. Each question must contain an original SAT-style passage with exactly ONE blank.
+4. Use this exact question text:
+
+"Which choice completes the text so that it conforms to the conventions of Standard English?"
+
+5. Each question must have exactly 4 answer choices.
+6. Exactly ONE answer choice must be correct.
+7. The correct answer must be objectively supported by the rule being tested.
+8. Incorrect answers must be plausible and mimic common student mistakes.
+9. Questions should be difficult and resemble official Digital SAT questions.
+10. Avoid obviously wrong distractors.
+11. Test grammar/conventions only.
+12. Each passage should be 30-80 words.
+13. Every question should target one rule from the provided context.
+
+Output schema:
+
+[
+  {
+    "text": "passage with a blank",
+    "question": "Which choice completes the text so that it conforms to the conventions of Standard English?",
+    "options": [
+      "choice A",
+      "choice B",
+      "choice C",
+      "choice D"
+    ],
+    "correctAnswerIndex": 0
+  }
+]
+`;
+
+  const userPrompt = `
+Rules Context:
+
+"""
+${context}
+"""
+
+Generate exactly 5 questions.
+`;
+
+  try {
+    const result = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.4,
+      max_tokens: 3000,
+      response_format: { type: "json_object" }
+    });
+
+    const text = result.choices[0]?.message?.content || "[]";
+
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed)
+        ? parsed
+        : parsed.questions || Object.values(parsed)[0];
+    } catch {
+      const cleaned = text
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*\]/g, "]");
+
+      const parsed = JSON.parse(cleaned);
+
+      return Array.isArray(parsed)
+        ? parsed
+        : parsed.questions || Object.values(parsed)[0];
+    }
+  } catch (error) {
+    console.error("Rules Question Generation Error:", error);
     throw error;
   }
 }

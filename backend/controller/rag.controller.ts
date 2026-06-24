@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateSATPassages } from '../../src/services/geminiService';
+import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateRulesQuestion, generateSATPassages } from '../../src/services/geminiService';
 import { setupCollection, saveToQdrant, searchInQdrant } from '../../src/services/qdrant';
 import fs from 'fs';
 import { PDFParse } from 'pdf-parse';
@@ -145,7 +145,6 @@ ragRouter.post('/generate', authenticateToken, async (req: Request, res: Respons
         question: t.question,
         options: t.options,
         correctAnswerIndex: t.correctAnswerIndex,
-        explanation: t.explanation,
         category,
         difficulty
       })
@@ -163,6 +162,28 @@ ragRouter.post('/generate', authenticateToken, async (req: Request, res: Respons
     
     
     res.json({ success: true, data: NewTest });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error });
+  }
+});
+
+ragRouter.post('/generate/rules', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const { query } = req.body
+
+    const emb = await createEmbedding(query)
+    
+    const result = await searchInQdrant(emb)
+    
+    const context = result
+      .map((r: any) => r.payload?.text || '')
+      .filter(Boolean)
+      .join('\n\n');
+    
+      
+      const questions = await generateRulesQuestion(context)
+      
+    res.json({ success: true, data: questions });
   } catch (error: any) {
     res.status(500).json({ success: false, error });
   }

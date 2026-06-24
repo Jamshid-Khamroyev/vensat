@@ -45,7 +45,7 @@ export async function saveToQdrant(chunks: { id: string; text: string }[], embed
   console.log(`${points.length} embeddings saved`);
 }
 
-export async function searchInQdrant(): Promise<any[]> {
+export async function searchInQdrant(query?: number[]): Promise<any[]> {
   try {
     const total = await client.count(COLLECTION_NAME);
 
@@ -53,13 +53,22 @@ export async function searchInQdrant(): Promise<any[]> {
       Math.random() * Math.max(1, total.count - 100)
     );
 
-    const result = await client.scroll(COLLECTION_NAME, {
-      limit: 4,
-      offset: randomOffset,
-      with_payload: true
-    });
-
-    return result.points;
+    let result: any;
+    if(query){
+      result = await client.search(COLLECTION_NAME, {
+        vector: query,
+        limit: 4,
+        with_payload: true
+      });
+      return result
+    }else {
+      result = await client.scroll(COLLECTION_NAME, {
+        limit: 4,
+        offset: randomOffset,
+        with_payload: true
+      });
+      return result.points
+    }
   } catch (error: any) {
     console.error('Search error:', error.message);
     return [];
