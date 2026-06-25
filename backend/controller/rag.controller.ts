@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateRulesQuestion, generateSATPassages } from '../../src/services/geminiService';
-import { setupCollection, saveToQdrant, searchInQdrant } from '../../src/services/qdrant';
+import { setupCollection, saveToQdrant, searchInQdrant, COLLECTION_NAME } from '../../src/services/qdrant';
 import fs from 'fs';
 import { PDFParse } from 'pdf-parse';
 import multer from 'multer';
@@ -36,6 +36,7 @@ function splitIntoChunks(text: string, size: number = 800): string[] {
 
 ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Response) => {
   try {
+    const { collectionName } = req.body
     if (!req.file) {
       return res.status(400).json({
         success: false,
@@ -51,7 +52,7 @@ ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Re
 
     const embeddings = await Promise.all(chunks.map(chunk => createEmbedding(chunk)));
 
-    await setupCollection();
+    await setupCollection(collectionName);
 
     await saveToQdrant(
       chunks.map((text, i) => ({
@@ -60,7 +61,8 @@ ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Re
         source: req.file?.originalname,
         chunkIndex: i
       })),
-      embeddings
+      embeddings,
+      collectionName
     );
 
     res.json({
@@ -84,10 +86,9 @@ ragRouter.post('/upload-pdf', upload.single('pdf'), async (req: Request, res: Re
   }
 });
 
-
 ragRouter.post('/upload', async (req: Request, res: Response) => {
   try {
-    const { text } = req.body;
+    const { text, collectionName } = req.body;
     
     if (!text) {
       return res.status(400).json({ success: false, error: 'Text required' });
@@ -101,11 +102,12 @@ ragRouter.post('/upload', async (req: Request, res: Response) => {
       embeddings.push(emb);
     }
     
-    await setupCollection();
+    await setupCollection(collectionName);
     
     await saveToQdrant(
       chunks.map((text, i) => ({ id: `chunk_${i}`, text })),
-      embeddings
+      embeddings,
+      collectionName
     );
     
     res.json({
@@ -123,7 +125,7 @@ ragRouter.post('/upload', async (req: Request, res: Response) => {
 ragRouter.post('/generate', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { difficulty = "medium", category = "", userWords = [] } = req.body
-    const results = await searchInQdrant()
+    const results = await searchInQdrant(COLLECTION_NAME.PDF)
     
     const context = results
       .map((r: any) => r.payload?.text || '')
@@ -173,16 +175,22 @@ ragRouter.post('/generate/rules', authenticateToken, async (req: Request, res: R
 
     const emb = await createEmbedding(query)
     
-    const result = await searchInQdrant(emb)
+    const result = await searchInQdrant(COLLECTION_NAME.RULES, emb)
     
     const context = result
       .map((r: any) => r.payload?.text || '')
       .filter(Boolean)
       .join('\n\n');
+
+    const results = await searchInQdrant(COLLECTION_NAME.PDF)
     
-      
-      const questions = await generateRulesQuestion(context)
-      
+    const context2 = results
+      .map((r: any) => r.payload?.text || '')
+      .filter(Boolean)
+      .join('\n\n');
+    
+    const questions = await generateRulesQuestion(context, context2)
+    
     res.json({ success: true, data: questions });
   } catch (error: any) {
     res.status(500).json({ success: false, error });

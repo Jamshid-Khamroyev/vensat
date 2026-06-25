@@ -1,24 +1,24 @@
 import { motion } from "framer-motion";
-import { X, Minimize2, Maximize2, Flag, BookOpen, Loader2, PlusCircle, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Circle, Clock } from "lucide-react";
-import { Dispatch, SetStateAction, useEffect, useState, useRef } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { X, Minimize2, Maximize2, Flag, Loader2, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Clock } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { ParsedTest } from "../services/geminiService";
 import TestNote from "../shared/test-note";
 import Pessage from "../shared/pessage";
 import api from "../services/api";
+import { useWordState } from "../states/word.state";
 
-interface TestingPageProps {
-  eliminated: Record<number, number[]>;
-  currentQuestionIndex: number;
-  setEliminated: (eliminated: Record<number, number[]> | ((prev: Record<number, number[]>) => Record<number, number[]>)) => void;
-  currentTest: ParsedTest;
-  setCurrentQuestionIndex: Dispatch<SetStateAction<number>>;
-  handleCompleteTest: (userAnswers: any, id: string) => void;
-  setCurrentTest: Dispatch<SetStateAction<ParsedTest>>;
-}
+const TestingPage = () => {
+  const location = useLocation();
+    const view = location.pathname.split("/").filter(Boolean).pop();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { setResult } = useWordState()
+  const [eliminated, setEliminated] = useState<Record<number, number[]>>({});
+  const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
 
-const TestingPage = ({ eliminated, currentQuestionIndex, setEliminated, currentTest, setCurrentQuestionIndex, handleCompleteTest, setCurrentTest }: TestingPageProps) => {
+  
+  const navigate = useNavigate()
   const [timeLeft, setTimeLeft] = useState(0);
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -47,29 +47,27 @@ const TestingPage = ({ eliminated, currentQuestionIndex, setEliminated, currentT
 
   const answeredCount = userAnswers.length;
 
-  const startTest = async (testId: string) => {
-    setIsPageLoading(true);
-    try {
-      setEliminated({});
-      const response = await api.get(`/api/tests/${testId}`);
-      const test = response.data;
-      setCurrentTest(test);
-      setTimeLeft(test.timeLimit * 60);
-      if (searchParams.get("q")) setCurrentQuestionIndex(parseInt(searchParams.get("q") || "0"));
-    } catch (error) {
-      toast.error("Failed to load test");
-    } finally {
-      setIsPageLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (id) startTest(id);
+    if (id) navigate(`/testing/${id}`);
   }, [id]);
 
   useEffect(() => {
     setSearchParams({ q: currentQuestionIndex.toString() });
   }, [currentQuestionIndex, setSearchParams]);
+
+  useEffect(() => {
+    if (view === 'testing' && timeLeft > 0) {
+      timerRef.current = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [timeLeft]);
 
   useEffect(() => {
     if (isPageLoading || isTestDisabled || timeLeft <= 0) return;
@@ -158,6 +156,16 @@ const TestingPage = ({ eliminated, currentQuestionIndex, setEliminated, currentT
       await handleCompleteTest(userAnswers, currentTest._id);
     } finally {
       setIsFinishing(false);
+    }
+  };
+
+   const handleCompleteTest = async (answers: {questionId: string, selectedIndex: number}[], id: string) => {
+    try {
+      const response = await api.post(`/api/tests/${id}/check`, { answers });
+      setResult(response.data);
+      navigate('/results')
+    } catch (error) { 
+      console.log(`Error completing test: ${error}`);
     }
   };
 

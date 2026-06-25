@@ -1,8 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, GraduationCap, FileQuestion } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, FileQuestion } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Dispatch, SetStateAction, useState, useCallback, useMemo } from "react";
+import {  useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "../states/user.state";
 
@@ -27,6 +27,7 @@ const Navbar = () => {
 
     const handleLogout = useCallback(() => {
         logout();
+        localStorage.removeItem('aero_token')
         navigate('/');
         setOpen(false);
         setMobileMenu(false);
@@ -227,14 +228,14 @@ const Navbar = () => {
                             <Button 
                                 variant="outline" 
                                 onClick={() => setOpen(false)}
-                                className="flex-1 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all duration-300"
+                                className="flex-1 border-slate-200 hover:bg-slate-50 hover:border-slate-300 p-2 transition-all duration-300"
                             >
                                 Cancel
                             </Button>
                             <Button 
                                 variant="destructive" 
                                 onClick={handleLogout}
-                                className="flex-1 bg-gradient-to-r text-white from-red-600 to-red-500 hover:from-red-700 hover:to-red-600 shadow-lg shadow-red-500/25 transition-all duration-300"
+                                className="flex-1 bg-gradient-to-r text-white from-red-600 to-red-500 p-2 hover:from-red-700 hover:to-red-600 shadow-lg shadow-red-500/25 transition-all duration-300"
                             >
                                 Logout
                             </Button>

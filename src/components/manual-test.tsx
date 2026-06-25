@@ -2,51 +2,57 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
 import { 
-    ArrowLeft,
-    Eye,
-    Save,
-    X,
-    Clock,
-    List,
-    FileText,
-    BookOpen,
-    Layers,
-    Target,
-    AlertCircle,
-    CheckCircle,
-    Sparkles,
-    Loader2,
-    ChevronDown,
-    ChevronUp,
-    Plus,
-    Minus,
-    Edit,
-    Zap,
-    Award,
-    Flame
+    ArrowLeft, Eye, Save, X, Clock, FileText, BookOpen, Layers, Target, 
+    CheckCircle, Sparkles, Loader2, Plus, Minus, Zap, Award, Flame, AirVent 
 } from 'lucide-react';
 import { useUserStore } from "../states/user.state";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
-type DSATCategory = 'information-ideas' | 'craft-structure' | 'expression-ideas' | 'standard-conventions';
+type DSATCategory = 'information-and-ideas' | 'craft-and-structure' | 'expression-of-ideas' | 'standard-conventions';
 type Difficulty = 'easy' | 'medium' | 'hard';
 
-interface ManualTestProps {
-    setView: (view: any) => void;
-    selectedTime: number;
-    setSelectedTime: (time: number) => void;
-    isProcessing: boolean;
-    setIsProcessing: (processing: boolean) => void;
-}
 
-const ManualTest = ({ selectedTime, setSelectedTime, setView, isProcessing, setIsProcessing }: ManualTestProps) => {
+const ManualTest = () => {
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [selectedTime, setSelectedTime] = useState(30); // minutes
     const { user } = useUserStore()
     const [testText, setTestText] = useState("");
     const [keyText, setKeyText] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState<DSATCategory>('information-ideas');
+    const [selectedCategory, setSelectedCategory] = useState<DSATCategory>('information-and-ideas');
     const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
     const [preview, setPreview] = useState<any>(null);
+    const navigate = useNavigate()
 
     const generateTitle = () => `DSAT ${["Practice","Assessment","Quiz"][Math.floor(Math.random()*3)]} - ${new Date().toLocaleDateString()}`;
+
+    const generateRules = async () => {
+        try {
+            setIsProcessing(true);
+            const { data } = await api.post(`/api/rag/generate/rules`, {
+                query: "Generate 10 questions about DSAT rules and regulations"
+            });
+            
+            const questions = data.data.map((item: any, index: number) => 
+                `${index + 1}. ${item.text}\n\n*${item.question}*\n${item.options.map((opt: string, i: number) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n')}`
+            ).join('\n\n');
+            
+            const answerKey = data.data.map((item: any, index: number) => 
+                `${index + 1}-${String.fromCharCode(65 + item.correctAnswerIndex)}`
+            ).join(', ');
+            
+            setTestText(questions);
+            setKeyText(answerKey);
+            setSelectedCategory('standard-conventions');
+            setSelectedDifficulty('medium');
+            toast.success(`${data.data.length} ta savol yaratildi!`);
+        } catch (error) {
+            toast.error("Savollarni yaratishda xatolik");
+        } finally {
+            setIsProcessing(false);
+        }
+    }
 
     const parseQuestions = (text: string) => {
         const questions: any[] = [];
@@ -160,7 +166,7 @@ const ManualTest = ({ selectedTime, setSelectedTime, setView, isProcessing, setI
             setPreview(null);
             setTestText("");
             setKeyText("");
-            setView('dashboard');
+            navigate('/dashboard');
         } catch (e: any) {
             toast.error(e.message);
         } finally {
@@ -188,55 +194,29 @@ D) Specialized skills are less valuable`);
 
     const getDifficultyConfig = (diff: Difficulty) => {
         const configs = {
-            easy: { 
-                color: 'text-emerald-600', 
-                bg: 'bg-emerald-50', 
-                border: 'border-emerald-200',
-                icon: Zap,
-                label: 'Easy'
-            },
-            medium: { 
-                color: 'text-amber-600', 
-                bg: 'bg-amber-50', 
-                border: 'border-amber-200',
-                icon: Award,
-                label: 'Medium'
-            },
-            hard: { 
-                color: 'text-rose-600', 
-                bg: 'bg-rose-50', 
-                border: 'border-rose-200',
-                icon: Flame,
-                label: 'Hard'
-            }
+            easy: { color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: Zap, label: 'Easy' },
+            medium: { color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: Award, label: 'Medium' },
+            hard: { color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-200', icon: Flame, label: 'Hard' }
         };
         return configs[diff] || configs.medium;
     };
 
     const categoryLabels = {
-        'information-ideas': { label: 'Information & Ideas', icon: BookOpen },
-        'craft-structure': { label: 'Craft & Structure', icon: Layers },
-        'expression-ideas': { label: 'Expression of Ideas', icon: FileText },
+        'information-and-ideas': { label: 'Information & Ideas', icon: BookOpen },
+        'craft-and-structure': { label: 'Craft & Structure', icon: Layers },
+        'expression-of-ideas': { label: 'Expression of Ideas', icon: FileText },
         'standard-conventions': { label: 'Standard Conventions', icon: Target }
     };
 
     const DifficultyIcon = getDifficultyConfig(selectedDifficulty).icon;
 
     return (
-        <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            className="min-h-screen bg-gray-50 p-3 sm:p-4"
-        >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-gray-50 p-3 sm:p-4">
             <div className="max-w-4xl mx-auto">
-                <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                    {/* Header */}
+                <button className="bg-white w-full rounded-xl sm:rounded-2xl shadow-sm border disabled:opacity-50 disabled:cursor-not-allowed border-gray-200 overflow-hidden" disabled={isProcessing}>
                     <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                            <button
-                                onClick={() => setView('dashboard')}
-                                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-                            >
+                            <button onClick={() => navigate("/dashboard")} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
                                 <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                             </button>
                             <div className="min-w-0">
@@ -244,10 +224,7 @@ D) Specialized skills are less valuable`);
                                 <p className="text-xs sm:text-sm text-gray-500 truncate hidden sm:block">Create a new test from formatted text</p>
                             </div>
                         </div>
-                        <button
-                            onClick={loadExample}
-                            className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 flex-shrink-0"
-                        >
+                        <button onClick={loadExample} className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
                             <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             <span className="hidden xs:inline">Load Example</span>
                         </button>
@@ -255,7 +232,6 @@ D) Specialized skills are less valuable`);
 
                     {!preview ? (
                         <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
-                            {/* Test Content */}
                             <div>
                                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                                     Test Content
@@ -269,7 +245,6 @@ D) Specialized skills are less valuable`);
                                 />
                             </div>
 
-                            {/* Answer Key */}
                             <div>
                                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                                     Answer Key
@@ -278,14 +253,12 @@ D) Specialized skills are less valuable`);
                                 <textarea 
                                     value={keyText} 
                                     onChange={e => setKeyText(e.target.value)} 
-                                    className="w-full h-12 sm:h-16 p-2 sm:p-3 border border-gray-200 rounded-lg font-mono text-xs sm:text-sm resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                                    className="w-full h-12 sm:h-16 p-2 sm:p-3 border border-gray-200 rounded-lg font-mono text-xs sm:text-sm resize-none focus:border-transparent transition-shadow"
                                     placeholder="1-B, 2-C, 3-A"
                                 />
                             </div>
 
-                            {/* Settings Grid */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                                {/* Category */}
                                 <div>
                                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                                         <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
@@ -294,15 +267,19 @@ D) Specialized skills are less valuable`);
                                     <select 
                                         value={selectedCategory} 
                                         onChange={e => setSelectedCategory(e.target.value as DSATCategory)} 
-                                        className="w-full px-2 sm:px-3 py-2 border border-gray-200 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-xs sm:text-sm"
+                                        className="w-full px-2 sm:px-3 py-2 border border-gray-200 rounded-lg bg-white focus:border-transparent text-xs sm:text-sm"
                                     >
                                         {Object.entries(categoryLabels).map(([key, { label }]) => (
                                             <option key={key} value={key}>{label}</option>
                                         ))}
                                     </select>
+                                    {selectedCategory === 'standard-conventions' && (
+                                        <Button onClick={generateRules} className="my-2 cursor-pointer" variant="outline">
+                                            <AirVent className="w-4 h-4 inline mr-1" /> Generate Rules questions
+                                        </Button>
+                                    )}
                                 </div>
 
-                                {/* Difficulty */}
                                 <div>
                                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                                         <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
@@ -319,17 +296,13 @@ D) Specialized skills are less valuable`);
                                     </select>
                                 </div>
 
-                                {/* Time */}
                                 <div className="sm:col-span-2 lg:col-span-1">
                                     <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
                                         <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1" />
                                         Time Limit
                                     </label>
                                     <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={() => setSelectedTime(Math.max(1, selectedTime-5))} 
-                                            className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0"
-                                        >
+                                        <button onClick={() => setSelectedTime(Math.max(1, selectedTime-5))} className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0">
                                             <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                         <input 
@@ -339,10 +312,7 @@ D) Specialized skills are less valuable`);
                                             className="w-full text-center border border-gray-200 rounded-lg py-1.5 sm:py-2 px-1 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                             min="1"
                                         />
-                                        <button 
-                                            onClick={() => setSelectedTime(Math.min(180, selectedTime+5))} 
-                                            className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0"
-                                        >
+                                        <button onClick={() => setSelectedTime(Math.min(180, selectedTime+5))} className="w-8 h-8 sm:w-9 sm:h-9 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center flex-shrink-0">
                                             <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                         </button>
                                         <span className="text-xs sm:text-sm text-gray-500">min</span>
@@ -350,7 +320,6 @@ D) Specialized skills are less valuable`);
                                 </div>
                             </div>
 
-                            {/* Difficulty Badge */}
                             <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
                                 <span className="text-xs sm:text-sm text-gray-600">Selected:</span>
                                 <span className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getDifficultyConfig(selectedDifficulty).bg} ${getDifficultyConfig(selectedDifficulty).color} ${getDifficultyConfig(selectedDifficulty).border}`}>
@@ -358,46 +327,29 @@ D) Specialized skills are less valuable`);
                                     {getDifficultyConfig(selectedDifficulty).label}
                                 </span>
                                 <span className="text-xs sm:text-sm text-gray-400 ml-1 sm:ml-2">
-                                    {categoryLabels[selectedCategory].label}
+                                    {categoryLabels[selectedCategory]?.label}
                                 </span>
                             </div>
 
-                            {/* Actions */}
                             <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 pt-2">
-                                <button 
-                                    onClick={() => setView('dashboard')} 
-                                    className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1"
-                                >
+                                <button onClick={() => navigate('/dashboard')} className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1">
                                     <X className="w-4 h-4" />
                                     Cancel
                                 </button>
-                                <button 
-                                    onClick={handlePreview} 
-                                    disabled={isProcessing} 
-                                    className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
+                                <button onClick={handlePreview} disabled={isProcessing} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {isProcessing ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Processing...
-                                        </>
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                                     ) : (
-                                        <>
-                                            <Eye className="w-4 h-4" />
-                                            Preview Test
-                                        </>
+                                        <><Eye className="w-4 h-4" /> Preview Test</>
                                     )}
                                 </button>
                             </div>
                         </div>
                     ) : (
                         <div className="p-4 sm:p-6">
-                            {/* Preview Header */}
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                                        Preview
-                                    </h2>
+                                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">Preview</h2>
                                     <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs sm:text-sm">
                                         {preview.data.questions.length} Qs
                                     </span>
@@ -406,15 +358,11 @@ D) Specialized skills are less valuable`);
                                         {getDifficultyConfig(selectedDifficulty).label}
                                     </span>
                                 </div>
-                                <button
-                                    onClick={() => setPreview(null)}
-                                    className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
+                                <button onClick={() => setPreview(null)} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors">
                                     <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                                 </button>
                             </div>
 
-                            {/* Questions List */}
                             <div className="bg-gray-50 rounded-lg p-3 sm:p-4 max-h-[400px] sm:max-h-[500px] overflow-y-auto space-y-3 sm:space-y-4">
                                 {preview.data.questions.map((q: any, i: number) => {
                                     const diffConfig = getDifficultyConfig(q.difficulty || selectedDifficulty);
@@ -424,9 +372,7 @@ D) Specialized skills are less valuable`);
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
-                                                        <span className="text-xs sm:text-sm font-semibold text-gray-700">
-                                                            Q{i+1}
-                                                        </span>
+                                                        <span className="text-xs sm:text-sm font-semibold text-gray-700">Q{i+1}</span>
                                                         <span className={`inline-flex items-center gap-0.5 sm:gap-1 text-xs px-1.5 sm:px-2 py-0.5 rounded-full border ${diffConfig.bg} ${diffConfig.color} ${diffConfig.border}`}>
                                                             <DiffIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                                             <span className="hidden xs:inline">{diffConfig.label}</span>
@@ -441,14 +387,9 @@ D) Specialized skills are less valuable`);
                                                     )}
                                                     <div className="space-y-0.5 sm:space-y-1">
                                                         {q.options.map((opt: string, oi: number) => (
-                                                            <div 
-                                                                key={oi} 
-                                                                className={`text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded ${oi === q.correctAnswerIndex ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600'} break-words`}
-                                                            >
+                                                            <div key={oi} className={`text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded ${oi === q.correctAnswerIndex ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600'} break-words`}>
                                                                 <span className="font-mono">{String.fromCharCode(65+oi)})</span> {opt}
-                                                                {oi === q.correctAnswerIndex && (
-                                                                    <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline ml-1 text-green-600" />
-                                                                )}
+                                                                {oi === q.correctAnswerIndex && <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 inline ml-1 text-green-600" />}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -459,36 +400,21 @@ D) Specialized skills are less valuable`);
                                 })}
                             </div>
 
-                            {/* Actions */}
                             <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                                <button 
-                                    onClick={() => setPreview(null)} 
-                                    className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1"
-                                >
-                                    <ArrowLeft className="w-4 h-4" />
-                                    Edit
+                                <button onClick={() => setPreview(null)} className="px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-gray-700 text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-1 order-2 xs:order-1">
+                                    <ArrowLeft className="w-4 h-4" /> Edit
                                 </button>
-                                <button 
-                                    onClick={handleSave} 
-                                    disabled={isProcessing} 
-                                    className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
+                                <button onClick={handleSave} disabled={isProcessing} className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {isProcessing ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 animate-spin" />
-                                            Saving...
-                                        </>
+                                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
                                     ) : (
-                                        <>
-                                            <Save className="w-4 h-4" />
-                                            Save Test
-                                        </>
+                                        <><Save className="w-4 h-4" /> Save Test</>
                                     )}
                                 </button>
                             </div>
                         </div>
                     )}
-                </div>
+                </button>
             </div>
         </motion.div>
     );

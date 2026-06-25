@@ -7,19 +7,20 @@ import { AppUser, GroupWord } from "../types";
 import { Button } from "@/components/ui/button";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
+import { useNavigate } from "react-router-dom";
+import { useWordState } from "../states/word.state";
 
 interface StoryGenProps {
-  setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
   userWords: GroupWord[];
-  storyOptions: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; };
-  setStoryOptions: (options: { topic: string; genre: string; length: "medium" | "long" | "extended"; words: string; }) => void; // ✅
-  isProcessing: boolean;
-  setIsProcessing: (processing: boolean) => void;
 }
 
-const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, setView, storyOptions, userWords }: StoryGenProps) => {
+const StoryGen = ({ userWords }: StoryGenProps) => {
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
-    const { user } = useUserStore()
+  const [storyOptions, setStoryOptions] = useState({ topic: '', genre: 'Business', length: 'medium' as 'extended' | 'medium' | 'long', words: '' });
+  const [isProcessing, setIsProcessing] = useState(false);
+  
+  const navigate = useNavigate()
+  const { user } = useUserStore()
 
   const availableGroups = useMemo(() => {
     return userWords.filter(group => group.words && group.words.length > 0);
@@ -67,7 +68,7 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, setView, sto
     });
     
     toast.success('Hikoya muvaffaqiyatli yaratildi', { id: loadingToast });
-    setView('stories');
+    navigate('/stories');
   } catch (e: any) {
     console.error("Story generation failed:", e);
     toast.error(e.response?.data?.message || e.message || 'Hikoya yaratishda xatolik', { id: loadingToast });
@@ -120,7 +121,7 @@ const StoryGen = ({ isProcessing, setIsProcessing, setStoryOptions, setView, sto
 
         <div className="flex items-center md:gap-4 mb-6">
           <button 
-            onClick={() => setView('stories')} 
+            onClick={() => navigate('/stories')} 
             disabled={isProcessing}
             className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all disabled:opacity-50"
           >

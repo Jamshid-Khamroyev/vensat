@@ -6,15 +6,19 @@ const client = new QdrantClient({
   checkCompatibility: false
 });
 
-const COLLECTION_NAME = 'pdf_documents';
+export const COLLECTION_NAME = {
+  PDF: 'pdf_documents',
+  RULES: 'dsat_rules',
+};
 
-export async function setupCollection(): Promise<void> {
+
+export async function setupCollection(collection_name: typeof COLLECTION_NAME[keyof typeof COLLECTION_NAME]): Promise<void> {
   try {
-    await client.getCollection(COLLECTION_NAME);
+    await client.getCollection(collection_name);
 
     console.log('Collection already exists');
   } catch (error) {
-    await client.createCollection(COLLECTION_NAME, {
+    await client.createCollection(collection_name, {
       vectors: {
         size: 2048,
         distance: 'Cosine'
@@ -25,7 +29,7 @@ export async function setupCollection(): Promise<void> {
   }
 }
 
-export async function saveToQdrant(chunks: { id: string; text: string }[], embeddings: number[][]): Promise<void> {
+export async function saveToQdrant(chunks: { id: string; text: string }[], embeddings: number[][], collection_name: typeof COLLECTION_NAME[keyof typeof COLLECTION_NAME]): Promise<void> {
   const points = chunks.map((chunk, index) => {
     const emb: any = embeddings[index];
     const vector: number[] = Array.isArray(emb[0]) ? emb[0] : emb;
@@ -41,13 +45,13 @@ export async function saveToQdrant(chunks: { id: string; text: string }[], embed
     };
   });
 
-  await client.upsert(COLLECTION_NAME, { wait: true, points: points as any });
+  await client.upsert(collection_name, { wait: true, points: points as any });
   console.log(`${points.length} embeddings saved`);
 }
 
-export async function searchInQdrant(query?: number[]): Promise<any[]> {
+export async function searchInQdrant(collection_name: typeof COLLECTION_NAME[keyof typeof COLLECTION_NAME], query?: number[]): Promise<any[]> {
   try {
-    const total = await client.count(COLLECTION_NAME);
+    const total = await client.count(collection_name);
 
     const randomOffset = Math.floor(
       Math.random() * Math.max(1, total.count - 100)
@@ -55,14 +59,14 @@ export async function searchInQdrant(query?: number[]): Promise<any[]> {
 
     let result: any;
     if(query){
-      result = await client.search(COLLECTION_NAME, {
+      result = await client.search(collection_name, {
         vector: query,
-        limit: 4,
+        limit: 2,
         with_payload: true
       });
       return result
     }else {
-      result = await client.scroll(COLLECTION_NAME, {
+      result = await client.scroll(collection_name, {
         limit: 4,
         offset: randomOffset,
         with_payload: true

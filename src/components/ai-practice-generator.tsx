@@ -4,26 +4,20 @@ import axios from '../services/api';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useWordState } from '../states/word.state';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
-interface AiPracticeGeneratorProps {
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-    isProcessing: boolean;
-    setIsProcessing: (processing: boolean) => void;
-    startTest: (id: string) => void;
-}
-
-const AiPracticeGenerator = ({ 
-    setView, isProcessing, setIsProcessing, startTest
-}: AiPracticeGeneratorProps) => {
+const AiPracticeGenerator = () => {
     const [genOptions, setGenOptions] = useState<{ category: string, difficulty: string, words?: string[] }>({
         category: 'information-and-ideas',
         difficulty: 'medium',
     });
+    const [isProcessing, setIsProcessing] = useState(false);
     const [searchParams] = useSearchParams();
     const groupTitle = searchParams.get("group");
+    const navigate = useNavigate()
 
       const { words } = useWordState()
+
 
     const handleAIGen = async () => {
         if(!words){
@@ -38,15 +32,17 @@ const AiPracticeGenerator = ({
         setIsProcessing(true);
         try {
             const context = words.map(word => word.term).join(", ");
-            const res = await axios.post(`/api/rag/generate`, {
+            let res: any;
+
+            res = await axios.post(`/api/rag/generate`, {
                 difficulty: genOptions.difficulty,
                 category: genOptions.category,
                 userWords: context
             });
-            startTest(res.data.data._id);
-        } catch (e) { 
+             navigate(`/testing/${res.data.data._id}`);
+        } catch (e: any) { 
             console.error(e);
-            toast.error("Generation failed.", e.response.data.message); 
+            toast.error("Generation failed.", e.response?.data?.message || e.message); 
         }
         finally { setIsProcessing(false); }
     }
@@ -72,7 +68,7 @@ const AiPracticeGenerator = ({
                         </div>
                     </div>
                     <button 
-                        onClick={() => setView('dashboard')} 
+                        onClick={() => navigate('/dashboard')} 
                         className="p-1.5 sm:p-2 text-slate-400 rounded-lg"
                     >
                         <X className="w-4 h-4 sm:w-5 sm:h-5" />

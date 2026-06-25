@@ -2,9 +2,10 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { 
-  FileText, Plus, Eye, Save, X, Edit2, ArrowLeft, Clock, 
-  Target, Crown, Loader2, Search, Calendar, 
-  Play, BookOpen, Trash2, CheckCircle, AlertCircle, User
+  FileText, Plus, ArrowLeft, 
+  Loader2, Search, Calendar, 
+  Play, Trash2, AlertCircle,
+  Crown,
 } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
@@ -32,11 +33,7 @@ interface ApiResponse {
   limit: number;
 }
 
-interface MockTestProps {
-  setView: (view: any) => void;
-}
-
-const MockTest = ({ setView }: MockTestProps) => {
+const MockTest = () => {
   const navigate = useNavigate();
   const [tests, setTests] = useState<Test[]>([]);
   const [loading, setLoading] = useState(true);
@@ -208,7 +205,7 @@ const MockTest = ({ setView }: MockTestProps) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <button onClick={() => setView('dashboard')} className="p-2 hover:bg-gray-100 rounded-lg transition">
+              <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-lg transition">
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
               <div>

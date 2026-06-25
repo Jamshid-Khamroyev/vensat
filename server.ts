@@ -51,7 +51,7 @@ export const asyncHandler = (fn: (req: express.Request, res: express.Response, n
 async function startServer() {
   try {
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
     });
     console.log("Connected to MongoDB");

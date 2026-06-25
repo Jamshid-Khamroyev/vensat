@@ -10,12 +10,7 @@ import { toast } from "sonner";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
 
-interface PasteWordProps {
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
-    setCurrentWordGroup: (group: { name: string; words: WordRecord[], _id: string } | null) => void;
-}
-
-const PasteWord = ({ setView, setCurrentWordGroup }: PasteWordProps) => {
+const PasteWord = () => {
     const { user } = useUserStore()
     const [userWords, setUserWords] = useState<UserWords[]>()
     const [batchMode, setBatchMode] = useState(false);
@@ -69,8 +64,6 @@ const PasteWord = ({ setView, setCurrentWordGroup }: PasteWordProps) => {
 
             {/* Words Display */}
             <WordsCards 
-                setCurrentWordGroup={setCurrentWordGroup}
-                setView={setView}
                 userWords={userWords}
                 handleUpdateGroup={handleUpdateGroup}
                 handleDeleteGroup={handleDeleteGroup}

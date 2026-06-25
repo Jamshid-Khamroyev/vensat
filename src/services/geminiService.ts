@@ -4,12 +4,9 @@ import Groq from 'groq-sdk';
 
 const isBrowser = typeof window !== 'undefined'
 
-const VITE_GEMINI_API_KEY = isBrowser ? (import.meta.env?.VITE_GEMINI_API_KEY || '') : (process.env?.VITE_GEMINI_API_KEY || process.env?.GEMINI_API_KEY || '') || 'AIzaSyCPaO2ZwchH1_vLCf9RlAYm5AKqR6IsR7s';
 const VITE_GROQ_API_KEY = isBrowser ? (import.meta.env?.VITE_GROQ_API_KEY || '') : (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY || '') || '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';
 const VITE_OPEN_ROUTER = isBrowser ? (import.meta.env?.VITE_OPEN_ROUTER || '') : (process.env?.VITE_OPEN_ROUTER || process.env?.OPEN_ROUTER || '') || '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';
 
-
-const ai = new GoogleGenAI({ apiKey: VITE_GEMINI_API_KEY});
 
 export interface ParsedQuestion {
   _id: string;
@@ -67,19 +64,6 @@ export async function generateStory(
   });
   
   return JSON.parse(data.choices[0].message.content);
-}
-
-export async function chatWithAI(message: string, history: { role: 'user' | 'model', parts: { text: string }[] }[]) {
-  const model = "gemini-3-flash-preview";
-  const systemInstruction = "You are AeroBot, a sleek and helpful SAT coach. Keep your responses concise, visually structured with bullet points or bold text, and encouraging. Use simple language but high-value tips. If asked about a problem, break it down step-by-step.";
-  
-  const response = await ai.models.generateContent({
-    model,
-    contents: [...history, { role: 'user', parts: [{ text: message }] }],
-    config: { systemInstruction }
-  });
-  
-  return response.text;
 }
 
 export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
@@ -591,7 +575,7 @@ JSON Output Schema:
 }
 
 
-export async function generateRulesQuestion(context: string) {
+export async function generateRulesQuestion(context: string, context2: string) {
   const systemPrompt = `
 You are an elite Digital SAT English Conventions item writer and psychometrician.
 
@@ -608,21 +592,18 @@ CRITICAL RULES:
 
 "Which choice completes the text so that it conforms to the conventions of Standard English?"
 
-5. Each question must have exactly 4 answer choices.
-6. Exactly ONE answer choice must be correct.
 7. The correct answer must be objectively supported by the rule being tested.
 8. Incorrect answers must be plausible and mimic common student mistakes.
 9. Questions should be difficult and resemble official Digital SAT questions.
-10. Avoid obviously wrong distractors.
-11. Test grammar/conventions only.
 12. Each passage should be 30-80 words.
 13. Every question should target one rule from the provided context.
+14. Each question should use pessages in the context while generating standart english convetion question
 
 Output schema:
 
 [
   {
-    "text": "passage with a blank",
+    "text": "passage with a blank using context pessages",
     "question": "Which choice completes the text so that it conforms to the conventions of Standard English?",
     "options": [
       "choice A",
@@ -640,6 +621,12 @@ Rules Context:
 
 """
 ${context}
+"""
+
+Context for generating pessages!
+
+"""
+${context2}
 """
 
 Generate exactly 5 questions.

@@ -2,12 +2,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BrainCircuit, ChevronLeft, Volume2, VolumeX, Plus, Save, X, CheckCircle, Loader2 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { AppUser, StoryRecord } from "../types";
+import {  GroupWord, StoryRecord } from "../types";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
+import { generateSentencesForWords } from "../services/geminiService";
+import { toast } from "sonner";
 
 interface StoryReadingProps {
-    handleAddToDefaultGroup: (words: { term: string; definition: string }[]) => void;
+    userWords: GroupWord[]
+    setUserWords: (userWords: GroupWord[]) => void
 }
 
 interface TranslationResult {
@@ -16,7 +19,7 @@ interface TranslationResult {
   isAdded: boolean;
 }
 
-const StoryReading = ({ handleAddToDefaultGroup }: StoryReadingProps) => {
+const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
   const navigate = useNavigate();
   const { user } = useUserStore()
   const { id } = useParams<{ id: string }>();
@@ -204,6 +207,28 @@ const StoryReading = ({ handleAddToDefaultGroup }: StoryReadingProps) => {
       window.speechSynthesis.cancel();
       setIsPlaying(false);
     }
+  };
+
+  const handleAddToDefaultGroup = async (words: { term: string, definition: string , sentence?: string}[]) => {
+    try {
+      const data = await generateSentencesForWords(words.map(w => w.term));
+      const sentenceMap = new Map(
+          data.map(item => [item.term, item.sentence])
+        );
+
+        words.forEach(word => {
+          word.sentence = sentenceMap.get(word.term) || "";
+        });
+      
+      const res = await api.post(`/api/words/${user?._id}/default`, { words });
+      
+      const existingIndex = userWords.findIndex(w => w.isDefault);
+      if (existingIndex >= 0) {
+        setUserWords(userWords.map(w => w.isDefault ? res.data : w));
+      } else {
+        setUserWords([res.data, ...userWords]);
+      }
+    } catch (e) { toast.error("Failed to save to default group.", e); }
   };
 
   const handleBack = () => {

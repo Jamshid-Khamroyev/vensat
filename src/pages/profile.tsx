@@ -2,32 +2,38 @@ import { motion } from "framer-motion"
 import { BrainCircuit, ChevronLeft, GraduationCap, Lightbulb, MessageSquare, RotateCcw, Send, TrendingUp, Target, Award, BarChart3, User, Mail, Clock } from "lucide-react";
 import Markdown from "react-markdown";
 import HistorySection from "../components/histories";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
-interface ProfileProps {
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader") => void;
-    chatMessages: { role: 'user' | 'model'; parts: { text: string }[] }[];
-    setChatMessages: (messages: any[]) => void;
-    chatInput: string;
-    setChatInput: (input: string) => void;
-    isChatting: boolean;
-    setIsChatting: (chatting: boolean) => void;
-    handleSendMessage: () => void;
-    chatScrollRef: React.RefObject<HTMLDivElement>;
-}
 
-const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, isChatting, setChatInput, setChatMessages, setView }: ProfileProps) => {
+const Profile = () => {
+  const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'model', parts: { text: string }[] }[]>([]);
   const [userData, setUserData] = useState<any>(null);
+  const [chatInput, setChatInput] = useState('');
+  const navigate = useNavigate()
+
   const [isLoading, setIsLoading] = useState(true);
+  const [isChatting, setIsChatting] = useState(false);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+
   const { user } = useUserStore()
 
-
-  const sendRAg = async () => {
-    const { data } = await api.post(`https://aerotest.app.n8n.cloud/webhook/2ed69dce-c6c0-48d1-8176-7b959322e51f`, { message: "Deep Work bilan ishlashni kim birinchilardan bo'lib targ'ib qila boshlagan?"})
-    console.log(data);
-  }
+  const handleSendMessage = async () => {
+    if (!chatInput.trim() || isChatting) return;
+    const msg = chatInput.trim();
+    setChatInput('');
+    const newHistory = [...chatMessages, { role: 'user' as const, parts: [{ text: msg }] }];
+    setChatMessages(newHistory);
+    setIsChatting(true);
+    try {
+      toast("Chat functionality will be implemented soon!");
+    } catch (e) { alert("Chat failed."); }
+    finally { setIsChatting(false); }
+  };
 
   const getUser = async () => {
     try {
@@ -44,6 +50,12 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, is
   useEffect(() => {
     getUser();
   }, []);
+
+  const scrollToBottom = () => {
+    chatScrollRef.current?.scrollTo({ top: chatScrollRef.current.scrollHeight, behavior: 'smooth' });
+  };
+
+  useEffect(() => { scrollToBottom(); }, [chatMessages]);
 
   // Calculate average score
   const calculateAverageScore = () => {
@@ -89,7 +101,7 @@ const Profile = ({ chatInput, chatMessages, chatScrollRef, handleSendMessage, is
     <motion.div key="profile" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
               className="focus-mode space-y-6">
       <div className="flex items-center gap-4 mb-2">
-        <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-all duration-200 hover:scale-105">
+        <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-all duration-200 hover:scale-105">
           <ChevronLeft className="w-5 h-5 text-slate-500" />
         </button>
         <h2 className="text-2xl font-bold flex items-center gap-2">

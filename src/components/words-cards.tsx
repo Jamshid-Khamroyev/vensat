@@ -6,14 +6,12 @@ import { useNavigate } from "react-router-dom";
 
 
 interface WordsCardsProps {
-    setCurrentWordGroup: (group: { name: string; words: WordRecord[], _id: string } | null) => void;
-    setView: (view: "landing" | "dashboard" | "create" | "testing" | "results" | "ai-gen" | "profile" | "words" | "stories" | "story-gen" | "story-reader" | "word-group") => void;
     userWords: UserWords[];
     handleUpdateGroup: (id: string, words?: { term: string; definition: string }[], title?: string) => void;
     handleDeleteGroup: (id: string) => void;
 }
 
-const WordsCards = ({ userWords, setCurrentWordGroup, setView, handleUpdateGroup, handleDeleteGroup }: WordsCardsProps) => {
+const WordsCards = ({ userWords,  handleUpdateGroup, handleDeleteGroup }: WordsCardsProps) => {
     const navigate = useNavigate()
     const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
     const [editModalOpen, setEditModalOpen] = useState(false);
@@ -21,11 +19,8 @@ const WordsCards = ({ userWords, setCurrentWordGroup, setView, handleUpdateGroup
     const [editingGroup, setEditingGroup] = useState<UserWords | null>(null);
     const [newGroupName, setNewGroupName] = useState("");
 
-    console.log(userWords);
-    
-
     const handleGroupClick = (group: UserWords) => {
-        setView('word-group');
+        navigate('/word-group');
     };
 
     const handleDelete = async (id: string, e: React.MouseEvent) => {

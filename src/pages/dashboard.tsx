@@ -17,10 +17,7 @@ import axios from 'axios';
 import { categories } from "../constants";
 import { useUserStore } from "../states/user.state";
 import { useNavigate } from "react-router-dom";
-
-interface DashboardProps {
-  startTest: (id: string) => void;
-}
+import api from "../services/api";
 
 type DSATCategory = 
   | 'information-and-ideas' 
@@ -36,7 +33,7 @@ interface CategoryTestsData {
   error: string | null;
 }
 
-const Dashboard = ({ startTest }: DashboardProps) => {
+const Dashboard = () => {
   const navigate = useNavigate()
   const { user } = useUserStore()
   const [activeCategory, setActiveCategory] = useState<DSATCategory>('information-and-ideas');
@@ -224,20 +221,21 @@ const Dashboard = ({ startTest }: DashboardProps) => {
               </p>
             </div>
             <div className="flex gap-2">
-              {user?.role === 'admin' && (
+              {user?.role === 'admin' ? (
                 <button 
-                  onClick={() => navigate('create')} 
+                  onClick={() => navigate('/create')} 
                   className="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 flex items-center gap-2 transition-all"
                 >
-                  <FileJson className="w-4 h-4" /> Import
+                  <FileJson className="w-4 h-4" /> Import Questions
+                </button>
+              ) : (
+                <button 
+                  onClick={() => navigate('/words')} 
+                  className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-all shadow-sm"
+                >
+                  <Wand2 className="w-4 h-4" /> AI Generate
                 </button>
               )}
-              <button 
-                onClick={() => navigate('/words')} 
-                className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2 transition-all shadow-sm"
-              >
-                <Wand2 className="w-4 h-4" /> AI Generate
-              </button>
             </div>
           </div>
 
@@ -491,7 +489,7 @@ const Dashboard = ({ startTest }: DashboardProps) => {
                           )}
                           
                           <button 
-                            onClick={() => startTest(test._id)} 
+                            onClick={() => navigate(`/testing/${test._id}`)} 
                             className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
                               ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
                           >
