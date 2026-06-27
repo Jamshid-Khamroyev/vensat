@@ -436,13 +436,13 @@ const Dashboard = () => {
                       key={test._id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="group p-4 hover:bg-gray-50 transition-colors"
+                      className="group p-4 hover:bg-gray-50 transition-colors border-b border-gray-400"
                     >
-                      <div className="flex md:items-center items-start justify-between flex-wrap gap-3">
+                      <div className="flex md:items-center items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <div className="flex items-center gap-2 mb-1">
                             <h3 className="md:font-medium md:hidden text-sm! text-gray-800 truncate">
-                              {test.title.slice(0, 18)}...
+                              {test.title.slice(0, 11)}...
                             </h3>
                             <h3 className="md:font-medium max-md:hidden text-sm! text-gray-800 truncate">
                               {test.title}
@@ -461,54 +461,61 @@ const Dashboard = () => {
                                 <Lock className="w-2.5 h-2.5" /> Personal
                               </span>
                             )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span>{test?.questionCount || 0} questions</span>
-                            <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                            <span>{test.timeLimit || 30} minutes</span>
-                            {test.creatorId && !test.isGlobal && (
-                              <>
-                                <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                <span className="text-gray-400">by you</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          {!test.isGlobal && (
-                            <div className="md:opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                            <div className="flex items-center gap-2">
+                              {!test.isGlobal && (
+                                <div className="md:opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                  <button 
+                                    onClick={() => handleUpdateTimeLimit(test._id, test.timeLimit || 30)} 
+                                    className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                                    title="Edit Time"
+                                  >
+                                    <Clock className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleRenameTest(test._id, test.title)} 
+                                    className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
+                                    title="Rename"
+                                  >
+                                    <Edit2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteTest(test._id)} 
+                                    className="md:p-1.5 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
+                                  </button>
+                                </div>
+                              )}
+                              
                               <button 
-                                onClick={() => handleUpdateTimeLimit(test._id, test.timeLimit || 30)} 
-                                className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                                title="Edit Time"
+                                onClick={() => navigate(`/testing/${test._id}`)} 
+                                className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
+                                  ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
                               >
-                                <Clock className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleRenameTest(test._id, test.title)} 
-                                className="md:p-1.5 p-0.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                                title="Rename"
-                              >
-                                <Edit2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteTest(test._id)} 
-                                className="md:p-1.5 p-0.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
-                                title="Delete"
-                              >
-                                <Trash2 className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
+                                Start <ChevronRight className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
                               </button>
                             </div>
-                          )}
-                          
-                          <button 
-                            onClick={() => navigate(`/testing/${test._id}`)} 
-                            className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
-                              ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
-                          >
-                            Start <ChevronRight className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
-                          </button>
+                          </div>
+
+
+                          <div className="flex items-center gap-3 text-xs text-gray-500 w-full">
+                            <div className="flex items-center justify-center gap-x-1">
+                              <span className={activeCategoryConfig.color}>{test?.questionCount || 0}</span> questions
+                              <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                            </div>
+
+                            <div className="flex items-center justify-center gap-x-1">
+                              <span className={activeCategoryConfig.color}>{test.timeLimit || 30}</span> minutes
+                            </div>
+                              {test.creatorId && !test.isGlobal && (
+                                <>
+                                  <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                  <span className="text-gray-400">by you</span>
+                                </>
+                              )}
+                          </div>
                         </div>
                       </div>
                     </motion.div>

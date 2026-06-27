@@ -20,27 +20,42 @@ const Pessage = ({ currentQ }: PessageProps) => {
     );
   };
 
+  const renderBackground = (text: string) => {
+  const background = text.match(/\$([\s\S]*?)\$/)?.[1].trim();
+  if (!background) return null;
+
+  const passage = text.replace(/\$[\s\S]*?\$/g, "").trim();
+
+  return (
+    <div className="text-sm text-gray-900">
+      <p className="mb-4">{background}</p>
+
+      <p className="whitespace-pre-line">
+        {passage}
+      </p>
+    </div>
+  );
+};
+
   const renderNotes = (text: string) => {
-    const notes = [...text.matchAll(/\^(.*?)\^/g)]
-      .map((match) => match[1].trim())
-      .filter(Boolean);
+    const intro = text.split("^")[0].trim();
 
-    return (
-      <div>
-        <div className="text-sm font-semibold mb-3">
-          Notes
-        </div>
+    const notes = [...text.matchAll(/\^([\s\S]*?)\^/g)].map(match => match[1].replace(/\s+/g, " ").trim());
+    if (!notes.length) return null;
 
-        <ul className="space-y-2 text-sm leading-relaxed text-gray-800">
-          {notes.map((note, index) => (
-            <li key={index} className="ml-5 list-disc">
-              {renderUnderlined(note)}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  };
+      return (
+  <div className="text-sm">
+    <p className="mb-3 text-gray-900">{intro}</p>
+
+    <ul className="list-disc pl-5 space-y-1 text-gray-900">
+      {notes.map((note, i) => (
+        <li key={i}>{note}</li>
+      ))}
+    </ul>
+  </div>
+);
+    };
+
 
   const renderDualText = (text: string) => {
     const passages = [...text.matchAll(/&&([\s\S]*?)&&/g)]
@@ -68,8 +83,13 @@ const Pessage = ({ currentQ }: PessageProps) => {
     const text = currentQ.text;
 
     // Student Notes
-    if (/\^(.*?)\^/.test(text)) {
+    if (text.includes('^')) {
       return renderNotes(text);
+    }
+
+    // Bg information
+    if (text.includes("$")) {
+      return renderBackground(text);
     }
 
     // Dual Text

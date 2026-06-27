@@ -1,8 +1,8 @@
 import { motion } from "framer-motion";
-import { X, Minimize2, Maximize2, Flag, Loader2, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Clock } from "lucide-react";
+import { X, Minimize2, Maximize2, AlarmClock, Flag, Loader2, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Clock } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { toast } from "sonner";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner"; 
 import { ParsedTest } from "../services/geminiService";
 import TestNote from "../shared/test-note";
 import Pessage from "../shared/pessage";
@@ -10,8 +10,6 @@ import api from "../services/api";
 import { useWordState } from "../states/word.state";
 
 const TestingPage = () => {
-  const location = useLocation();
-    const view = location.pathname.split("/").filter(Boolean).pop();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const { setResult } = useWordState()
   const [eliminated, setEliminated] = useState<Record<number, number[]>>({});
@@ -50,6 +48,7 @@ const TestingPage = () => {
   const getCurrentTest = async () => {
     try {
       const { data } = await api.get(`/api/tests/${id}`)
+      setTimeLeft(data.timeLimit * 60)
       setCurrentTest(data)
     } catch (error) {
       console.log(error);
@@ -67,54 +66,42 @@ const TestingPage = () => {
     setSearchParams({ q: currentQuestionIndex.toString() });
   }, [currentQuestionIndex, setSearchParams]);
 
-  useEffect(() => {
-    if (view === 'testing' && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timeLeft]);
-
-  useEffect(() => {
-    if (isPageLoading || isTestDisabled || timeLeft <= 0) return;
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsTestDisabled(true);
-          testCompletedRef.current = true;
-          toast.error("Time's up! Submitting your test...");
-          setTimeout(() => handleAutoComplete(), 1000);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isPageLoading, isTestDisabled, timeLeft]);
-
-  useEffect(() => {
-    if (timeLeft === 60) toast.warning("1 minute remaining!");
-  }, [timeLeft]);
-
   const handleAutoComplete = async () => {
-    if (testCompletedRef.current) return;
-    testCompletedRef.current = true;
     setIsFinishing(true);
     try {
-      localStorage.clear();
       await handleCompleteTest(userAnswers, currentTest._id);
     } finally {
       setIsFinishing(false);
+      setIsTestDisabled(false)
     }
   };
+
+  useEffect(() => {
+  if (isPageLoading || isTestDisabled) return;
+
+  timerRef.current = setInterval(() => {
+    setTimeLeft(prev => {
+      const next = Math.max(prev - 1, 0);
+
+      if (next === 0 && !testCompletedRef.current) {
+        clearInterval(timerRef.current);
+
+        testCompletedRef.current = true;
+        setIsTestDisabled(true);
+
+        toast.warning("Time's up! Submitting your test...");
+
+        setTimeout(() => {
+          handleAutoComplete();
+        }, 1000);
+      }
+
+      return next;
+    });
+  }, 1000);
+
+  return () => clearInterval(timerRef.current);
+}, [isPageLoading, isTestDisabled, handleAutoComplete]);
 
   const handleSelectAnswer = (selectedIdx: number) => {
     if (isTestDisabled) return;
@@ -225,7 +212,7 @@ const TestingPage = () => {
         <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center flex-col">
           <div>
             {showTimer ? (
-              <span className={`font-mono text-base font-bold ${timeLeft <= 300 ? "text-red-600" : "text-slate-700"}`}>
+              <span className={`font-mono text-base font-bold ${timeLeft <= 300 ? "text-red-600" : "text-slate-700"}`} >
                 {formatTime(timeLeft)}
               </span>
             ) : (
@@ -246,13 +233,31 @@ const TestingPage = () => {
 
       {showNotes && !isTestDisabled && <TestNote setShowNotes={setShowNotes} currentQuestionIndex={currentQuestionIndex} tempNote={tempNote} setTempNote={setTempNote} currentNote={""} isTestDisabled={isTestDisabled} setNotes={() => {}} />}
 
-      {isTestDisabled && (
-        <div className="fixed inset-0 z-40 bg-black/50 flex items-center justify-center pointer-events-none">
-          <div className="bg-white rounded p-6 text-center pointer-events-auto shadow-xl">
-            <div className="text-5xl mb-4">⏰</div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Time's Up!</h3>
-            <p className="text-slate-600">Your test is being submitted...</p>
-            {isFinishing && <Loader2 className="w-6 h-6 animate-spin mx-auto mt-4 text-blue-950" />}
+      {(isTestDisabled && isFinishing) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full mx-2 max-w-sm rounded-2xl bg-white p-8 shadow-2xl border border-slate-200">
+            <div className="flex justify-center">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-100">
+                <AlarmClock className="h-10 w-10 text-red-600" />
+              </div>
+            </div>
+
+            <h2 className="mt-6 text-center text-2xl font-bold text-slate-900">
+              Time's Up!
+            </h2>
+
+            <p className="mt-2 text-center text-sm leading-6 text-slate-600">
+              The allotted time has expired.
+              <br />
+              Your answers are being submitted automatically.
+            </p>
+
+            <div className="mt-6 flex items-center justify-center gap-3 rounded-xl bg-slate-50 py-3">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-950" />
+              <span className="text-sm font-medium text-slate-700">
+                Finalizing your test...
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -260,15 +265,15 @@ const TestingPage = () => {
       <div className={`flex-1 overflow-auto ${isTestDisabled ? "opacity-50" : ""}`}>
         <div className="flex flex-col lg:flex-row h-full">
           <div className="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-slate-300 bg-white">
-            <div className="p-4 md:p-6 min-h-[45vh] lg:min-h-[unset]">
+            <div className="p-2 md:p-6 min-h-[45vh] lg:min-h-[unset]">
               <div className="prose prose-sm max-w-none">
                 <Pessage currentQ={currentQ} />
               </div>
             </div>
           </div>
 
-          <div className={`w-full lg:w-1/2 bg-white overflow-y-auto`}>
-            <div className="p-4 md:p-6">
+          <div className={`w-full lg:w-1/2 bg-white`}>
+            <div className="p-2 md:p-6">
               <div className="w-full mx-auto">
                 <div className="flex items-center justify-between bg-slate-100 mb-4 p-1">
                   <div className="flex items-center">
@@ -289,8 +294,8 @@ const TestingPage = () => {
                     const isEliminated = eliminated[currentQuestionIndex]?.includes(idx);
                     return (
                       <div key={idx} className="relative flex items-center">
-                        <button onClick={() => handleSelectAnswer(idx)} disabled={isEliminated || isTestDisabled} className={`w-full text-left p-4 rounded border border-slate-300 ${isSelected ? "bg-blue-50 border-blue-950" : isEliminated ? "bg-white" : "bg-white"}`}>
-                          <div className="flex items-center gap-4">
+                        <button onClick={() => handleSelectAnswer(idx)} disabled={isEliminated || isTestDisabled} className={`w-full text-left md:p-4 p-1.5 rounded border border-slate-300 ${isSelected ? "bg-blue-50 border-blue-950" : isEliminated ? "bg-white" : "bg-white"}`}>
+                          <div className="flex items-center md:gap-4 gap-2">
                             <span className={`w-8 h-8 flex items-center justify-center border-2 rounded-full text-sm font-bold ${isSelected ? "bg-blue-950 text-white border-blue-950" : "text-slate-600 border-slate-300"}`}>{label}</span>
                             <div className={`flex-1 ${isEliminated ? "text-slate-400" : "text-slate-800"}`}>
                               <div className="max-md:text-sm">{opt}</div>
@@ -298,7 +303,7 @@ const TestingPage = () => {
                           </div>
                         </button>
 
-                        <div style={{ width: 88 }} className="flex flex-col items-center justify-center">
+                        <div style={{ width: 43 }} className="flex flex-col items-center justify-center">
                           {!isEliminated ? (
                             <button onClick={() => toggleEliminate(currentQuestionIndex, idx)} disabled={isTestDisabled} className="w-8 h-8 flex items-center justify-center rounded-full border border-slate-400 bg-white text-slate-700">
                               <Strikethrough className="w-4 h-4" />
