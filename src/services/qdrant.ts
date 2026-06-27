@@ -61,7 +61,7 @@ export async function searchInQdrant(collection_name: typeof COLLECTION_NAME[key
     if(query){
       result = await client.search(collection_name, {
         vector: query,
-        limit: 2,
+        limit: 3,
         with_payload: true
       });
       return result

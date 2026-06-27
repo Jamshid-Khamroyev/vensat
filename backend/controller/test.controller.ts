@@ -107,10 +107,12 @@ const router = Router()
 
             const questions = await Question.find({ _id: { $in: test.questions } }).lean();
 
+            const isPersonal = test.creatorId && test.isGlobal === false;
+            const nextTest = await Test.findOne({ category: test.category, _id: { $ne: test._id }, ...(isPersonal ? { creatorId: test.creatorId } : { isGlobal: test.isGlobal }) }).select('_id').lean();
+
             const user = await User.findById(userId);
             if (!user) return res.status(404).json({ error: "User not found" });
 
-            // Category mapping for skill fields
             const categoryMap: Record<string, { skill: string }> = {
                 "information-ideas": { skill: "iai_skill" },
                 "craft-structure": { skill: "cas_skill" },
@@ -118,16 +120,15 @@ const router = Router()
                 "standard-conventions": { skill: "sec_skill" }
             };
 
-            // Initialize skill trackers for all categories
             const categoryScores: Record<string, { correct: number; total: number }> = {
                 "information-ideas": { correct: 0, total: 0 },
                 "craft-structure": { correct: 0, total: 0 },
                 "expression-ideas": { correct: 0, total: 0 },
                 "standard-conventions": { correct: 0, total: 0 }
             };
+            
 
-            // Process each question
-            if(!questions[0].explanation){
+            if(!questions[0].explanation && !test.isGlobal){
                 const explanations = await GenerateExplanation(questions);
                 const bulkOps = explanations.map((item) => ({
                     updateOne: {
@@ -151,11 +152,9 @@ const router = Router()
                 const answer = answers.find((a: any) => a.questionId === q._id.toString());
                 const isCorrect = answer?.selectedIndex === q.correctAnswerIndex;
                 
-                // Track category scores
                 if (categoryScores[q.category]) {
                     categoryScores[q.category].total += 1;
                     if (isCorrect) {
-                        // Weight hard questions slightly more
                         const weight = q.difficulty === "hard" ? 1.05 : 1;
                         categoryScores[q.category].correct += weight;
                     }
@@ -170,12 +169,10 @@ const router = Router()
                 };
             }));
 
-            // Calculate overall score
             const score = results.filter(r => r.isCorrect).length;
             const total = questions.length;
 
-            // Save test history
-            await History.create({
+            const history = await History.create({
                 userId,
                 testId: test._id,
                 title: test.title,
@@ -186,7 +183,6 @@ const router = Router()
                 completedAt: new Date()
             });
 
-            // Update overall accuracy
             user.accuracy.totalTestsTaken += 1;
             const currentAccuracy = (score / total) * 100;
             user.accuracy.score = Math.round(
@@ -194,7 +190,6 @@ const router = Router()
                 user.accuracy.totalTestsTaken
             );
 
-            // Update each category skill
             let totalSkillImprovement = 0;
             let categoriesUpdated = 0;
 
@@ -233,24 +228,9 @@ const router = Router()
                 score,
                 total,
                 percentage: Math.round((score / total) * 100),
-                categoryBreakdown: Object.entries(categoryScores).reduce((acc, [category, data]) => {
-                    if (data.total > 0) {
-                        acc[category] = {
-                            correct: Math.round(data.correct),
-                            total: data.total,
-                            percentage: Math.round((data.correct / data.total) * 100)
-                        };
-                    }
-                    return acc;
-                }, {} as Record<string, { correct: number; total: number; percentage: number }>),
-                skillUpdates: Object.keys(categoryScores).reduce((acc, category) => {
-                    const categoryInfo = categoryMap[category];
-                    if (categoryInfo && user[categoryInfo.skill]) {
-                        acc[category] = user[categoryInfo.skill];
-                    }
-                    return acc;
-                }, {} as Record<string, any>),
-                overallAccuracy: user.accuracy
+                overallAccuracy: user.accuracy,
+                historyId: history._id,
+                nextTestId: nextTest._id
             });
 
         } catch (error) {

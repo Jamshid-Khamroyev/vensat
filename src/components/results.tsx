@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useWordState } from '../states/word.state';
 import {  TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ClipboardCheck, CirclePlay } from "lucide-react";
+
 
 const Results = () => {
    const { result: data } = useWordState()
@@ -80,12 +82,17 @@ const Results = () => {
                      </div>
                   )}
 
-                  <div className="flex gap-3 pt-4 border-t border-gray-200">
-                     <button 
-                        onClick={() => navigate('/dashboard')} 
-                        className="flex-1 py-3 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition-colors text-sm text-gray-700"
-                     >
-                        Dashboard
+                  <div className="flex md:gap-3 gap-1 w-full pt-4 border-t border-gray-200">
+                     <button onClick={() => navigate("/dashboard")} className="flex-1 flex items-center justify-center max-md:flex-col text-[11px] gap-2 py-3 rounded-xl bg-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-200 transition">
+                        <LayoutDashboard size={18} /> <span>Dashboard</span>
+                     </button>
+
+                     <button onClick={() => navigate(`/history/${data.historyId}`)} className="flex-1 flex items-center justify-center max-md:flex-col text-[11px] gap-2 py-3 rounded-xl bg-green-100 text-sm font-medium text-green-700 hover:bg-green-200 transition">
+                        <ClipboardCheck size={18} /> <span>Review this</span>
+                     </button>
+
+                     <button onClick={() => navigate(data.nextTestId ? `/testing/${data.nextTestId}` : "/dashboard")} className="flex-1 flex items-center justify-center max-md:flex-col text-[11px] gap-2 py-3 rounded-xl bg-purple-100 text-sm font-medium text-purple-700 hover:bg-purple-200 transition">
+                        <CirclePlay size={18} /> <span>Testing another</span>
                      </button>
                   </div>
                </div>

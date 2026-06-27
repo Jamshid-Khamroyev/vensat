@@ -53,11 +53,11 @@ const Navbar = () => {
                     onClick={handleLogoClick}
                 >
                     <div className="relative">
-                        <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
+                        <div className="relative w-9 h-9 rounded-xl bg-linear-to-br from-blue-950 to-purple-950 flex items-center justify-center shadow-lg">
                             <BookOpen className="w-4 h-4 text-white" />
                         </div>
                     </div>
-                    <h1 className="text-xl font-black bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent hidden sm:block">
+                    <h1 className="text-xl font-black bg-linear-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent hidden sm:block">
                         AeroTest
                     </h1>
                 </div>

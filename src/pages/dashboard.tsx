@@ -11,13 +11,15 @@ import {
     ChevronRight,
     Globe,
     Lock,
-    Filter
+    Filter,
+    LockIcon,
+    Globe2,
+    GlobeIcon
 } from 'lucide-react';
 import axios from 'axios';
 import { categories } from "../constants";
 import { useUserStore } from "../states/user.state";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
 
 type DSATCategory = 
   | 'information-and-ideas' 
@@ -166,6 +168,7 @@ const Dashboard = () => {
       alert(e.response?.data?.message || "Rename failed.");
     }
   };
+
 
   const handleUpdateTimeLimit = async (id: string, currentTime: number) => {
     const newTime = prompt("Enter new time limit (minutes):", currentTime.toString());
@@ -360,8 +363,19 @@ const Dashboard = () => {
               <div className="flex items-center gap-2">
                 {currentData.tests.length > 0 && (
                   <span className="text-xs text-gray-500">
-                    {currentData.tests.filter(t => t.isGlobal).length > 0 && `🌍 ${currentData.tests.filter(t => t.isGlobal).length}`}
-                    {currentData.tests.filter(t => !t.isGlobal).length > 0 && ` 🔒 ${currentData.tests.filter(t => !t.isGlobal).length}`}
+                    {currentData.tests.filter(t => t.isGlobal).length > 0 &&  (
+                      <div className="flex items-center justify-center gap-x-0.5">
+                        {currentData.tests.filter(t => t.isGlobal).length}
+                        <GlobeIcon className="w-4 h-4 inline" />
+                      </div>
+                    )}
+                    
+                    {currentData.tests.filter(t => !t.isGlobal).length > 0 && (
+                      <div className="flex items-center justify-center gap-x-0.5">
+                        {currentData.tests.filter(t => !t.isGlobal).length}
+                        <LockIcon className="w-4 h-4 inline" />
+                      </div>
+                    )}
                   </span>
                 )}
               </div>

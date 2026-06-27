@@ -23,15 +23,17 @@ const ManualTest = () => {
     const [selectedCategory, setSelectedCategory] = useState<DSATCategory>('information-and-ideas');
     const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
     const [preview, setPreview] = useState<any>(null);
+    const [query, setQuery] = useState<string>("")
     const navigate = useNavigate()
 
     const generateTitle = () => `DSAT ${["Practice","Assessment","Quiz"][Math.floor(Math.random()*3)]} - ${new Date().toLocaleDateString()}`;
 
     const generateRules = async () => {
+        if(!query) return toast.error("Please enter a query")
         try {
             setIsProcessing(true);
             const { data } = await api.post(`/api/rag/generate/rules`, {
-                query: "Generate 10 questions about DSAT rules and regulations"
+                query
             });
             
             const questions = data.data.map((item: any, index: number) => 
@@ -273,11 +275,6 @@ D) Specialized skills are less valuable`);
                                             <option key={key} value={key}>{label}</option>
                                         ))}
                                     </select>
-                                    {selectedCategory === 'standard-conventions' && (
-                                        <Button onClick={generateRules} className="my-2 cursor-pointer" variant="outline">
-                                            <AirVent className="w-4 h-4 inline mr-1" /> Generate Rules questions
-                                        </Button>
-                                    )}
                                 </div>
 
                                 <div>
@@ -320,6 +317,22 @@ D) Specialized skills are less valuable`);
                                 </div>
                             </div>
 
+                            {selectedCategory === 'standard-conventions' && (
+                                        <div className="w-full">
+                                            <textarea
+                                                rows={3}
+                                                value={query}
+                                                onChange={(e) => setQuery(e.target.value)}
+                                                className="p-2 w-full border m-1 rounded-sm" 
+                                                placeholder="Write Rules Theme"
+                                            />
+
+                                            <Button onClick={generateRules} className="cursor-pointer w-full" variant="outline">
+                                                <AirVent className="w-4 h-4 inline mr-1" /> Generate Rules questions
+                                            </Button>
+                                        </div>
+                                    )}
+
                             <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
                                 <span className="text-xs sm:text-sm text-gray-600">Selected:</span>
                                 <span className={`inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium border ${getDifficultyConfig(selectedDifficulty).bg} ${getDifficultyConfig(selectedDifficulty).color} ${getDifficultyConfig(selectedDifficulty).border}`}>
@@ -336,7 +349,7 @@ D) Specialized skills are less valuable`);
                                     <X className="w-4 h-4" />
                                     Cancel
                                 </button>
-                                <button onClick={handlePreview} disabled={isProcessing} className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <button onClick={handlePreview} disabled={isProcessing} className="px-4 py-2.5 bg-blue-950 text-white rounded-lg hover:bg-blue-900 cursor-pointer transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-[2] order-1 xs:order-2 disabled:opacity-50 disabled:cursor-not-allowed">
                                     {isProcessing ? (
                                         <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                                     ) : (

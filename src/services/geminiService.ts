@@ -587,15 +587,13 @@ CRITICAL RULES:
 
 1. Use ONLY the grammar and writing rules found in the provided context.
 2. Do NOT introduce external grammar concepts.
-3. Each question must contain an original SAT-style passage with exactly ONE blank.
 4. Use this exact question text:
+3. You must use blank in the every pessage!
 
 "Which choice completes the text so that it conforms to the conventions of Standard English?"
 
-7. The correct answer must be objectively supported by the rule being tested.
 8. Incorrect answers must be plausible and mimic common student mistakes.
-9. Questions should be difficult and resemble official Digital SAT questions.
-12. Each passage should be 30-80 words.
+12. Each passage should be 30-80 words and the blank on testing section
 13. Every question should target one rule from the provided context.
 14. Each question should use pessages in the context while generating standart english convetion question
 
@@ -623,7 +621,7 @@ Rules Context:
 ${context}
 """
 
-Context for generating pessages!
+Context for generating pessages below!
 
 """
 ${context2}
@@ -639,7 +637,7 @@ Generate exactly 5 questions.
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.4,
+      temperature: 0.9,
       max_tokens: 3000,
       response_format: { type: "json_object" }
     });

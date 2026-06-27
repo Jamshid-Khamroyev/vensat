@@ -47,7 +47,19 @@ const TestingPage = () => {
 
   const answeredCount = userAnswers.length;
 
+  const getCurrentTest = async () => {
+    try {
+      const { data } = await api.get(`/api/tests/${id}`)
+      setCurrentTest(data)
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setIsPageLoading(false)
+    }
+  }
+
   useEffect(() => {
+    getCurrentTest()
     if (id) navigate(`/testing/${id}`);
   }, [id]);
 
