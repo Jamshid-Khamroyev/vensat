@@ -8,8 +8,7 @@ const QuestionSchema = new mongoose.Schema({
     correctAnswerIndex: { type: Number, required: true },
     explanation: {
       type: Map,
-      of: String,
-      default: {}
+      of: String
     },
     difficulty: { type: String },
     isOfficial: { type: Boolean, default: false },

@@ -144,10 +144,12 @@ const WordGroupView = () => {
       const questions = await generatePracticeQuestionsAI({ words: wordTerms });
 
       if (questions && questions.length > 0) {
-        await api.post(`/word/practice`, {
+        await api.post(`/api/word/practice`, {
           groupId: groupIdFromProps,
           questions
         });
+
+        
 
         setPracticeQuestions(questions);
         setCurrentQuestionIndex(0);
@@ -325,32 +327,26 @@ const WordGroupView = () => {
             <h2 className="text-base font-bold text-blue-950 truncate">{groupName}</h2>
             <p className="text-xs text-slate-400">{words.length} words</p>
           </div>
-          <div className="flex gap-x-1 bg-slate-100 rounded-lg p-0.5">
-            <button 
-              onClick={() => setMode("flashcard")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
-                mode === "flashcard" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
-              }`}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMode("flashcard")}
+              className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm transition ${mode === "flashcard" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"}`}
             >
-              <Layers className="w-3.5 h-3.5 inline mr-1" />Cards
+              <Layers size={16} /> Cards
             </button>
 
-            <button 
-              onClick={creatingTest} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
-                "text-slate-400 hover:text-slate-600"
-              }`}
+            <button
+              onClick={creatingTest}
+              className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100"
             >
-              <PlusCircle className="w-3.5 h-3.5 inline mr-1" />Creating test
+              <PlusCircle size={16} /> Create
             </button>
 
-            <button 
-              onClick={() => setMode("practice")} 
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border ${
-                mode === "practice" ? "bg-white text-blue-950 shadow-sm" : "text-slate-400 hover:text-slate-600"
-              }`}
+            <button
+              onClick={() => setMode("practice")}
+              className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm transition ${mode === "practice" ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700 hover:bg-violet-100"}`}
             >
-              <GraduationCap className="w-3.5 h-3.5 inline mr-1" />Practice
+              <GraduationCap size={16} /> Practice
             </button>
           </div>
         </div>

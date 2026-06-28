@@ -137,10 +137,11 @@ import { authenticateToken } from '../midlewere/auth.midlewere';
       
       const test = await generateSATPassages({category, context, difficulty, userWords})
       const passagesData = test.map(t => t.passageText)
+      
       const test1 = await generateQuestionsForPassages({ passages: passagesData, category, difficulty })
-
+    
       const test2 = await GenerateAnswers({ questions: test1, difficulty })  
-
+      
       const questions = await Promise.all(test2.map(async (t) => {
         const q = await Question.create({ 
           text: t.modifiedPassageText,

@@ -38,14 +38,12 @@ const Pessage = ({ currentQ }: PessageProps) => {
 };
 
   const renderNotes = (text: string) => {
-    const intro = text.split("^")[0].trim();
-
     const notes = [...text.matchAll(/\^([\s\S]*?)\^/g)].map(match => match[1].replace(/\s+/g, " ").trim());
     if (!notes.length) return null;
 
       return (
-  <div className="text-sm">
-    <p className="mb-3 text-gray-900">{intro}</p>
+      <div className="text-sm">
+      <p className="mb-3 text-gray-900">While researching a topic, a student has taken the following notes:</p>
 
     <ul className="list-disc pl-5 space-y-1 text-gray-900">
       {notes.map((note, i) => (
@@ -107,12 +105,6 @@ const Pessage = ({ currentQ }: PessageProps) => {
 
   return (
     <div className="space-y-5">
-      <div className="bg-white overflow-hidden">
-        <div className="py-4">
-          {renderContent()}
-        </div>
-      </div>
-
       {currentQ.graph && (
         <div className="bg-gray-50 p-4 rounded-lg">
           <div className="flex justify-center">
@@ -135,6 +127,13 @@ const Pessage = ({ currentQ }: PessageProps) => {
           </div>
         </div>
       )}
+      
+      <div className="bg-white overflow-hidden">
+        <div className="py-4">
+          {renderContent()}
+        </div>
+      </div>
+
     </div>
   );
 };

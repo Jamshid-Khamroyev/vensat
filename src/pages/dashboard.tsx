@@ -440,27 +440,29 @@ const Dashboard = () => {
                     >
                       <div className="flex md:items-center items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="md:font-medium md:hidden text-sm! text-gray-800 truncate">
-                              {test.title.slice(0, 11)}...
-                            </h3>
-                            <h3 className="md:font-medium max-md:hidden text-sm! text-gray-800 truncate">
-                              {test.title}
-                            </h3>
-                            {test.difficulty && (
-                              <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
-                                {test.difficulty}
-                              </span>
-                            )}
-                            {test.isGlobal ? (
-                              <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full flex items-center gap-1">
-                                <Globe className="w-2.5 h-2.5" /> Global
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full flex items-center gap-1">
-                                <Lock className="w-2.5 h-2.5" /> Personal
-                              </span>
-                            )}
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex gap-x-1 items-center">
+                              <h3 className="md:font-medium md:hidden text-sm! text-gray-800 truncate">
+                                {test.title.slice(0, 11)}...
+                              </h3>
+                              <h3 className="md:font-medium max-md:hidden text-sm! text-gray-800 truncate">
+                                {test.title}
+                              </h3>
+                              {test.difficulty && (
+                                <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">
+                                  {test.difficulty}
+                                </span>
+                              )}
+                              {test.isGlobal ? (
+                                <span className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-600 rounded-full flex items-center gap-1">
+                                  <Globe className="w-2.5 h-2.5" /> Global
+                                </span>
+                              ) : (
+                                <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full flex items-center gap-1">
+                                  <Lock className="w-2.5 h-2.5" /> Personal
+                                </span>
+                              )}
+                            </div>
 
                             <div className="flex items-center gap-2">
                               {!test.isGlobal && (
@@ -489,13 +491,15 @@ const Dashboard = () => {
                                 </div>
                               )}
                               
-                              <button 
-                                onClick={() => navigate(`/testing/${test._id}`)} 
-                                className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
-                                  ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
-                              >
-                                Start <ChevronRight className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
-                              </button>
+                              {user.role !== 'admin' && (
+                                <button 
+                                  onClick={() => navigate(`/testing/${test._id}`)} 
+                                  className={`md:px-4 px-2 md:py-1.5 py-1 rounded-lg md:text-sm text-xs font-medium transition-all flex items-center gap-1
+                                    ${activeCategoryConfig.bgColor} ${activeCategoryConfig.color} hover:opacity-80`}
+                                >
+                                  Start <ChevronRight className="md:w-3.5 w-2.5 md:h-3.5 h-2.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
 

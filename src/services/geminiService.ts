@@ -1,12 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
 import axios from "axios";
 import Groq from 'groq-sdk';
 
 const isBrowser = typeof window !== 'undefined'
 
-const VITE_GROQ_API_KEY = isBrowser ? (import.meta.env?.VITE_GROQ_API_KEY || '') : (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY || '') || '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';
+const VITE_GROQ_API_KEY = isBrowser ? (import.meta.env?.VITE_GROQ_API_KEY || '') : (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY || '') || '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';
 const VITE_OPEN_ROUTER = isBrowser ? (import.meta.env?.VITE_OPEN_ROUTER || '') : (process.env?.VITE_OPEN_ROUTER || process.env?.OPEN_ROUTER || '') || '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';
-
 
 export interface ParsedQuestion {
   _id: string;
@@ -254,17 +252,78 @@ const templateGroups = {
     'Which choice best describes the function of the underlined sentence in the overall structure of the text?',
     'Which choice best describes the overall structure of the text?',
     'Which choice best states the main purpose of the underlined portion as a whole?',
-    'Which choice completes the text with the most logical and precise word or phrase?'
+    'Which choice best states the main purpose of the underlined portion as a whole?',
+    'Which choice completes the text with the most logical and precise word or phrase?',
+    'Which choice completes the text with the most logical and precise word or phrase?',
+    'Which choice best states the main purpose of the text?',
+    'Which choice best describes the function of the underlined sentence in the overall structure of the text?',
+    'Which choice best describes the function of the underlined sentence in the overall structure of the text?',
+    'Which choice best describes the overall structure of the text?',
+    'Which choice best states the main purpose of the underlined portion as a whole?',
+    'Which choice completes the text with the most logical and precise word or phrase?',
+    'Based on the texts, how would the author of Text 2 most likely respond to the claim presented in Text 1?',
+    'Based on the texts, how would the author of Text 2 most likely characterize the argument presented in Text 1?',
+    'Based on the texts, which statement best describes the relationship between the two texts?',
+    'Based on the texts, which statement best compares the perspectives of the two authors?',
+    'Which choice best states the main purpose of the underlined portion as a whole?',
   ],
 
   'expression-of-ideas': [
-    // 'The student wants to emphasize [specific aspect] about [topic]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
-    // 'The student wants to highlight [specific aspect] regarding [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
-    // 'The student wants to present [topic] and its [conclusions/findings]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
-    // 'The student wants to contrast [aspect A] and [aspect B] in the two [subjects]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
-    // 'The student wants to emphasize the [duration/purpose/cause/effect] of [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'The student wants to emphasize [specific aspect] about [topic]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'The student wants to highlight [specific aspect] regarding [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'The student wants to present [topic] and its [conclusions/findings]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'The student wants to contrast [aspect A] and [aspect B] in the two [subjects]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'The student wants to emphasize the [duration/purpose/cause/effect] of [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?',
+    'Which choice completes the text with the most logical transition?',
+    'Which choice completes the text with the most logical transition?',
+    'Which choice completes the text with the most logical transition?',
+    'Which choice completes the text with the most logical transition?',
     'Which choice completes the text with the most logical transition?'
   ]
+};
+
+const templateInstructions: Record<string, string> = {
+  'Which choice most logically completes the text?':
+    'Insert "_____" into pessage at the appropriate location in the pessage! not question text',
+
+  'Which choice best describes the function of the underlined sentence in the overall structure of the text?':
+    'Wrap the target sentence in pessage with #hash_symbols#.',
+
+  'Which choice best states the main purpose of the underlined portion as a whole?':
+    'Wrap the target portion in pessage with #hash_symbols#.',
+
+  'Which choice completes the text with the most logical and precise word or phrase?':
+    'Replace the target word or phrase in pessage with "_____".',
+
+  'Which choice completes the text with the most logical transition?':
+    'The passage should contain two related ideas requiring a logical transition. Insert "_____" where a transition word or phrase should appear',
+
+  'The student wants to emphasize [specific aspect] about [topic]. Which choice most effectively uses relevant information from the notes to accomplish this goal?':
+    'Transform modifiedPassageText into an official Digital SAT Student Notes passage, then rewrite the passage as a series of concise bullet-point notes. Wrap each individual note with ^...^. Preserve all key information from the original passage, but present it as notes rather than paragraphs.',
+
+  'The student wants to highlight [specific aspect] regarding [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?':
+    'Transform modifiedPassageText into an official Digital SAT Student Notes passage, then rewrite the passage as a series of concise bullet-point notes. Wrap each individual note with ^...^. Preserve all key information from the original passage, but present it as notes rather than paragraphs.',
+
+  'The student wants to present [topic] and its [conclusions/findings]. Which choice most effectively uses relevant information from the notes to accomplish this goal?':
+    'Transform modifiedPassageText into an official Digital SAT Student Notes passage, then rewrite the passage as a series of concise bullet-point notes. Wrap each individual note with ^...^. Preserve all key information from the original passage, but present it as notes rather than paragraphs.',
+
+  'The student wants to contrast [aspect A] and [aspect B] in the two [subjects]. Which choice most effectively uses relevant information from the notes to accomplish this goal?':
+    'Transform modifiedPassageText into an official Digital SAT Student Notes passage, then rewrite the passage as a series of concise bullet-point notes. Wrap each individual note with ^...^. Preserve all key information from the original passage, but present it as notes rather than paragraphs.',
+
+  'The student wants to emphasize the [duration/purpose/cause/effect] of [subject]. Which choice most effectively uses relevant information from the notes to accomplish this goal?':
+    'Transform modifiedPassageText into an official Digital SAT Student Notes passage, then rewrite the passage as a series of concise bullet-point notes. Wrap each individual note with ^...^. Preserve all key information from the original passage, but present it as notes rather than paragraphs.',
+
+  'Based on the texts, how would the author of Text 2 most likely respond to the claim presented in Text 1?':
+  'Split pessage into two separate passages at the most natural break to create Dual text question. Wrap the entire two passage with &&[pessage1]&& &&[pessage2]&&',
+
+'Based on the texts, how would the author of Text 2 most likely characterize the argument presented in Text 1?':
+  'Split pessage into two separate passages at the most natural break to create Dual text question. Wrap the entire two passage with &&[pessage1]&& &&[pessage2]&&',
+
+'Based on the texts, which statement best describes the relationship between the two texts?':
+  'Split pessage into two separate passages at the most natural break to create Dual text question. Wrap the entire two passage with &&[pessage1]&& &&[pessage2]&&',
+
+'Based on the texts, which statement best compares the perspectives of the two authors?':
+  'Split pessage into two separate passages at the most natural break to create Dual text question. Wrap the entire two passage with &&[pessage1]&& &&[pessage2]&&',
 };
 
 
@@ -281,31 +340,30 @@ export async function generateQuestionsForPassages({
   const selectedTemplates = passages.map(() => {
     const randomIndex = Math.floor(Math.random() * categoryTemplates.length);
     return categoryTemplates[randomIndex];
-  });
-    
-  const templates = selectedTemplates
-    .map((template, index) => `${index + 1}. "${template}"`)
-    .join('\n');    
+  });  
 
-  const systemPrompt = `You are an SAT test maker.
+    const passageConfigs = passages.map((passage, index) => ({
+      passage,
+      template: selectedTemplates[index],
+      instruction: templateInstructions[selectedTemplates[index]] ?? null
+    }));
 
-For EACH passage in the provided array, generate exactly ONE tailored question prompt.
+    const systemPrompt = `
+You are an SAT test maker.
 
-DO NOT generate multiple choice options (A, B, C, D), answers, or explanations.
+For EACH passage, generate exactly ONE tailored Digital SAT Reading and Writing question.
 
-Respond ONLY as a JSON array containing objects matching the number of input passages.
+DO NOT generate answer choices, answers, or explanations.
 
-Rules per passage object:
-- Pick ONLY from the provided question templates.
-- Tailor brackets to fit the context.
-- If "Which choice most logically completes the text?" is chosen, add "_____" in 'modifiedPassageText not questionText'.
-- If "Which choice best describes the function of the underlined sentence in the overall structure of the text?" is chosen, wrap the target sentence in #hash_symbols# in 'modifiedPassageText not questionText'.
-- If "Which choice best states the main purpose of the underlined portion as a whole?" is chosen, wrap the target portion in #hash_symbols# in 'modifiedPassageText not questionText'.
-- If "Which choice completes the text with the most logical and precise word or phrase?" is chosen, add a blank "_____" in 'modifiedPassageText not questionText' where the word or phrase should appear.
-- If a Transition question is selected ("Which choice completes the text with the most logical transition?"), transform the passage into a realistic SAT Transition task. Insert a blank "_____" at the point where a logical transition word or phrase is needed. The passage should contain two related ideas that require a logical bridge.
-- For all other question types, 'modifiedPassageText' must match the original text.
+Respond ONLY as a JSON array with the same number of objects as the input passages.
+
+General Rules:
+- Use ONLY the provided template for each passage.
+- Replace any bracketed placeholders with context-specific wording.
+- Unless an additional instruction is provided, modifiedPassageText must remain identical to the original passage.
 - All questions must closely resemble official Digital SAT Reading and Writing questions.
-- Do not create generic classroom-style questions.`;
+- Do not create generic classroom-style questions.
+`;
 
   try {
     const result = await groq.chat.completions.create({
@@ -314,16 +372,30 @@ Rules per passage object:
         { role: 'system', content: systemPrompt },
         {
           role: 'user',
-          content: `Question Templates For This Run:
-          
-Question Templates For Each Passage (use template 1 for passage 1, template 2 for passage 2, etc.):
-${templates}  
-
-Passages Array:
-${JSON.stringify(passages)}
+          content: `Passages:
+${JSON.stringify(passageConfigs, null, 2)}
 
 Category: ${category}
-Difficulty: ${difficulty}`
+Difficulty: ${difficulty}
+
+Each object already contains:
+- the passage
+- the exact question template to use
+- any additional formatting instruction (if needed)
+
+Follow those instructions exactly.
+JSON FORMAT 
+[
+  {
+    "question": "question text",
+    "modifiedPassageText": "Pessage"
+  },
+  {
+    "question": "question text",
+    "modifiedPassageText": "Pessage"
+  },...
+]
+`
         }
       ],
       temperature: difficulty === 'hard' ? 0.5 : 0.3,
@@ -384,7 +456,7 @@ export async function GenerateAnswers({ questions, difficulty }: GenerateAnswers
   Input Questions & Passages Data:
   ${JSON.stringify(questions)}
 
-  Output Schema (Return exactly this array structure, NO explanations):
+  Output Schema (Return exactly this array structure, NO explanations), Respond like this:
   [
     {
       "question": "The original question string",

@@ -102,50 +102,54 @@ export default function App() {
             <Route path="/testing/:id" element={
               <TestingPage  />
             } />
+
+              <Route path="/stories" element={
+                <Suspense fallback={loadingTsx}>
+                  <Stories />
+                </Suspense>
+              } />
+
+              <Route path="/profile" element={
+                <Suspense fallback={loadingTsx}>
+                  <Profile />
+                </Suspense>
+              } />
+
+              <Route path="/words" element={
+                <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="focus-mode space-y-8">
+                  <PasteWord  />
+                </motion.div>
+              } />
+
+              <Route path="/results" element={
+                <Results  />
+              } />
+
+              <Route path="/history/:id" element={
+                <HistoryDetail  />
+              } />
+
+              <Route path="/story-generator" element={
+                <Suspense fallback={loadingTsx}>
+                  <StoryGen userWords={userWords}  />
+                </Suspense>
+              } />
+              <Route path="/story-reader/:id" element={
+                <StoryReading setUserWords={setUserWords} userWords={userWords} /> 
+              } />
+
+              <Route path="/word-group/:groupId" element={
+                <Suspense fallback={loadingTsx}>
+                  <WordGroupView />
+                </Suspense>
+              } />
+              
+              <Route path="/article" element={
+                <GNewsReader /> 
+              } />
             </>
           )}
 
-          <Route path="/stories" element={
-            <Suspense fallback={loadingTsx}>
-              <Stories />
-            </Suspense>
-          } />
-
-          <Route path="/profile" element={
-            <Suspense fallback={loadingTsx}>
-              <Profile />
-            </Suspense>
-          } />
-
-          <Route path="/words" element={
-            <motion.div key="words" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="focus-mode space-y-8">
-              <PasteWord  />
-            </motion.div>
-          } />
-
-          <Route path="/results" element={
-            <Results  />
-          } />
-
-          <Route path="/history/:id" element={
-            <HistoryDetail  />
-          } />
-          
-         
-          <Route path="/story-generator" element={
-            <Suspense fallback={loadingTsx}>
-              <StoryGen userWords={userWords}  />
-            </Suspense>
-          } />
-          <Route path="/story-reader/:id" element={
-            <StoryReading setUserWords={setUserWords} userWords={userWords} /> 
-          } />
-
-          <Route path="/word-group/:groupId" element={
-            <Suspense fallback={loadingTsx}>
-              <WordGroupView />
-            </Suspense>
-          } />
 
           <Route path="/mock-test" element={
             <Suspense fallback={loadingTsx}>
@@ -153,9 +157,6 @@ export default function App() {
             </Suspense>
           } />
 
-          <Route path="/article" element={
-            <GNewsReader /> 
-          } />
         </Routes>
       </main>
     </div>

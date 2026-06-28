@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { 
     ArrowLeft, Eye, Save, X, Clock, FileText, BookOpen, Layers, Target, 
-    CheckCircle, Sparkles, Loader2, Plus, Minus, Zap, Award, Flame, AirVent 
+    CheckCircle, Sparkles, Loader2, Plus, Minus, Zap, Award, Flame, AirVent,
+    Image as ImageIcon, Trash2
 } from 'lucide-react';
 import { useUserStore } from "../states/user.state";
 import { Button } from "@/components/ui/button";
@@ -13,10 +14,21 @@ import api from "../services/api";
 type DSATCategory = 'information-and-ideas' | 'craft-and-structure' | 'expression-of-ideas' | 'standard-conventions';
 type Difficulty = 'easy' | 'medium' | 'hard';
 
+interface Question {
+    text: string;
+    question: string;
+    options: string[];
+    correctAnswerIndex: number;
+    difficulty: Difficulty;
+    category: DSATCategory;
+    graph?: string;
+    imageFile?: File;
+    imagePreview?: string;
+}
 
 const ManualTest = () => {
     const [isProcessing, setIsProcessing] = useState(false);
-    const [selectedTime, setSelectedTime] = useState(30); // minutes
+    const [selectedTime, setSelectedTime] = useState(30);
     const { user } = useUserStore()
     const [testText, setTestText] = useState("");
     const [keyText, setKeyText] = useState("");
@@ -24,7 +36,10 @@ const ManualTest = () => {
     const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty>('medium');
     const [preview, setPreview] = useState<any>(null);
     const [query, setQuery] = useState<string>("")
+    const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const navigate = useNavigate()
+    const fileInputRefs = useRef<{ [key: number]: HTMLInputElement | null }>({});
+
 
     const generateTitle = () => `DSAT ${["Practice","Assessment","Quiz"][Math.floor(Math.random()*3)]} - ${new Date().toLocaleDateString()}`;
 
@@ -32,9 +47,7 @@ const ManualTest = () => {
         if(!query) return toast.error("Please enter a query")
         try {
             setIsProcessing(true);
-            const { data } = await api.post(`/api/rag/generate/rules`, {
-                query
-            });
+            const { data } = await api.post(`/api/rag/generate/rules`, { query });
             
             const questions = data.data.map((item: any, index: number) => 
                 `${index + 1}. ${item.text}\n\n*${item.question}*\n${item.options.map((opt: string, i: number) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n')}`
@@ -56,8 +69,8 @@ const ManualTest = () => {
         }
     }
 
-    const parseQuestions = (text: string) => {
-        const questions: any[] = [];
+    const parseQuestions = (text: string): Question[] => {
+        const questions: Question[] = [];
         const cleanText = text.replace(/ANSWER\s*KEY\s*:.*$/gis, '');
         const blocks = cleanText.split(/\n(?=\d+\.\s+)/);
         
@@ -112,13 +125,83 @@ const ManualTest = () => {
         return map;
     };
 
+    const handleImageSelect = (file: File, index: number) => {
+        if (!preview) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const updatedQuestions = [...preview.preview];
+            updatedQuestions[index] = {
+                ...updatedQuestions[index],
+                imageFile: file,
+                imagePreview: e.target?.result as string
+            };
+            setPreview({
+                ...preview,
+                preview: updatedQuestions,
+                data: {
+                    ...preview.data,
+                    questions: updatedQuestions
+                }
+            });
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const removeImage = (index: number) => {
+        if (!preview) return;
+        
+        const updatedQuestions = [...preview.preview];
+        updatedQuestions[index] = {
+            ...updatedQuestions[index],
+            imageFile: undefined,
+            imagePreview: undefined
+        };
+        setPreview({
+            ...preview,
+            preview: updatedQuestions,
+            data: {
+                ...preview.data,
+                questions: updatedQuestions
+            }
+        });
+    };
+
+    const uploadImages = async (questions: Question[]) => {
+        const uploadedQuestions = [...questions];
+        
+        for (let i = 0; i < uploadedQuestions.length; i++) {
+            if (uploadedQuestions[i].imageFile) {
+                try {
+                    const formData = new FormData();
+                    formData.append('image', uploadedQuestions[i].imageFile as File);
+                    
+                    const { data } = await api.post('/api/tests/image/upload', formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    
+                    uploadedQuestions[i] = {
+                        ...uploadedQuestions[i],
+                        graph: data.url,
+                        imageFile: undefined,
+                        imagePreview: undefined
+                    };
+                } catch (error) {
+                    throw new Error(`Failed to upload image for question ${i + 1}`);
+                }
+            }
+        }
+        
+        return uploadedQuestions;
+    };
+
     const handlePreview = async () => {
         if (!testText.trim()) return toast.error("Please enter test content");
         setIsProcessing(true);
 
         const questions = parseQuestions(testText);
         if (questions.length === 0) {
-            toast.error("No valid questions found. Use: 1. Passage\n\nQuestion?\n\nA) Opt\nB) Opt\nC) Opt\nD) Opt");
+            toast.error("No valid questions found");
             setIsProcessing(false);
             return;
         }
@@ -151,19 +234,26 @@ const ManualTest = () => {
     const handleSave = async () => {
         if (!preview) return;
         setIsProcessing(true);
+        
         try {
+            const questionsWithImages = await uploadImages(preview.preview);
+            
+            const testData = {
+                ...preview.data,
+                questions: questionsWithImages.map(({ imageFile, imagePreview, ...q }) => q),
+                creatorId: user?._id,
+                isGlobal: true,
+                difficulty: selectedDifficulty
+            };
+
             const res = await fetch("/api/tests", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    ...preview.data, 
-                    creatorId: user?._id, 
-                    isGlobal: true,
-                    difficulty: selectedDifficulty
-                })
+                body: JSON.stringify(testData)
             });
+            
             if (!res.ok) throw new Error(await res.text());
-            await res.json();
+            
             toast.success("Test saved successfully!");
             setPreview(null);
             setTestText("");
@@ -175,6 +265,7 @@ const ManualTest = () => {
             setIsProcessing(false);
         }
     };
+
 
     const loadExample = () => {
         setTestText(`1. Dr. Aris Thorne's 2025 study found that speakers of Kuuk Thaayorre demonstrate significantly better spatial awareness than English speakers.
@@ -215,7 +306,7 @@ D) Specialized skills are less valuable`);
     return (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-gray-50 p-3 sm:p-4">
             <div className="max-w-4xl mx-auto">
-                <button className="bg-white w-full rounded-xl sm:rounded-2xl shadow-sm border disabled:opacity-50 disabled:cursor-not-allowed border-gray-200 overflow-hidden" disabled={isProcessing}>
+                <div className="bg-white w-full rounded-xl sm:rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                     <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50/50 flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                             <button onClick={() => navigate("/dashboard")} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
@@ -318,20 +409,19 @@ D) Specialized skills are less valuable`);
                             </div>
 
                             {selectedCategory === 'standard-conventions' && (
-                                        <div className="w-full">
-                                            <textarea
-                                                rows={3}
-                                                value={query}
-                                                onChange={(e) => setQuery(e.target.value)}
-                                                className="p-2 w-full border m-1 rounded-sm" 
-                                                placeholder="Write Rules Theme"
-                                            />
-
-                                            <Button onClick={generateRules} className="cursor-pointer w-full" variant="outline">
-                                                <AirVent className="w-4 h-4 inline mr-1" /> Generate Rules questions
-                                            </Button>
-                                        </div>
-                                    )}
+                                <div className="w-full">
+                                    <textarea
+                                        rows={3}
+                                        value={query}
+                                        onChange={(e) => setQuery(e.target.value)}
+                                        className="p-2 w-full border m-1 rounded-sm" 
+                                        placeholder="Write Rules Theme"
+                                    />
+                                    <Button onClick={generateRules} className="cursor-pointer w-full" variant="outline">
+                                        <AirVent className="w-4 h-4 inline mr-1" /> Generate Rules questions
+                                    </Button>
+                                </div>
+                            )}
 
                             <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg">
                                 <span className="text-xs sm:text-sm text-gray-600">Selected:</span>
@@ -377,9 +467,10 @@ D) Specialized skills are less valuable`);
                             </div>
 
                             <div className="bg-gray-50 rounded-lg p-3 sm:p-4 max-h-[400px] sm:max-h-[500px] overflow-y-auto space-y-3 sm:space-y-4">
-                                {preview.data.questions.map((q: any, i: number) => {
+                                {preview.preview.map((q: Question, i: number) => {
                                     const diffConfig = getDifficultyConfig(q.difficulty || selectedDifficulty);
                                     const DiffIcon = diffConfig.icon;
+                                    
                                     return (
                                         <div key={i} className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
                                             <div className="flex items-start justify-between gap-3">
@@ -394,10 +485,29 @@ D) Specialized skills are less valuable`);
                                                             {categoryLabels[q.category || selectedCategory]?.label}
                                                         </span>
                                                     </div>
+                                                    
                                                     <p className="text-xs sm:text-sm text-gray-800 mb-2 break-words">{q.question}</p>
+                                                    
                                                     {q.text && q.text !== " " && (
                                                         <p className="text-[10px] sm:text-xs text-gray-500 mb-2 line-clamp-2 break-words">{q.text}</p>
                                                     )}
+                                                    
+                                                    {q.imagePreview && (
+                                                        <div className="mb-2 relative">
+                                                            <img 
+                                                                src={q.imagePreview} 
+                                                                alt={`Question ${i+1} illustration`}
+                                                                className="max-w-full h-auto max-h-40 rounded-lg border border-gray-200"
+                                                            />
+                                                            <button
+                                                                onClick={() => removeImage(i)}
+                                                                className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                    
                                                     <div className="space-y-0.5 sm:space-y-1">
                                                         {q.options.map((opt: string, oi: number) => (
                                                             <div key={oi} className={`text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 rounded ${oi === q.correctAnswerIndex ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-600'} break-words`}>
@@ -406,6 +516,29 @@ D) Specialized skills are less valuable`);
                                                             </div>
                                                         ))}
                                                     </div>
+                                                </div>
+                                                
+                                                <div className="flex-shrink-0">
+                                                    <input
+                                                        type="file"
+                                                        ref={(el) => {
+                                                            fileInputRefs.current[i] = el;
+                                                        }}
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (file) handleImageSelect(file, i);
+                                                            e.target.value = '';
+                                                        }}
+                                                    />
+                                                    <button
+                                                        onClick={() => fileInputRefs.current[i]?.click()}
+                                                        className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                                        title="Add image to question"
+                                                    >
+                                                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-gray-600" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
@@ -427,7 +560,7 @@ D) Specialized skills are less valuable`);
                             </div>
                         </div>
                     )}
-                </button>
+                </div>
             </div>
         </motion.div>
     );

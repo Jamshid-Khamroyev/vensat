@@ -32,6 +32,11 @@ const TestingPage = () => {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const testCompletedRef = useRef(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Split pane state
+  const [splitPosition, setSplitPosition] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const currentQ = currentTest?.questions?.[currentQuestionIndex];
   const currentAnswer = userAnswers.find(a => a.questionId === currentQ?._id)?.selectedIndex;
@@ -183,6 +188,38 @@ const TestingPage = () => {
     return "unanswered";
   };
 
+  // Split pane drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
+    const clampedPosition = Math.max(15, Math.min(85, newPosition));
+    setSplitPosition(clampedPosition);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   if (isPageLoading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
@@ -263,8 +300,12 @@ const TestingPage = () => {
       )}
 
       <div className={`flex-1 overflow-auto ${isTestDisabled ? "opacity-50" : ""}`}>
-        <div className="flex flex-col lg:flex-row h-full">
-          <div className="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-slate-300 bg-white">
+        <div ref={containerRef} className="flex flex-row h-full relative">
+          {/* Left panel - Pessage */}
+          <div 
+            className="bg-white overflow-auto"
+            style={{ width: `${splitPosition}%` }}
+          >
             <div className="p-2 md:p-6 min-h-[45vh] lg:min-h-[unset]">
               <div className="prose prose-sm max-w-none">
                 <Pessage currentQ={currentQ} />
@@ -272,7 +313,21 @@ const TestingPage = () => {
             </div>
           </div>
 
-          <div className={`w-full lg:w-1/2 bg-white`}>
+          {/* Splitter - draggable divider */}
+          <div 
+            className="relative flex items-center justify-center cursor-col-resize z-10"
+            style={{ width: '8px', flexShrink: 0 }}
+            onMouseDown={handleMouseDown}
+          >
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-slate-300 hover:bg-blue-400 transition-colors" />
+            <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-6 cursor-col-resize" />
+          </div>
+
+          {/* Right panel - Question and Options */}
+          <div 
+            className="bg-white overflow-auto"
+            style={{ width: `${100 - splitPosition}%` }}
+          >
             <div className="p-2 md:p-6">
               <div className="w-full mx-auto">
                 <div className="flex items-center justify-between bg-slate-100 mb-4 p-1">

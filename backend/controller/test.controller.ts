@@ -6,9 +6,32 @@ import { Question } from "../models/question.model";
 import { authenticateToken } from "../midlewere/auth.midlewere";
 import express from "express"
 import { User } from "../models/user.model";
+import ImageKit from 'imagekit';
+import fs from 'fs';
+import path from 'path';
 import { GenerateExplanation } from "@/src/services/geminiService";
+import multer from "multer";
 
 const router = Router()
+
+    const imagekit = new ImageKit({
+        publicKey: process.env.IMAGEKIT_PUBLIC_KEY || 'public_6gbyFW2rJ5j2KdTb1lyKH5d+pCU=',
+        privateKey: process.env.IMAGEKIT_PRIVATE_KEY || 'private_FEhWdul+m6zqI7mqV4ipqXso+Qk=',
+        urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT|| 'https://ik.imagekit.io/ytyg7f0ox'
+    });
+
+    const upload = multer({
+        storage: multer.diskStorage({
+            destination: 'uploads/temp/',
+            filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+        }),
+        limits: { fileSize: 5 * 1024 * 1024 },
+        fileFilter: (req, file, cb) => {
+            ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype) 
+                ? cb(null, true) 
+                : cb(null, false);
+        }
+    });
 
     export const asyncHandler = (fn: (req: express.Request, res: express.Response, next: express.NextFunction) => Promise<any>) => {
         return (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -43,6 +66,24 @@ const router = Router()
         
         res.json({ tests, total, page: parseInt(page as string), limit: parseInt(limit as string) });
     }));
+
+    router.post("/image/upload", upload.single('image'), async (req, res) => {
+        if (!req.file) return res.status(400).json({ error: 'No image provided' });
+
+        try {
+            const response = await imagekit.upload({
+                file: fs.readFileSync(req.file.path),
+                fileName: Date.now() + path.extname(req.file.originalname),
+                folder: 'tests/images'
+            });
+            fs.unlinkSync(req.file.path);
+            res.json({ url: response.url, fileId: response.fileId });
+        } catch (error) {
+            if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
   
     router.get("/:id", asyncHandler(async (req, res) => {
         const test = await Test.findById(req.params.id).lean();
@@ -127,8 +168,7 @@ const router = Router()
                 "standard-conventions": { correct: 0, total: 0 }
             };
             
-
-            if(!questions[0].explanation && !test.isGlobal){
+            if(!questions.some(q => q.explanation) && !test.isGlobal){
                 const explanations = await GenerateExplanation(questions);
                 const bulkOps = explanations.map((item) => ({
                     updateOne: {

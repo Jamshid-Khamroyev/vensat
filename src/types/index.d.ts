@@ -3,7 +3,7 @@ export interface AppUser {
     _id: string;
     email: string;
     displayName: string;
-    role?: string;
+    role?: 'admin' | 'user';
     createdAt: string;
     avatar?: string;
     eoi_skill?: { score: number; questionTaken: number };
