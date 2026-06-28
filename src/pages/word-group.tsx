@@ -321,32 +321,32 @@ const WordGroupView = () => {
       <div className="sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3">
         <div className="flex items-center gap-3">
           <button onClick={handleBack} className="p-2 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="md:w-5 w-3 md:h-5 h-3" />
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold text-blue-950 truncate">{groupName}</h2>
+            <h2 className="text-base font-bold text-blue-950 max-md:text-sm! truncate">{groupName}</h2>
             <p className="text-xs text-slate-400">{words.length} words</p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid gap-2 grid-cols-2">
             <button
               onClick={() => setMode("flashcard")}
-              className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm transition ${mode === "flashcard" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"}`}
+              className={`flex items-center gap-1 rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "flashcard" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"}`}
             >
               <Layers size={16} /> Cards
             </button>
 
             <button
-              onClick={creatingTest}
-              className="flex items-center gap-1 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100"
+              onClick={() => setMode("practice")}
+              className={`flex items-center gap-1 rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "practice" ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700 hover:bg-violet-100"}`}
             >
-              <PlusCircle size={16} /> Create
+              <GraduationCap size={16} /> Practice
             </button>
 
             <button
-              onClick={() => setMode("practice")}
-              className={`flex items-center gap-1 rounded-lg px-3 py-2 text-sm transition ${mode === "practice" ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700 hover:bg-violet-100"}`}
+              onClick={creatingTest}
+              className="flex items-center gap-1 rounded-lg bg-emerald-50 md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs text-emerald-700 transition hover:bg-emerald-100"
             >
-              <GraduationCap size={16} /> Practice
+              <PlusCircle size={16} /> Create
             </button>
           </div>
         </div>
