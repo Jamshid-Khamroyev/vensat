@@ -30,23 +30,28 @@ export async function setupCollection(collection_name: typeof COLLECTION_NAME[ke
 }
 
 export async function saveToQdrant(chunks: { id: string; text: string }[], embeddings: number[][], collection_name: typeof COLLECTION_NAME[keyof typeof COLLECTION_NAME]): Promise<void> {
-  const points = chunks.map((chunk, index) => {
-    const emb: any = embeddings[index];
-    const vector: number[] = Array.isArray(emb[0]) ? emb[0] : emb;
+  try {
+      const points = chunks.map((chunk, index) => {
+      const emb: any = embeddings[index];
+      const vector: number[] = Array.isArray(emb[0]) ? emb[0] : emb;
+      
+      return {
+        id: BigInt(index + Date.now() + Math.floor(Math.random() * 1_000_000)),
+        vector: vector as number[],
+        payload: {
+          text: chunk.text,
+          chunkIndex: index,
+          timestamp: new Date().toISOString()
+        }
+      };
+    });
 
-    return {
-      id: index + 1,
-      vector: vector as number[],
-      payload: {
-        text: chunk.text,
-        chunkIndex: index,
-        timestamp: new Date().toISOString()
-      }
-    };
-  });
-
-  await client.upsert(collection_name, { wait: true, points: points as any });
-  console.log(`${points.length} embeddings saved`);
+    await client.upsert(collection_name, { wait: true, points: points as any });
+    console.log(`${points.length} embeddings saved`);
+  } catch (error) {
+    console.error('Error saving to Qdrant:', error);
+    throw error;
+  }
 }
 
 export async function searchInQdrant(collection_name: typeof COLLECTION_NAME[keyof typeof COLLECTION_NAME], query?: number[]): Promise<any[]> {

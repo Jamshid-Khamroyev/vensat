@@ -6,7 +6,10 @@ import { PDFParse } from 'pdf-parse';
 import multer from 'multer';
 import { Test } from '../models/test.model';
 import { Question } from '../models/question.model';
+import { Readability } from "@mozilla/readability";
+import { JSDOM } from "jsdom";
 import { authenticateToken } from '../midlewere/auth.midlewere';
+import axios from 'axios';
 
 
   const ragRouter = Router();
@@ -196,6 +199,99 @@ import { authenticateToken } from '../midlewere/auth.midlewere';
     } catch (error: any) {
       res.status(500).json({ success: false, error });
     }
+  });
+
+  ragRouter.post("/scan", authenticateToken, async (req: Request, res: Response) => {
+        try {
+            const { url } = req.body;
+            let texts = ``
+
+            if (!url)
+                return res.status(400).json({ success: false, message: "URL required" });
+
+            // 1. Category page
+            const { data: html } = await axios.get(url);
+
+            const dom = new JSDOM(html, { url });
+            const document = dom.window.document;
+
+            const articleLinks = [
+              ...new Map(
+                  [...document.querySelectorAll("a")]
+                      .map((a) => ({
+                          title: a.textContent?.trim() || "",
+                          href: a.href,
+                      }))
+                      .filter(
+                          (a) =>
+                              a.href &&
+                              a.title.length > 20 &&
+                              a.href.startsWith("http")
+                      )
+                      .map((item) => [item.href, item])
+              ).values(),
+          ].slice(40, 100);
+
+            // 3. Har bir article'ni scrape qilish
+            const articles = await Promise.all(
+                articleLinks.map(async (item) => {
+                    try {
+                        const { data } = await axios.get(item.href);
+
+                        const articleDom = new JSDOM(data, {
+                            url: item.href,
+                        });
+
+                        const article = new Readability(
+                            articleDom.window.document
+                        ).parse();
+
+                        if (!article || article.textContent.length < 500)
+                            return null;
+                        
+                        texts += article.textContent
+
+                        return {
+                            title: article.title,
+                            length: article.length
+                        };
+                    } catch {
+                        return null;
+                    }
+                })
+            );
+
+      
+            if (!texts) {
+              return res.status(400).json({ success: false, error: 'Text required' });
+            }
+
+            const chunks = splitIntoChunks(texts);
+            
+            const embeddings: number[][] = [];
+            for (let i = 0; i < chunks.length; i++) {
+              const emb = await createEmbedding(chunks[i]);
+              embeddings.push(emb);
+            }
+            
+            await setupCollection(COLLECTION_NAME.PDF);
+            
+            await saveToQdrant(
+              chunks.map((text, i) => ({ id: `chunk_${i}`, text })),
+              embeddings,
+              COLLECTION_NAME.PDF
+            );
+
+            res.json({
+                success: true,
+                count: articles.filter(Boolean).length
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message,
+            });
+        }
   });
 
 export default ragRouter; 

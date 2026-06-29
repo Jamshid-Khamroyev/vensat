@@ -16,6 +16,18 @@ import WordRouter from "./backend/controller/words.controller"
 import practiceRouter from './backend/controller/practice-word'
 import ragRouter from './backend/controller/rag.controller'
 
+// Middleweres
+import {
+  globalLimiter,
+  authLimiter,
+  testLimiter,
+  historyLimiter,
+  wordLimiter,
+  storyLimiter,
+  practiceLimiter,
+  ragLimiter,
+} from "./backend/midlewere/rate-limit";
+
 
 
 const app = express();
@@ -76,28 +88,28 @@ async function startServer() {
     });
   }
 
-  // API Routes
-  app.use('/api/auth', AuthRouter)
+  app.use(globalLimiter);
 
+    // Auth
+    app.use("/api/auth", authLimiter, AuthRouter);
 
-  // Tests
-  app.use('/api/tests', TestRouter)
+    // Tests
+    app.use("/api/tests", testLimiter, TestRouter);
 
-  // History
-  app.use('/api/history', HistoryRouter)
-  
-  // Group Words
-  app.use('/api/words', WordRouter)
+    // History
+    app.use("/api/history", historyLimiter, HistoryRouter);
 
-  // Stories
-  app.use('/api/stories', storyRouter)
+    // Group Words
+    app.use("/api/words", wordLimiter, WordRouter);
 
-  // Word practice
-  app.use('/api/word/practice', practiceRouter)
+    // Stories
+    app.use("/api/stories", storyLimiter, storyRouter);
 
-  // RAG
-  app.use('/api/rag', ragRouter)
+    // Word Practice
+    app.use("/api/word/practice", practiceLimiter, practiceRouter);
 
+    // RAG
+    app.use("/api/rag", ragLimiter, ragRouter);
   // Global error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("Unhandled error:", err);
