@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { AppUser, WordRecord } from "../types";
-import { generatePracticeQuestionsAI } from "../services/geminiService";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
 import { useWordState } from "../states/word.state";
@@ -141,15 +140,14 @@ const WordGroupView = () => {
     
     try {
       const wordTerms = words.map(w => w.term);
-      const questions = await generatePracticeQuestionsAI({ words: wordTerms });
+      const { data: practiceRes } = await api.post('/api/ai/words/practice', { words: wordTerms });
+      const questions = practiceRes.data;
 
       if (questions && questions.length > 0) {
         await api.post(`/api/word/practice`, {
           groupId: groupIdFromProps,
           questions
         });
-
-        
 
         setPracticeQuestions(questions);
         setCurrentQuestionIndex(0);

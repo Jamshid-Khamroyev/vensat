@@ -5,7 +5,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import {  GroupWord, StoryRecord } from "../types";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
-import { generateSentencesForWords } from "../services/geminiService";
 import { toast } from "sonner";
 
 interface StoryReadingProps {
@@ -99,46 +98,29 @@ const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
     }
   };
 
-  const translateWord = (term: string) => {
+  const translateWord = async (term: string) => {
     if (!term) return;
     
     setIsLoading(true);
     setTranslationResult(null);
     
-    const data = JSON.stringify({
-      q: term,
-      source: 'en',
-      target: 'uz'
-    });
+    try {
+      const { data } = await api.post('/api/ai/translate', { text: term });
+      const translatedArray = data.data?.data?.translations?.translatedText;
+      const finalResult = translatedArray?.[0];
+      
+      if (!finalResult) throw new Error('Translation failed');
 
-    const xhr = new XMLHttpRequest();
-    xhr.withCredentials = true;
-
-    xhr.addEventListener('readystatechange', function () {
-      if (this.readyState === this.DONE) {
-        setIsLoading(false);
-        try {
-          const info = JSON.parse(this.responseText);
-          const translatedArray = info.data.translations.translatedText;
-          const finalResult = translatedArray[0];
-          
-          setTranslationResult({
-            term: term,
-            definition: finalResult,
-            isAdded: false
-          });
-        } catch (error) {
-          console.error("JSON parse qilishda xato:", error);
-        }
-      }
-    });
-
-    xhr.open('POST', 'https://deep-translate1.p.rapidapi.com/language/translate/v2');
-    xhr.setRequestHeader('x-rapidapi-key', 'f3251f90e7msh179edc31ad1c822p139b02jsnaeb7fd4fb5cd');
-    xhr.setRequestHeader('x-rapidapi-host', 'deep-translate1.p.rapidapi.com');
-    xhr.setRequestHeader('Content-Type', 'application/json');
-
-    xhr.send(data);
+      setTranslationResult({
+        term: term,
+        definition: finalResult,
+        isAdded: false
+      });
+    } catch (error) {
+      console.error("Tarjima xatosi:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAddTranslationToWords = () => {
@@ -211,14 +193,17 @@ const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
 
   const handleAddToDefaultGroup = async (words: { term: string, definition: string , sentence?: string}[]) => {
     try {
-      const data = await generateSentencesForWords(words.map(w => w.term));
-      const sentenceMap = new Map(
-          data.map(item => [item.term, item.sentence])
-        );
+      const { data: sentenceRes } = await api.post('/api/ai/words/sentences', {
+        words: words.map(w => w.term)
+      });
+      const sentenceData = sentenceRes.data || [];
+      const sentenceMap = new Map<string, string>(
+        sentenceData.map((item: { term: string; sentence: string }) => [item.term, item.sentence])
+      );
 
-        words.forEach(word => {
-          word.sentence = sentenceMap.get(word.term) || "";
-        });
+      words.forEach(word => {
+        word.sentence = sentenceMap.get(word.term) ?? "";
+      });
       
       const res = await api.post(`/api/words/${user?._id}/default`, { words });
       
@@ -228,7 +213,7 @@ const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
       } else {
         setUserWords([res.data, ...userWords]);
       }
-    } catch (e) { toast.error("Failed to save to default group.", e); }
+    } catch (e) { toast.error("Failed to save to default group."); }
   };
 
   const handleBack = () => {
@@ -470,7 +455,7 @@ const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
             {currentStory.content
               ?.match(/[^.!?]+[.!?]+/g)
               ?.reduce((acc: string[], sentence, index) => {
-                const groupIndex = Math.floor(index / 7);
+                const groupIndex = Math.floor(index / 4);
 
                 if (!acc[groupIndex]) {
                   acc[groupIndex] = "";

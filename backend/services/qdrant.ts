@@ -1,8 +1,9 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
+import { env } from '../utils/env';
 
 const client = new QdrantClient({
-  url: process.env.QDRANT_URL || 'https://89a5cd3a-8e54-4c74-8644-7151139d04eb.sa-east-1-0.aws.cloud.qdrant.io',
-  apiKey: process.env.QDRANT_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6MGZmMTQyNGQtNGNmMi00ZGNlLWEzNDItZTY5YWNjOTg1NDcyIn0.58fM0RyzhCngoax2yYHUv5a59FtaqcIPY7EJs4MWxxI',
+  url: env.QDRANT_URL,
+  apiKey: env.QDRANT_API_KEY,
   checkCompatibility: false
 });
 

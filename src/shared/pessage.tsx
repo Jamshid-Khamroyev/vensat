@@ -1,4 +1,4 @@
-import { ParsedQuestion } from "../services/geminiService";
+import { ParsedQuestion } from "../types";
 
 interface PessageProps {
   currentQ: ParsedQuestion;

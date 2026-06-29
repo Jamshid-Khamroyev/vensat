@@ -3,7 +3,6 @@ import { X, Minimize2, Maximize2, AlarmClock, Flag, Loader2, Strikethrough, Chev
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner"; 
-import { ParsedTest } from "../services/geminiService";
 import TestNote from "../shared/test-note";
 import Pessage from "../shared/pessage";
 import api from "../services/api";
@@ -13,7 +12,7 @@ const TestingPage = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const { setResult } = useWordState()
   const [eliminated, setEliminated] = useState<Record<number, number[]>>({});
-  const [currentTest, setCurrentTest] = useState<ParsedTest | null>(null);
+  const [currentTest, setCurrentTest] = useState(null);
 
   
   const navigate = useNavigate()

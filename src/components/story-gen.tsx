@@ -2,8 +2,7 @@ import { motion } from "framer-motion"
 import { ChevronLeft, RotateCcw, Sparkles, FileText, PenTool, Type, Layers, ChevronDown, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { generateStory } from "../services/geminiService";
-import { AppUser, GroupWord } from "../types";
+import { GroupWord } from "../types";
 import { Button } from "@/components/ui/button";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
@@ -45,26 +44,23 @@ const StoryGen = ({ userWords }: StoryGenProps) => {
       })
       .join(", ");
     
-    const result = await generateStory(
-      storyOptions.genre,
-      storyOptions.topic,
-      storyOptions.length,
-      allSelectedWords,
-    );
-    
-    if (!result.title || !result.content) {
+    const { data: storyResult } = await api.post('/api/ai/story', {
+      genre: storyOptions.genre,
+      topic: storyOptions.topic,
+      length: storyOptions.length,
+      words: allSelectedWords,
+    });
+
+    const result = storyResult.data;
+    if (!result?.title || !result?.content) {
       throw new Error('Hikoya yaratilmadi');
     }
-    
+
     await api.post("/api/stories", {
       userId: user?._id,
       title: result.title,
       content: result.content,
       category: storyOptions.genre
-    });
-    
-    const { data: updatedStories } = await api.get("/api/stories", {
-      params: { userId: user?._id }
     });
     
     toast.success('Hikoya muvaffaqiyatli yaratildi', { id: loadingToast });

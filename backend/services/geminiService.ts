@@ -1,10 +1,4 @@
-import axios from "axios";
-import Groq from 'groq-sdk';
-
-const isBrowser = typeof window !== 'undefined'
-
-const VITE_GROQ_API_KEY = isBrowser ? (import.meta.env?.VITE_GROQ_API_KEY || '') : (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY || '') || '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';
-const VITE_OPEN_ROUTER = isBrowser ? (import.meta.env?.VITE_OPEN_ROUTER || '') : (process.env?.VITE_OPEN_ROUTER || process.env?.OPEN_ROUTER || '') || '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';
+import { groq, openrouter } from "../utils/config";
 
 export interface ParsedQuestion {
   _id: string;
@@ -48,7 +42,7 @@ export async function generateStory(
   const lengthMap = { medium: '~500 words', long: '~1000 words', extended: '~2000 words' };
   const tokenMap = { medium: 800, long: 1500, extended: 2800 };
 
-  const { data } = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+  const result = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [
       { role: 'system', content: 'You are a storyteller. Respond with valid JSON: {"title": "...", "content": "..."}' },
@@ -57,15 +51,12 @@ export async function generateStory(
     temperature: 0.8,
     max_tokens: tokenMap[length],
     response_format: { type: "json_object" }
-  }, {
-    headers: { 'Authorization': `Bearer ${VITE_GROQ_API_KEY}`, 'Content-Type': 'application/json' }
   });
   
-  return JSON.parse(data.choices[0].message.content);
+  return JSON.parse(result.choices[0].message.content || '{}');
 }
 
 export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
-  const model = "llama-3.3-70b-versatile";
   const wordsList = words.join(', ');
   
   const systemInstruction = `
@@ -91,38 +82,28 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
     Format the output as a JSON array of objects, each with 'term' and 'sentence' keys.
   `;
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${VITE_GROQ_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: "Generate sentences for each word now." }
-      ],
-      temperature: 0.7,
-      response_format: { type: "json_object" }
-    })
+  const result = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: systemInstruction },
+      { role: 'user', content: "Generate sentences for each word now." }
+    ],
+    temperature: 0.7,
+    response_format: { type: "json_object" }
   });
 
-  const data = await response.json();
-  const result = JSON.parse(data.choices[0].message.content || "[]");
+  const data = JSON.parse(result.choices[0].message.content || '{}');
   
-  // Agar javob array bo'lmasa, ichidan array topish
-  if (Array.isArray(result)) {
-    return result;
+  if (Array.isArray(data)) {
+    return data;
   }
   
-  // Ba'zi modellar { sentences: [...] } formatida qaytarishi mumkin
-  if (result.vocab && Array.isArray(result.vocab)) {
-    return result.vocab;
+  if (data.vocab && Array.isArray(data.vocab)) {
+    return data.vocab;
   }
 
-  if (result.vocabulary && Array.isArray(result.vocabulary)) {
-    return result.vocabulary;
+  if (data.vocabulary && Array.isArray(data.vocabulary)) {
+    return data.vocabulary;
   }
   
   return [];
@@ -135,7 +116,6 @@ export async function generatePracticeQuestionsAI(
 ): Promise<PracticeQuestion[]> {
   const { words } = params;
   
-  // So'zlarni stringga aylantirish
   const wordsString = words.join(', ');
   
   const systemPrompt = `You are an English language teacher. Create fill-in-the-blank practice questions.
@@ -154,27 +134,18 @@ The 3 wrong options should also be from the same word list.
 Make sure each word is used naturally in context.`;
 
   try {
-    const { data } = await axios.post(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-        response_format: { type: "json_object" }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${VITE_GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    const result = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+      response_format: { type: "json_object" }
+    });
     
-    const response = JSON.parse(data.choices[0].message.content);
+    const response = JSON.parse(result.choices[0].message.content || '{}');
     if (Array.isArray(response)) {
       return response;
     }
@@ -197,11 +168,6 @@ Make sure each word is used naturally in context.`;
 
 
 // RAG ====================================================================
-import { OpenRouter } from '@openrouter/sdk';
-
-const openrouter = new OpenRouter({
-  apiKey: VITE_OPEN_ROUTER || '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',
-});
 
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
@@ -224,11 +190,8 @@ export async function createEmbedding(text: string): Promise<number[]> {
   }
 }
 
-const groq = new Groq({
-  apiKey: VITE_GROQ_API_KEY || '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',
-  dangerouslyAllowBrowser: true
-});
 
+// ==================================================================================================================================================================
 
 interface BulkQuestionParams {
   passages: string[];
@@ -374,6 +337,14 @@ General Rules:
           role: 'user',
           content: `Passages:
 ${JSON.stringify(passageConfigs, null, 2)}
+1. Read the original article carefully.
+2. Select the most informative paragraph or section that can stand alone while preserving the author's main message.
+3. Rewrite and condense the selected text into approximately ${difficulty === "easy" ? "25-50" : difficulty === "medium" ? "50-75" : "75-100"} words, following the typical length of a Digital SAT reading passage.
+4. Remove unnecessary details such as, repetitions, statistics, side discussions that are not essential to understanding the passage.
+5. Simplify the language slightly to match the Digital SAT reading level, but do not oversimplify the ideas or change their meaning.
+6. Preserve the author's tone, writing style, logical flow, and intended message as much as possible. The passage should feel like an authentic adaptation rather than a summary.
+7. Ensure the adapted passage is coherent, self-contained, and understandable without requiring additional context from the original article.
+8. Finally, generate authentic Digital SAT-style Reading and Writing questions based solely on the adapted passage.
 
 Category: ${category}
 Difficulty: ${difficulty}

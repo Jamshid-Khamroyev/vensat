@@ -15,6 +15,8 @@ import storyRouter from "./backend/controller/story.controller"
 import WordRouter from "./backend/controller/words.controller"
 import practiceRouter from './backend/controller/practice-word'
 import ragRouter from './backend/controller/rag.controller'
+import aiRouter from './backend/controller/ai.controller'
+import { env } from './backend/utils/env';
 
 // Middleweres
 import {
@@ -26,6 +28,7 @@ import {
   storyLimiter,
   practiceLimiter,
   ragLimiter,
+  aiLimiter,
 } from "./backend/midlewere/rate-limit";
 
 
@@ -38,9 +41,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "10mb" }));
 
-const PORT = Number(process.env.PORT) || 3000;
-const MONGODB_URI = process.env.VITE_MONGODB_URI;
-export const JWT_SECRET = process.env.VITE_JWT_SECRET || 'your-secret-key-change-in-production';
+const PORT = env.PORT;
+const MONGODB_URI = env.MONGODB_URI;
+export const JWT_SECRET = env.JWT_SECRET;
 
 if (!MONGODB_URI) {
   console.error("FATAL: MONGODB_URI is not defined in environment variables");
@@ -110,6 +113,9 @@ async function startServer() {
 
     // RAG
     app.use("/api/rag", ragLimiter, ragRouter);
+
+    // AI (story, words, translate)
+    app.use("/api/ai", aiLimiter, aiRouter);
   // Global error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("Unhandled error:", err);

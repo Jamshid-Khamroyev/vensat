@@ -59,3 +59,9 @@ export const ragLimiter = config(
   10,
   "Too many AI requests."
 );
+
+export const aiLimiter = config(
+  1 * 60 * 1000,
+  15,
+  "Too many AI requests."
+);

@@ -2,7 +2,7 @@ import { Plus, X, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { UserWords, WordRecord } from "../types";
-import { generateSentencesForWords } from "../services/geminiService";
+import api from "../services/api";
 
 interface WordBatchModeProps {
     setBatchMode: (value: boolean) => void;
@@ -77,7 +77,8 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
             let generatedData;
 
             try {
-                generatedData = await generateSentencesForWords(terms);
+                const { data } = await api.post('/api/ai/words/sentences', { words: terms });
+                generatedData = data.data || [];
             } catch (error) {
                 console.error('Sentence generation error:', error);
                 toast.warning('Ba\'zi so\'zlar uchun gap yaratilmadi, keyin qo\'shishingiz mumkin');

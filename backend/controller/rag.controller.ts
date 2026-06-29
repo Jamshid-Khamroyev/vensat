@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateRulesQuestion, generateSATPassages } from '../../src/services/geminiService';
-import { setupCollection, saveToQdrant, searchInQdrant, COLLECTION_NAME } from '../../src/services/qdrant';
+import { createEmbedding, GenerateAnswers, GenerateExplanation, generateQuestionsForPassages, generateRulesQuestion, generateSATPassages } from '../services/geminiService';
+import { setupCollection, saveToQdrant, searchInQdrant, COLLECTION_NAME } from '../services/qdrant';
 import fs from 'fs';
 import { PDFParse } from 'pdf-parse';
 import multer from 'multer';

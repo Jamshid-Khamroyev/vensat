@@ -2,7 +2,7 @@ import { ArrowRight, Camera, CheckCircle, Loader2, Plus, Trash2, X } from "lucid
 import { Dispatch, SetStateAction, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GroupWord, UserWords } from "../types";
-import { generateSentencesForWords } from "../services/geminiService";
+import api from "../services/api";
 import imageCompression from "browser-image-compression";
 
 
@@ -129,40 +129,17 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
         try {
             const wordsList = extractedText.split(/\r?\n/).filter(line => line.trim().length > 0);
             if (wordsList.length === 0) throw new Error('Tarjima qilish uchun so\'zlar topilmadi');
-            const data = JSON.stringify({ q: extractedText, source: 'en', target: 'uz' });
-            const xhr = new XMLHttpRequest();
-            xhr.withCredentials = false;
-            const promise = new Promise<{ term: string; definition: string }[]>((resolve, reject) => {
-                xhr.addEventListener('readystatechange', function () {
-                    if (this.readyState === this.DONE) {
-                        try {
-                            if (this.status !== 200) throw new Error(`Tarjima server xatosi: ${this.status}`);
-                            const info = JSON.parse(this.responseText);
-                            if (!info.data || !info.data.translations || !info.data.translations.translatedText) {
-                                throw new Error('Tarjima javobi noto\'g\'ri formatda');
-                            }
-                            const translatedArray = info.data.translations.translatedText;
-                            const response = translatedArray[0].split("\n");
-                            const finalWordsList = wordsList.map((word, index) => ({
-                                term: word,
-                                definition: response[index]?.trim() || "Tarjima topilmadi"
-                            }));
-                            resolve(finalWordsList);
-                        } catch (error) {
-                            reject(error);
-                        }
-                    }
-                });
-                xhr.onerror = () => reject(new Error('Tarmoq xatosi'));
-                xhr.ontimeout = () => reject(new Error('Tarjima vaqti tugadi'));
-            });
-            xhr.open('POST', 'https://deep-translate1.p.rapidapi.com/language/translate/v2');
-            xhr.setRequestHeader('x-rapidapi-key', 'f3251f90e7msh179edc31ad1c822p139b02jsnaeb7fd4fb5cd');
-            xhr.setRequestHeader('x-rapidapi-host', 'deep-translate1.p.rapidapi.com');
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.timeout = 30000;
-            xhr.send(data);
-            const result = await promise;
+
+            const { data } = await api.post('/api/ai/translate', { text: extractedText });
+            const translatedArray = data.data?.data?.translations?.translatedText;
+            if (!translatedArray?.[0]) throw new Error('Tarjima javobi noto\'g\'ri formatda');
+
+            const response = translatedArray[0].split("\n");
+            const result = wordsList.map((word, index) => ({
+                term: word,
+                definition: response[index]?.trim() || "Tarjima topilmadi"
+            }));
+
             setTranslatedWords(result);
             toast.success(`${result.length} ta so'z tarjima qilindi`, { id: loadingToast });
         } catch (error) {
@@ -196,7 +173,8 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
             const terms = translatedWords.map(pair => pair.term);
             let generatedData;
             try {
-                generatedData = await generateSentencesForWords(terms);
+                const { data: sentenceRes } = await api.post('/api/ai/words/sentences', { words: terms });
+                generatedData = sentenceRes.data || [];
             } catch (error) {
                 console.error('Sentence generation error:', error);
                 toast.warning('Ba\'zi so\'zlar uchun gap yaratilmadi, keyin qo\'shishingiz mumkin');

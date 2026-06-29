@@ -9,16 +9,19 @@ import { User } from "../models/user.model";
 import ImageKit from 'imagekit';
 import fs from 'fs';
 import path from 'path';
-import { GenerateExplanation } from "@/src/services/geminiService";
+import { GenerateExplanation } from "../services/geminiService";
 import multer from "multer";
+import { env } from "../utils/env";
 
 const router = Router()
 
-    const imagekit = new ImageKit({
-        publicKey: process.env.IMAGEKIT_PUBLIC_KEY || 'public_6gbyFW2rJ5j2KdTb1lyKH5d+pCU=',
-        privateKey: process.env.IMAGEKIT_PRIVATE_KEY || 'private_FEhWdul+m6zqI7mqV4ipqXso+Qk=',
-        urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT|| 'https://ik.imagekit.io/ytyg7f0ox'
-    });
+    const imagekit = env.IMAGEKIT_PUBLIC_KEY && env.IMAGEKIT_PRIVATE_KEY && env.IMAGEKIT_URL_ENDPOINT
+      ? new ImageKit({
+          publicKey: env.IMAGEKIT_PUBLIC_KEY,
+          privateKey: env.IMAGEKIT_PRIVATE_KEY,
+          urlEndpoint: env.IMAGEKIT_URL_ENDPOINT,
+        })
+      : null;
 
     const upload = multer({
         storage: multer.diskStorage({
@@ -69,6 +72,7 @@ const router = Router()
 
     router.post("/image/upload", upload.single('image'), async (req, res) => {
         if (!req.file) return res.status(400).json({ error: 'No image provided' });
+        if (!imagekit) return res.status(503).json({ error: 'Image upload is not configured' });
 
         try {
             const response = await imagekit.upload({

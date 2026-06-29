@@ -152,3 +152,21 @@ export interface ApiResponse<T = any> {
   error?: string;
   data?: T;
 }
+
+export interface ParsedQuestion {
+  _id: string;
+  text: string;
+  options: string[];
+  correctAnswerIndex?: number;
+  difficulty?: string;
+  graph?: string;
+  question: string;
+  isDual?: boolean;
+  category: string;
+}
+
+export interface ParsedTest {
+  _id: string;
+  title: string;
+  questions: ParsedQuestion[];
+}
