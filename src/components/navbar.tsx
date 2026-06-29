@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {  useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "../states/user.state";
+import logo from "../public/image.png";
 
 let navItems;
 
@@ -62,14 +63,9 @@ const Navbar = () => {
                     className="flex items-center gap-3 cursor-pointer shrink-0"
                     onClick={handleLogoClick}
                 >
-                    <div className="relative">
-                        <div className="relative w-9 h-9 rounded-xl bg-linear-to-br from-blue-950 to-purple-950 flex items-center justify-center shadow-lg">
-                            <BookOpen className="w-4 h-4 text-white" />
-                        </div>
+                    <div className="flex items-center gap-2.5">
+                        <img src={logo} alt="project logo" className='md:h-12 h-8' />
                     </div>
-                    <h1 className="text-xl font-black bg-linear-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent hidden sm:block">
-                        AeroTest
-                    </h1>
                 </div>
 
                 {/* Desktop Navigation */}

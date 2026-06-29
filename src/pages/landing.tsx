@@ -5,6 +5,7 @@ import { faqs, features, stats, testimonials } from '../constants';
 import api from '../services/api';
 import { useUserStore } from '../states/user.state';
 import { useNavigate } from 'react-router-dom';
+import image from '../public/image.png'
 
 
 const LandingPage = () => {
@@ -67,10 +68,7 @@ const LandingPage = () => {
             <header className="fixed top-0 left-0 right-0 z-50 h-16 px-2 lg:px-12 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
                 <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-blue-950 flex items-center justify-center">
-                            <BookOpen className="w-5 h-5 text-white" />
-                        </div>
-                        <span className="text-blue-950text-xl max-md:hidden tracking-tight">AeroTest</span>
+                        <img src={image} alt="project logo" className='md:h-12 h-8' />
                     </div>
                     <nav className="hidden md:flex items-center gap-8">
                         {["Imkoniyatlar", "Natijalar", "Narxlar", "FAQ"].map(n => (
@@ -373,17 +371,16 @@ const LandingPage = () => {
             </section>
 
             {/* ── FOOTER ── */}
-            <footer className="bg-blue-950 border-t border-white/5 py-12">
+            <footer className="bg-white/95 border-t text-blue-950 py-12">
                 <div className="max-w-7xl mx-auto px-2 lg:px-12">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
                         <div className="col-span-2 md:col-span-1">
-                            <div className="flex items-center gap-2 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                                    <BookOpen className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-2">
+                               <div className="flex items-center gap-2.5">
+                                    <img src={image} alt="project logo" className='md:h-12 h-8' />
                                 </div>
-                                <span className="text-white font-black text-lg">AeroTest</span>
                             </div>
-                            <p className="text-blue-300 text-sm leading-relaxed">AI yordamida SAT tayyorgarligida yangi standart.</p>
+                            <p className="text-blue-950 text-sm leading-relaxed">AI yordamida SAT tayyorgarligida yangi standart.</p>
                         </div>
                         {[
                             { t: "Platforma", links: ["Imkoniyatlar", "Narxlar", "Demo", "Blog"] },
@@ -391,10 +388,10 @@ const LandingPage = () => {
                             { t: "Yordam", links: ["FAQ", "Qo'llab-quvvatlash", "Maxfiylik", "Shartlar"] },
                         ].map(col => (
                             <div key={col.t}>
-                                <h4 className="text-white font-bold text-sm mb-4">{col.t}</h4>
+                                <h4 className="text-blue-950 font-bold text-sm mb-4">{col.t}</h4>
                                 <ul className="space-y-2">
                                     {col.links.map(l => (
-                                        <li key={l}><a href="#" className="text-blue-300 text-sm hover:text-white transition-colors">{l}</a></li>
+                                        <li key={l}><a href="#" className="text-blue-950 text-sm hover:text-blue-900 transition-colors">{l}</a></li>
                                     ))}
                                 </ul>
                             </div>
