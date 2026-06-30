@@ -172,7 +172,7 @@ const router = Router()
                 "standard-conventions": { correct: 0, total: 0 }
             };
             
-            if(!questions.some(q => q.explanation) && !test.isGlobal){
+            if(!questions.some(q => q.explanation)){
                 const explanations = await GenerateExplanation(questions);
                 const bulkOps = explanations.map((item) => ({
                     updateOne: {
