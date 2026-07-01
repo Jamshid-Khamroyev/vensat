@@ -17,8 +17,8 @@ export const env = {
   NODE_ENV: readEnv('NODE_ENV') ?? 'development',
   PORT: Number(readEnv('PORT') ?? '3000'),
 
-  MONGODB_URI: requireEnv('MONGODB_URI', ['VITE_MONGODB_URI']),
-  JWT_SECRET: requireEnv('JWT_SECRET', ['VITE_JWT_SECRET']),
+  MONGODB_URI: requireEnv('MONGODB_URI', ['MONGODB_URI']),
+  JWT_SECRET: requireEnv('JWT_SECRET', ['JWT_SECRET']),
 
   GROQ_API_KEY: requireEnv('GROQ_API_KEY'),
   OPEN_ROUTER: requireEnv('OPEN_ROUTER_API_KEY', ['OPEN_ROUTER']),

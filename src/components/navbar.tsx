@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, FileQuestion } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, FileQuestion, MessageSquareQuote } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {  useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -20,7 +20,12 @@ const Navbar = () => {
     const searchParams = new URLSearchParams(location.search);
     const isTesting = searchParams.get('mode') === 'testing';
     
-    if(user?.role === "user"){
+    if(user?.role === "owner" || user?.role === 'admin'){
+        navItems = [
+                { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
+                { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
+            ] as const;
+    } else {
         navItems = [
         { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
         { key: 'words', label: "Words", icon: Library, color: 'from-emerald-500 to-teal-500' },
@@ -28,12 +33,8 @@ const Navbar = () => {
         //   { key: 'textbooks', label: 'TextBooks', icon: GraduationCap, color: 'from-indigo-500 to-blue-500' },
         { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
         { key: 'profile', label: 'Analize', icon: BarChart3, color: 'from-orange-500 to-red-500' },
+        { key: 'feedback', label: 'Feedback', icon: MessageSquareQuote, color: 'from-cyan-500 to-purple-500' },
         ] as const;
-    }else {
-        navItems = [
-            { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
-            { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
-            ] as const;
     }
 
     const handleLogout = useCallback(() => {
@@ -71,14 +72,14 @@ const Navbar = () => {
                 {/* Desktop Navigation */}
                 {!isTesting && (
                     <nav className="hidden md:flex items-center gap-1 bg-slate-100/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
-                        {navItems.map((item) => {
+                        {navItems?.map((item) => {
                             const isActive = currentPath === item.key;
                             const Icon = item.icon;
                             return (
                                 <button
                                     key={item.key}
                                     onClick={() => handleNavigation(item.key)}
-                                    className={`relative group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
+                                    className={`relative group flex items-center gap-2 px-4 text py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
                                         isActive
                                             ? 'text-white shadow-lg sha dow-blue-500/25'
                                             : 'text-slate-500 hover:text-slate-700'
@@ -154,9 +155,9 @@ const Navbar = () => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
                         transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="md:hidden fixed inset-x-0 top-16 z-40 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 shadow-2xl"
+                        className="md:hidden fixed inset-x-0 top-16 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 shadow-2xl"
                     >
-                        <div className="p-4 space-y-2">
+                        <div className="p-1 space-y-2">
                             {navItems.map((item, index) => {
                                 const isActive = currentPath === item.key;
                                 const Icon = item.icon;
@@ -167,7 +168,7 @@ const Navbar = () => {
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ delay: index * 0.05 }}
                                         onClick={() => handleNavigation(item.key)}
-                                        className={`w-full relative group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
+                                        className={`w-full relative group flex items-center gap-3 px-4 py-3 rounded-sm text-sm font-semibold transition-all duration-300 overflow-hidden ${
                                             isActive
                                                 ? 'text-white shadow-lg'
                                                 : 'text-slate-600 hover:text-slate-800'
@@ -196,7 +197,7 @@ const Navbar = () => {
                             })}
                             
                             <motion.div 
-                                className="pt-3 border-t border-slate-200/50 mt-3"
+                                className="pt-3 border-t border-slate-500/90 mt-3"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.2 }}
@@ -215,31 +216,42 @@ const Navbar = () => {
             </AnimatePresence>
 
             {/* Logout Confirmation Modal */}
-            <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-md overflow-hidden p-2">
+           <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-md overflow-hidden md:p-2">
                     <div className="relative">
-                        <div className="absolute -top-2 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-red-500" />
-                        <DialogHeader className="p-6 pb-2">
+                        <div className="absolute max-md:hidden -top-2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500" />
+
+                        <DialogHeader className="md:p-6 p-1 pb-2">
                             <div className="flex items-center gap-3 mb-2">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
-                                    <LogOut className="w-5 h-5 text-red-600" />
+                                <div className="w-full h-28 flex items-center justify-center p-1">
+                                    <img
+                                        src={logo}
+                                        alt="Project Logo"
+                                        className="w-full h-full object-contain"
+                                    />
                                 </div>
-                                <DialogTitle className="text-xl font-bold">Confirm Logout</DialogTitle>
+
                             </div>
+
+                                <DialogTitle className="text-xl font-bold">
+                                    Confirm Logout
+                                </DialogTitle>
                             <DialogDescription className="text-slate-600">
                                 Are you sure you want to log out? You'll need to sign in again to access your account.
                             </DialogDescription>
                         </DialogHeader>
-                        <DialogFooter className="p-6 pt-2 gap-3">
-                            <Button 
-                                variant="outline" 
+
+                        <DialogFooter className="md:p-6 pt-2 gap-3">
+                            <Button
+                                variant="outline"
                                 onClick={() => setOpen(false)}
                                 className="flex-1 border-slate-200 hover:bg-slate-50 hover:border-slate-300 p-2 transition-all duration-300"
                             >
                                 Cancel
                             </Button>
-                            <Button 
-                                variant="destructive" 
+
+                            <Button
+                                variant="destructive"
                                 onClick={handleLogout}
                                 className="flex-1 bg-gradient-to-r text-white from-red-600 to-red-500 p-2 hover:from-red-700 hover:to-red-600 shadow-lg shadow-red-500/25 transition-all duration-300"
                             >

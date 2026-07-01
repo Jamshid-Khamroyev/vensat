@@ -102,4 +102,15 @@ router.get("/me", authenticateToken, asyncHandler(async (req: any, res) => {
     res.json({ user });
 }));
 
+router.get("/users", authenticateToken, asyncHandler(async (req: any, res) => {
+    const user = await User.findById(req.user?.userId).select("-password");
+
+    if(!user && user.role !== "owner"){
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const data = await User.find({})
+    res.json({ data });
+}));
+
 export default router;

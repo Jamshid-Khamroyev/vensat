@@ -14,6 +14,8 @@ import GNewsReader from './components/article';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import MockTest from './pages/mock-test';
 import { useUserStore } from './states/user.state';
+import Feedback from './pages/feedback';
+import Users from './pages/users';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -81,7 +83,11 @@ export default function App() {
 
           <Route path="/dashboard" element={
             <Suspense fallback={loadingTsx}>
-              <Dashboard  />
+              {user?.role === 'owner' ? (
+                <Users />
+              ) : (
+                <Dashboard  />
+              )}
             </Suspense>
           } />
 
@@ -147,16 +153,21 @@ export default function App() {
               <Route path="/article" element={
                 <GNewsReader /> 
               } />
+
             </>
           )}
-
 
           <Route path="/mock-test" element={
             <Suspense fallback={loadingTsx}>
               <MockTest />
             </Suspense>
           } />
-
+          
+          <Route path="/feedback" element={
+                <Suspense fallback={loadingTsx}>
+                  <Feedback />
+                </Suspense>
+          } />
         </Routes>
       </main>
     </div>
