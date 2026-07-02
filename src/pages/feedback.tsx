@@ -6,6 +6,7 @@ import {
   ThumbsUp,
   Loader2,
 } from 'lucide-react';
+import api from '../services/api';
 
 
 
@@ -23,36 +24,31 @@ const Feedback = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    const botToken = import.meta.env.VITE_BOT_TOKEN;
-    const chatId = import.meta.env.VITE_BOT_CHAT_ID;
-    const message = `YANGI FEEDBACK
-
-Reyting: ${formData.rating}
-Tajriba: ${formData.experience}
-Muammo: ${formData.problem}
-Yoqadigan jihatlar: ${formData.features}
-Takliflar: ${formData.improvement}
-Foydalanish: ${formData.frequency}
-Email: ${formData.email || "Kiritilmagan"}
-Tavsiya: ${formData.recommendation}`;
-
     try {
-      await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: message })
-      });
+      await api.post(`/api/feedback`, formData);
       setSubmitted(true);
+      setFormData({
+        rating: 0,
+        experience: '',
+        problem: '',
+        features: '',
+        improvement: '',
+        frequency: '',
+        email: '',
+        recommendation: ''
+      });
     } catch (error) {
       console.error('Xatolik:', error);
+      alert('Xatolik yuz berdi. Qayta urinib ko\'ring.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   if (submitted) {
     return (

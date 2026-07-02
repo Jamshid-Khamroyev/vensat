@@ -16,6 +16,8 @@ import MockTest from './pages/mock-test';
 import { useUserStore } from './states/user.state';
 import Feedback from './pages/feedback';
 import Users from './pages/users';
+import FeedbackModal from './components/feedback.modal;';
+import { useAnalytics } from './hooks/useAnalytics';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -33,6 +35,7 @@ const WordGroupView = lazy(() => import('./pages/word-group'));
 export default function App() {
   const { login, user } = useUserStore()
   const navigate = useNavigate();
+  const { showFeedback,  closeFeedback, setFeedback } = useAnalytics();
 
   const [loading, setLoading] = useState(false);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
@@ -71,6 +74,11 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
       {/* Navbar - using legacy view for navbar logic */}
       <Navbar />
+        <FeedbackModal
+        isOpen={showFeedback}
+        onClose={closeFeedback}
+        onSubmit={setFeedback}
+      />
 
       <main className="flex-1 overflow-x-hidden">
         {/* React Router Routes */}

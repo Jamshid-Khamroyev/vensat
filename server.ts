@@ -114,6 +114,100 @@ async function startServer() {
     // RAG
     app.use("/api/rag", ragLimiter, ragRouter);
 
+    app.post('/api/feedback', async (req, res) => {
+    try {
+      const formData = req.body;
+      const botToken = env.BOT_TOKEN;
+      const chatId = env.BOT_CHAT_ID;
+
+      if (!botToken || !chatId) {
+        return res.status(500).json({ success: false, error: 'Bot not configured' });
+      }
+
+    const message = `📝 YANGI FEEDBACK
+─────────────────
+⭐ Reyting: ${formData.rating || '❌ Yo\'q'}
+💬 Tajriba: ${formData.experience || '❌ Yo\'q'}
+⚠️ Muammo: ${formData.problem || '❌ Yo\'q'}
+❤️ Yoqadigan jihatlar: ${formData.features || '❌ Yo\'q'}
+💡 Takliflar: ${formData.improvement || '❌ Yo\'q'}
+📊 Foydalanish: ${formData.frequency || '❌ Yo\'q'}
+📧 Email: ${formData.email || '❌ Kiritilmagan'}
+📢 Tavsiya: ${formData.recommendation || '❌ Yo\'q'}
+─────────────────
+📅 ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`;
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message })
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ success: false, error: String(error) });
+  }
+});
+
+
+   app.post('/api/analytics', async (req, res) => {
+      try {
+        const sentRequests = new Set();
+        const d = req.body;
+        const requestId = `${d.visitorId}-${d.sessionId}-${new Date().getDay()}`;
+        
+        if (sentRequests.has(requestId)) {
+          return res.json({ success: true, duplicate: true });
+        }
+        sentRequests.add(requestId);
+        const botToken = env.BOT_TOKEN;
+        const chatId = env.BOT_CHAT_ID;
+
+        if (!botToken || !chatId) {
+          return res.status(500).json({ success: false });
+        }
+        
+        const timeStr = Object.entries(d.sectionTime || {})
+          .sort((a, b) => (b[1] as number) - (a[1] as number))
+          .map(([name, sec]) => {
+            const mins = Math.floor((sec as number) / 60);
+            const secs = Math.floor((sec as number) % 60);
+            return `${name}: ${mins > 0 ? mins + 'm ' : ''}${secs}s`;
+          })
+          .join('\n  ');
+
+        const msg = `
+    📊 ANALYTICS REPORT
+    ─────────────────
+    👤 Visitor: ${d.visitorId}
+    💻 Device: ${d.device} (${d.browser})
+    🖥️ OS: ${d.os}
+    📱 Screen: ${d.screen}
+    🌍 Language: ${d.language}
+    🕐 Timezone: ${d.timezone}
+    🔗 Referrer: ${d.referrer}
+    ⏱️ Duration: ${Math.floor(d.duration / 60)}m ${d.duration % 60}s
+    📜 Max Scroll: ${d.maxScroll}%
+    ⏳ Section Time:
+      ${timeStr || '❌ Ma\'lumot yo\'q'}
+    💬 Feedback: ${d.feedback || '❌ Yo\'q'}
+    ─────────────────
+    📅 ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`;
+
+        await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: msg })
+        });
+
+        res.json({ success: true });
+      } catch (error) {
+        res.status(500).json({ success: false });
+      }
+    });
+
+
     // AI (story, words, translate)
     app.use("/api/ai", aiLimiter, aiRouter);
   // Global error handler

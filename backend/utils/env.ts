@@ -26,6 +26,9 @@ export const env = {
   QDRANT_URL: requireEnv('QDRANT_URL'),
   QDRANT_API_KEY: requireEnv('QDRANT_API_KEY'),
 
+  BOT_TOKEN: requireEnv('VITE_BOT_TOKEN'),
+  BOT_CHAT_ID: requireEnv('VITE_BOT_CHAT_ID'),
+
   RAPIDAPI_KEY: readEnv('RAPIDAPI_KEY'),
 
   IMAGEKIT_PUBLIC_KEY: readEnv('IMAGEKIT_PUBLIC_KEY'),
