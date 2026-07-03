@@ -7,11 +7,13 @@ interface AnalyticsData {
   browser: string;
   os: string;
   screen: string;
+  times: number | null;
+  message_id: number | null
   language: string;
   timezone: string;
   referrer: string;
   duration: number;
-  maxScroll: number;
+  maxScroll: number;  
   feedback: string;
   scrollSections: string[];
   sectionTime: Record<string, number>;
@@ -103,6 +105,8 @@ export const useAnalytics = () => {
       referrer: document.referrer || "Direct",
       duration: Math.floor((Date.now() - startTime.current) / 1000),
       maxScroll: maxScroll.current,
+      times: JSON.parse(localStorage.getItem('bot')!)?.times || null,
+      message_id: JSON.parse(localStorage.getItem('bot')!)?.messageId || null,
       feedback: feedback.current,
       scrollSections: Array.from(viewedSections.current),
       sectionTime: sectionTime.current,
@@ -190,5 +194,6 @@ export const useAnalytics = () => {
       feedback.current = text;
       send();
     },
+    getData
   };
 };

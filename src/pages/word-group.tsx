@@ -294,7 +294,7 @@ const WordGroupView = () => {
   }
 
   // Error state
-  if (error || !group || words.length === 0) {
+  if (error) {
     return (
       <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-slate-50 px-4">
         <div className="text-center space-y-4 max-w-md">

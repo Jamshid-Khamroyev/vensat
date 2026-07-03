@@ -35,7 +35,7 @@ const WordGroupView = lazy(() => import('./pages/word-group'));
 export default function App() {
   const { login, user } = useUserStore()
   const navigate = useNavigate();
-  const { showFeedback,  closeFeedback, setFeedback } = useAnalytics();
+  const { showFeedback,  closeFeedback, setFeedback, getData } = useAnalytics();
 
   const [loading, setLoading] = useState(false);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
@@ -44,15 +44,29 @@ export default function App() {
   
 
   const loadingTsx = <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+  
+      const userEntered = async () => {
+        const data = getData()
+        
+        if(localStorage.getItem('bot')){
+          const res = await api.post("/api/analytics", data)
+          const storage = JSON.stringify({ times: JSON.parse(localStorage.getItem('bot')).times + 1, messageId: res.data.data })
+          localStorage.setItem('bot', storage)
+          return
+        }
+        const res = await api.post("/api/analytics", data)
+        const storage = JSON.stringify({ times: 1, messageId: res.data.data })
+        localStorage.setItem('bot', storage)
+      }
 
-
-  // Restore from URL params (legacy support)
+   // Restore from URL params (legacy support)
   useEffect(() => {
     const init = async () => {
       if(!localStorage.getItem("aero_token")) return navigate('/');
       setLoading(true)
       try {
         const { data } = await api.get("/api/auth/me")
+        await userEntered()
         login(data.user)
       } catch (error) {
         navigate('/')
@@ -64,8 +78,6 @@ export default function App() {
 
     init();
   }, []);
-  
-
  
 
   if (loading) return <div className="h-screen flex items-center justify-center"><RotateCcw className="animate-spin" /></div>;

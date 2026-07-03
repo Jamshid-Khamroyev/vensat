@@ -239,7 +239,7 @@ const TestingPage = () => {
   }
 
   return (
-    <motion.div key="testing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex flex-col bg-white">
+    <motion.div key="testing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 w-full z-50 flex flex-col bg-white">
       <div className="bg-white flex items-center justify-between px-4 md:px-6 py-4 shrink-0">
         <div className="text-sm md:text-base font-medium text-slate-900 truncate max-w-[30%]">
           {currentTest?.title || "Loading..."}
@@ -298,12 +298,16 @@ const TestingPage = () => {
         </div>
       )}
 
-      <div className={`flex-1 overflow-auto ${isTestDisabled ? "opacity-50" : ""}`}>
-        <div ref={containerRef} className="flex flex-row h-full relative">
+      <div className={`flex-1 overflow-auto ${isTestDisabled ? "opacity-50" : ""} w-full`}>
+        <div ref={containerRef} className="flex md:flex-row flex-col max-md:w-full h-full relative">
           {/* Left panel - Pessage */}
           <div 
-            className="bg-white overflow-auto"
-            style={{ width: `${splitPosition}%` }}
+            className="bg-white"
+            style={
+              window.innerWidth >= 800
+                ? { width: `${splitPosition}%` }
+                : {}
+            }
           >
             <div className="p-2 md:p-6 min-h-[45vh] lg:min-h-[unset]">
               <div className="prose prose-sm max-w-none">
@@ -314,7 +318,7 @@ const TestingPage = () => {
 
           {/* Splitter - draggable divider */}
           <div 
-            className="relative flex items-center justify-center cursor-col-resize z-10"
+            className="relative max-md:hidden flex items-center justify-center cursor-col-resize z-10"
             style={{ width: '8px', flexShrink: 0 }}
             onMouseDown={handleMouseDown}
           >
@@ -324,8 +328,12 @@ const TestingPage = () => {
 
           {/* Right panel - Question and Options */}
           <div 
-            className="bg-white overflow-auto"
-            style={{ width: `${100 - splitPosition}%` }}
+            className="bg-white"
+             style={
+                window.innerWidth >= 800
+                  ? { width: `${100 - splitPosition}%` }
+                  : {}
+              }
           >
             <div className="p-2 md:p-6">
               <div className="w-full mx-auto">
