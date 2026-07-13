@@ -325,26 +325,26 @@ const WordGroupView = () => {
             <h2 className="text-base font-bold text-blue-950 max-md:text-sm! truncate">{groupName}</h2>
             <p className="text-xs text-slate-400">{words.length} words</p>
           </div>
-          <div className="grid gap-2 grid-cols-2">
+          <div className="grid gap-2 grid-cols-3">
             <button
               onClick={() => setMode("flashcard")}
-              className={`flex items-center gap-1 rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "flashcard" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"}`}
+              className={`flex items-center gap-1 md:rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "flashcard" ? "bg-sky-600 text-white" : "bg-sky-50 text-sky-700 hover:bg-sky-100"}`}
             >
-              <Layers size={16} /> Cards
+              <Layers size={16} /> <span className="max-md:hidden">Cards</span>
             </button>
 
             <button
               onClick={() => setMode("practice")}
-              className={`flex items-center gap-1 rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "practice" ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700 hover:bg-violet-100"}`}
+              className={`flex items-center gap-1 md:rounded-lg md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs transition ${mode === "practice" ? "bg-violet-600 text-white" : "bg-violet-50 text-violet-700 hover:bg-violet-100"}`}
             >
-              <GraduationCap size={16} /> Practice
+              <GraduationCap size={16} /> <span className="max-md:hidden">Practice</span>
             </button>
 
             <button
               onClick={creatingTest}
-              className="flex items-center gap-1 rounded-lg bg-emerald-50 md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs text-emerald-700 transition hover:bg-emerald-100"
+              className="flex items-center gap-1 md:rounded-lg bg-emerald-50 md:px-3 px-1 md:py-2 py-1 md:text-sm text-xs text-emerald-700 transition hover:bg-emerald-100"
             >
-              <PlusCircle size={16} /> Create
+              <PlusCircle size={16} /> <span className="max-md:hidden">Create</span>
             </button>
           </div>
         </div>

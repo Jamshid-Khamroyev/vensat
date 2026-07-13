@@ -5,6 +5,7 @@ import {
   generateStory,
   generateSentencesForWords,
   generatePracticeQuestionsAI,
+  translateWords,
 } from '../services/geminiService';
 import { env } from '../utils/env';
 
@@ -41,7 +42,8 @@ router.post('/words/sentences', authenticateToken, asyncHandler(async (req, res)
   if (!Array.isArray(words) || words.length === 0) {
     return res.status(400).json({ success: false, message: 'words array is required' });
   }
-
+  console.log(words);
+  
   const sentences = await generateSentencesForWords(words);
   res.json({ success: true, data: sentences });
 }));
@@ -58,30 +60,22 @@ router.post('/words/practice', authenticateToken, asyncHandler(async (req, res) 
 }));
 
 router.post('/translate', authenticateToken, asyncHandler(async (req, res) => {
-  const { text, source = 'en', target = 'uz' } = req.body;
-
-  if (!text?.trim()) {
-    return res.status(400).json({ success: false, message: 'text is required' });
-  }
-
-  if (!env.RAPIDAPI_KEY) {
-    return res.status(503).json({ success: false, message: 'Translation service is not configured' });
-  }
-
-  const response = await axios.post(
-    'https://deep-translate1.p.rapidapi.com/language/translate/v2',
-    { q: text, source, target },
-    {
-      headers: {
-        'x-rapidapi-key': env.RAPIDAPI_KEY,
-        'x-rapidapi-host': 'deep-translate1.p.rapidapi.com',
-        'Content-Type': 'application/json',
-      },
-      timeout: 30000,
+  try {
+    const { words } = req.body;
+    
+    if (!words || !Array.isArray(words) || words.length === 0) {
+      return res.status(400).json({ success: false, message: 'Words array is required' });
     }
-  );
 
-  res.json({ success: true, data: response.data });
+    if (words.length > 100) {
+      return res.status(400).json({ success: false, message: 'Maximum 100 words allowed' });
+    }
+
+    const translations = await translateWords(words);
+    res.json({ success: true, data: translations });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 }));
 
 export default router;

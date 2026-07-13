@@ -1,5 +1,7 @@
+import axios from "axios";
 import { senMessage } from "../utils";
 import { groq, openrouter } from "../utils/config";
+import { env } from "../utils/env"
 
 export interface ParsedQuestion {
   _id: string;
@@ -99,14 +101,15 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
       response_format: { type: "json_object" }
     });
 
+    
     const data = JSON.parse(result.choices[0].message.content || '{}');
     
     if (Array.isArray(data)) {
       return data;
     }
     
-    if (data.vocab && Array.isArray(data.vocab)) {
-      return data.vocab;
+    if (data.terms && Array.isArray(data.terms)) {
+      return data.terms;
     }
 
     if (data.vocabulary && Array.isArray(data.vocabulary)) {
@@ -727,3 +730,36 @@ Generate exactly 5 questions.
     throw error;
   }
 }
+
+export const translateWords = async (words) => {
+  const wordsList = Array.isArray(words) ? words.join(', ') : words;
+
+  const response = await axios.post(
+    'https://api.mistral.ai/v1/chat/completions',
+    {
+      model: 'mistral-large-latest',
+      messages: [
+        { 
+          role: 'system', 
+          content: 'Translate English words to Uzbek. Fix spelling mistakes. Remove extra characters and symbols. Return ONLY valid English words. Return ONLY JSON array: [{"term":"corrected_english","definition":"uzbek"}]'
+        },
+        { role: 'user', content: `Translate: ${wordsList}` }
+      ],
+      temperature: 0.3,
+      response_format: { type: 'json_object' }
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${env.MISTRAL_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  const content = response.data.choices[0].message.content;
+  const cleaned = content.replace(/```json\s*/g, '').replace(/```\s*/g, '').replace(/`/g, '');
+  const match = cleaned.match(/\[[\s\S]*\]/);
+  
+  if (!match) throw new Error('Invalid response format');
+  return JSON.parse(match[0]);
+};

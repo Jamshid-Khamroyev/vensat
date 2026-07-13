@@ -127,18 +127,30 @@ const WordImageMode = ({ handleAddWord, handleUpdateGroup, setImageMode, userWor
         setIsTranslating(true);
         const loadingToast = toast.loading('Tarjima qilinmoqda...');
         try {
-            const wordsList = extractedText.split(/\r?\n/).filter(line => line.trim().length > 0);
+            const wordsList = extractedText
+            .replace(/\n/g, '/')
+            .split('/')
+            .map(word => word.trim())
+            .filter(word => word.length > 0);
+
             if (wordsList.length === 0) throw new Error('Tarjima qilish uchun so\'zlar topilmadi');
 
-            const { data } = await api.post('/api/ai/translate', { text: extractedText });
-            const translatedArray = data.data?.data?.translations?.translatedText;
-            if (!translatedArray?.[0]) throw new Error('Tarjima javobi noto\'g\'ri formatda');
+            const { data } = await api.post('/api/ai/translate', { words: wordsList });
+            let translations = [];
 
-            const response = translatedArray[0].split("\n");
-            const result = wordsList.map((word, index) => ({
-                term: word,
-                definition: response[index]?.trim() || "Tarjima topilmadi"
-            }));
+if (data.data && Array.isArray(data.data)) {
+  translations = data.data;
+} else if (data.data?.translations && Array.isArray(data.data.translations)) {
+  translations = data.data.translations;
+} else if (Array.isArray(data)) {
+  translations = data;
+}
+
+const result = wordsList.map((word, index) => ({
+  term: word,
+  definition: translations[index]?.definition || "Tarjima topilmadi"
+}));
+
 
             setTranslatedWords(result);
             toast.success(`${result.length} ta so'z tarjima qilindi`, { id: loadingToast });
