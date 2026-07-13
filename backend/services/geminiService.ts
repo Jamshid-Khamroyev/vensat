@@ -1,3 +1,4 @@
+import { senMessage } from "../utils";
 import { groq, openrouter } from "../utils/config";
 
 export interface ParsedQuestion {
@@ -30,8 +31,6 @@ interface GeneratePracticeParams {
   words: string[];  
 }
 
-// ====================================================
-
 export async function generateStory(
   genre: string,
   topic: string,
@@ -42,18 +41,25 @@ export async function generateStory(
   const lengthMap = { medium: '~500 words', long: '~1000 words', extended: '~2000 words' };
   const tokenMap = { medium: 800, long: 1500, extended: 2800 };
 
-  const result = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: 'You are a storyteller. Respond with valid JSON: {"title": "...", "content": "..."}' },
-      { role: 'user', content: `Create a ${genre} story about "${topic}". ${description ? `Context: ${description}` : ''} ${words ? `Include these words naturally in their context: ${words}` : ''} Length: ${lengthMap[length]}` }
-    ],
-    temperature: 0.8,
-    max_tokens: tokenMap[length],
-    response_format: { type: "json_object" }
-  });
-  
-  return JSON.parse(result.choices[0].message.content || '{}');
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: [
+        { role: 'system', content: 'You are a storyteller. Respond with valid JSON: {"title": "...", "content": "..."}' },
+        { role: 'user', content: `Create a ${genre} story about "${topic}". ${description ? `Context: ${description}` : ''} ${words ? `Include these words naturally in their context: ${words}` : ''} Length: ${lengthMap[length]}` }
+      ],
+      temperature: 0.8,
+      max_tokens: tokenMap[length],
+      response_format: { type: "json_object" }
+    });
+    
+    return JSON.parse(result.choices[0].message.content || '{}');
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
+    throw error;
+  }
 }
 
 export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
@@ -82,34 +88,39 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
     Format the output as a JSON array of objects, each with 'term' and 'sentence' keys.
   `;
 
-  const result = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
-    messages: [
-      { role: 'system', content: systemInstruction },
-      { role: 'user', content: "Generate sentences for each word now." }
-    ],
-    temperature: 0.7,
-    response_format: { type: "json_object" }
-  });
+  try {
+    const result = await groq.chat.completions.create({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: "Generate sentences for each word now." }
+      ],
+      temperature: 0.7,
+      response_format: { type: "json_object" }
+    });
 
-  const data = JSON.parse(result.choices[0].message.content || '{}');
-  
-  if (Array.isArray(data)) {
-    return data;
-  }
-  
-  if (data.vocab && Array.isArray(data.vocab)) {
-    return data.vocab;
-  }
+    const data = JSON.parse(result.choices[0].message.content || '{}');
+    
+    if (Array.isArray(data)) {
+      return data;
+    }
+    
+    if (data.vocab && Array.isArray(data.vocab)) {
+      return data.vocab;
+    }
 
-  if (data.vocabulary && Array.isArray(data.vocabulary)) {
-    return data.vocabulary;
+    if (data.vocabulary && Array.isArray(data.vocabulary)) {
+      return data.vocabulary;
+    }
+    
+    return [];
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
+    throw error;
   }
-  
-  return [];
 }
-
-
 
 export async function generatePracticeQuestionsAI(
   params: GeneratePracticeParams
@@ -135,7 +146,7 @@ Make sure each word is used naturally in context.`;
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -159,15 +170,14 @@ Make sure each word is used naturally in context.`;
     
     throw new Error('Invalid response format from API');
     
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error('Error generating practice questions:', error);
     throw new Error('Failed to generate practice questions');
   }
 }
-
-
-
-// RAG ====================================================================
 
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
@@ -189,9 +199,6 @@ export async function createEmbedding(text: string): Promise<number[]> {
     return [];
   }
 }
-
-
-// ==================================================================================================================================================================
 
 interface BulkQuestionParams {
   passages: string[];
@@ -289,7 +296,6 @@ const templateInstructions: Record<string, string> = {
   'Split pessage into two separate passages at the most natural break to create Dual text question. Wrap the entire two passage with &&[pessage1]&& &&[pessage2]&&',
 };
 
-
 export async function generateQuestionsForPassages({
   passages,
   category,
@@ -330,7 +336,7 @@ General Rules:
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -393,7 +399,10 @@ JSON FORMAT
         ? parsed
         : Object.values(parsed)[0] as any[];
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error(error);
     throw error;
   }
@@ -444,7 +453,7 @@ export async function GenerateAnswers({ questions, difficulty }: GenerateAnswers
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -463,7 +472,10 @@ export async function GenerateAnswers({ questions, difficulty }: GenerateAnswers
       const parsed = JSON.parse(cleaned);
       return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error('Groq Answers Generation Error:', error);
     throw error;
   }
@@ -504,7 +516,7 @@ export async function GenerateExplanation(test2: any[]): Promise<any[]> {
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -523,12 +535,14 @@ export async function GenerateExplanation(test2: any[]): Promise<any[]> {
       const parsed = JSON.parse(cleaned);
       return Array.isArray(parsed) ? parsed : Object.values(parsed)[0] as any[];
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error('Groq Explanation Generation Error:', error);
     throw error;
   }
 }
-
 
 interface PassageParams {
   context: string;    
@@ -587,7 +601,7 @@ JSON Output Schema:
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -612,11 +626,13 @@ JSON Output Schema:
     }
 
   } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error("SAT Passage generation pipeline error:", error);
     throw error;
   }
 }
-
 
 export async function generateRulesQuestion(context: string, context2: string) {
   const systemPrompt = `
@@ -675,7 +691,7 @@ Generate exactly 5 questions.
 
   try {
     const result = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: "meta-llama/llama-4-scout-17b-16e-instruct",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -703,7 +719,10 @@ Generate exactly 5 questions.
         ? parsed
         : parsed.questions || Object.values(parsed)[0];
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.response?.status === 429) {
+      await senMessage();
+    }
     console.error("Rules Question Generation Error:", error);
     throw error;
   }

@@ -39,7 +39,7 @@ app.use(cors({
     methods: ["GET", "POST", "PATCH", "DELETE"],
     credentials: true
 }));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "3mb" }));
 
 const PORT = env.PORT;
 const MONGODB_URI = env.MONGODB_URI;
@@ -67,7 +67,7 @@ async function startServer() {
   try {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 30000,
-      socketTimeoutMS: 45000,
+      socketTimeoutMS: 45000
     });
     console.log("Connected to MongoDB");
   } catch (err) {
@@ -149,111 +149,11 @@ async function startServer() {
     res.status(500).json({ success: false, error: String(error) });
   }
 });
-    
-  const sentRequests = new Set();
-
-   app.post('/api/analytics', async (req, res) => {
-        const botToken = env.BOT_TOKEN;
-        const chatId = env.BOT_CHAT_ID;
-      try {
-        const d = req.body;
-
-        const timeStr = Object.entries(d.sectionTime || {})
-          .sort((a, b) => (b[1] as number) - (a[1] as number))
-          .map(([name, sec]) => {
-            const mins = Math.floor((sec as number) / 60);
-            const secs = Math.floor((sec as number) % 60);
-            return `${name}: ${mins > 0 ? mins + 'm ' : ''}${secs}s`;
-          })
-          .join('\n  ');
-
-        if(d.times && d.message_id){
-          const msg = `
-          📊 ANALYTICS REPORT
-          ─────────────────
-          👤 Visitor: ${d.visitorId}
-          💻 Device: ${d.device} (${d.browser})
-          🖥️ OS: ${d.os}
-          📱 Screen: ${d.screen}
-          🌍 Language: ${d.language}
-          🕐 Timezone: ${d.timezone}
-          🔗 Referrer: ${d.referrer}
-             Times: ${d.times}
-          ⏱️ Duration: ${Math.floor(d.duration / 60)}m ${d.duration % 60}s
-          📜 Max Scroll: ${d.maxScroll}%
-          ⏳ Section Time:
-            ${timeStr || '❌ Ma\'lumot yo\'q'}
-          💬 Feedback: ${d.feedback || '❌ Yo\'q'}
-          ─────────────────
-          📅 ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`;
-
-          const data = await fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              chat_id: chatId,
-              message_id: d.message_id,
-              text: msg,
-            }),
-          });
-          const responsData = await data.json()
-          return res.json({
-            success: true,
-            data: responsData.result?.message_id,
-          });
-        }
-
-        const requestId = `${d.visitorId}-${d.sessionId}-${new Date().getDay()}`;
-        
-        if (sentRequests.has(requestId)) {
-          return res.json({ success: true, duplicate: true });
-        }
-        sentRequests.add(requestId);
-        
-
-        if (!botToken || !chatId) {
-          return res.status(500).json({ success: false });
-        }
-        
-        
-
-        const msg = `
-    📊 ANALYTICS REPORT
-    ─────────────────
-    👤 Visitor: ${d.visitorId}
-    💻 Device: ${d.device} (${d.browser})
-    🖥️ OS: ${d.os}
-    📱 Screen: ${d.screen}
-    🌍 Language: ${d.language}
-    🕐 Timezone: ${d.timezone}
-    🔗 Referrer: ${d.referrer}
-    ⏱️ Duration: ${Math.floor(d.duration / 60)}m ${d.duration % 60}s
-    📜 Max Scroll: ${d.maxScroll}%
-    ⏳ Section Time:
-      ${timeStr || '❌ Ma\'lumot yo\'q'}
-    💬 Feedback: ${d.feedback || '❌ Yo\'q'}
-    ─────────────────
-    📅 ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`;
-
-        const data = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: chatId, text: msg })
-        });
-
-        const responseData = await data.json();
-        res.json({ success: true, data: responseData.result?.message_id });
-      } catch (error) {
-        res.status(500).json({ success: false });
-      }
-    });
-
 
     // AI (story, words, translate)
-    app.use("/api/ai", aiLimiter, aiRouter);
-  // Global error handler
+  app.use("/api/ai", aiLimiter, aiRouter);
+  
+    // Global error handler
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error("Unhandled error:", err);
     res.status(err.status || 500).json({

@@ -16,8 +16,6 @@ import MockTest from './pages/mock-test';
 import { useUserStore } from './states/user.state';
 import Feedback from './pages/feedback';
 import Users from './pages/users';
-import FeedbackModal from './components/feedback.modal;';
-import { useAnalytics } from './hooks/useAnalytics';
 
 // Lazy loaded pages for code splitting
 const LandingPage = lazy(() => import('./pages/landing'));
@@ -35,29 +33,12 @@ const WordGroupView = lazy(() => import('./pages/word-group'));
 export default function App() {
   const { login, user } = useUserStore()
   const navigate = useNavigate();
-  const { showFeedback,  closeFeedback, setFeedback, getData } = useAnalytics();
 
   const [loading, setLoading] = useState(false);
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
   
 
-  
-
   const loadingTsx = <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
-  
-      const userEntered = async () => {
-        const data = getData()
-        
-        if(localStorage.getItem('bot')){
-          const res = await api.post("/api/analytics", data)
-          const storage = JSON.stringify({ times: JSON.parse(localStorage.getItem('bot')).times + 1, messageId: res.data.data })
-          localStorage.setItem('bot', storage)
-          return
-        }
-        const res = await api.post("/api/analytics", data)
-        const storage = JSON.stringify({ times: 1, messageId: res.data.data })
-        localStorage.setItem('bot', storage)
-      }
 
    // Restore from URL params (legacy support)
   useEffect(() => {
@@ -66,7 +47,6 @@ export default function App() {
       setLoading(true)
       try {
         const { data } = await api.get("/api/auth/me")
-        await userEntered()
         login(data.user)
       } catch (error) {
         navigate('/')
@@ -86,11 +66,6 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
       {/* Navbar - using legacy view for navbar logic */}
       <Navbar />
-        <FeedbackModal
-        isOpen={showFeedback}
-        onClose={closeFeedback}
-        onSubmit={setFeedback}
-      />
 
       <main className="flex-1 overflow-x-hidden">
         {/* React Router Routes */}

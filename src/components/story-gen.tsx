@@ -129,7 +129,7 @@ const StoryGen = ({ userWords }: StoryGenProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           <div className="space-y-6">
             <div className="space-y-3">
               <label className="flex items-center gap-2 text-xs font-black tracking-widest text-slate-700 uppercase">
