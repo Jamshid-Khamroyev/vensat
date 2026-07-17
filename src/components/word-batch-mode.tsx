@@ -35,7 +35,7 @@ const WordBatchMode = ({ setBatchMode, handleAddWord, handleUpdateGroup, userWor
             if (eng && uzb) pairs.push({ term: eng.trim(), definition: uzb.trim() });
         }
 
-        if (pairs.length === 0) {
+        if (pairs.length === 0 || pairs.length === 1) {
             toast.error('Hech qanday so\'z juftligi topilmadi');
             return;
         }

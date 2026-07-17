@@ -42,7 +42,6 @@ router.post('/words/sentences', authenticateToken, asyncHandler(async (req, res)
   if (!Array.isArray(words) || words.length === 0) {
     return res.status(400).json({ success: false, message: 'words array is required' });
   }
-  console.log(words);
   
   const sentences = await generateSentencesForWords(words);
   res.json({ success: true, data: sentences });

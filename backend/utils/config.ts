@@ -7,5 +7,5 @@ export const groq = new Groq({
 });
 
 export const openrouter = new OpenRouter({
-  apiKey: env.OPEN_ROUTER_API_KEY,
+  apiKey: env.OPEN_ROUTER,
 });

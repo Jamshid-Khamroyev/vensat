@@ -107,6 +107,10 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
     if (Array.isArray(data)) {
       return data;
     }
+
+    if (!Array.isArray(data) && words.length === 1) {
+      return data;
+    }
     
     if (data.terms && Array.isArray(data.terms)) {
       return data.terms;
