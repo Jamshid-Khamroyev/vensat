@@ -45,7 +45,7 @@ export async function generateStory(
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: 'You are a storyteller. Respond with valid JSON: {"title": "...", "content": "..."}' },
         { role: 'user', content: `Create a ${genre} story about "${topic}". ${description ? `Context: ${description}` : ''} ${words ? `Include these words naturally in their context: ${words}` : ''} Length: ${lengthMap[length]}` }
@@ -92,7 +92,7 @@ export async function generateSentencesForWords(words: string[]): Promise<Array<
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: "Generate sentences for each word now." }
@@ -133,6 +133,8 @@ export async function generatePracticeQuestionsAI(
   params: GeneratePracticeParams
 ): Promise<PracticeQuestion[]> {
   const { words } = params;
+  console.log(words);
+  
   
   const wordsString = words.join(', ');
   
@@ -153,13 +155,13 @@ Make sure each word is used naturally in context.`;
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 8192,
       response_format: { type: "json_object" }
     });
     
@@ -343,7 +345,7 @@ General Rules:
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -460,7 +462,7 @@ export async function GenerateAnswers({ questions, difficulty }: GenerateAnswers
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -523,7 +525,7 @@ export async function GenerateExplanation(test2: any[]): Promise<any[]> {
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -608,7 +610,7 @@ JSON Output Schema:
 
   try {
     const result = await groq.chat.completions.create({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'groq/compound',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
@@ -698,7 +700,7 @@ Generate exactly 5 questions.
 
   try {
     const result = await groq.chat.completions.create({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      model: "groq/compound",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
