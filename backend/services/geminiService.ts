@@ -64,128 +64,78 @@ export async function generateStory(
   }
 }
 
-export async function generateSentencesForWords(words: string[]): Promise<Array<{ term: string; sentence: string }>> {
-  const wordsList = words.join(', ');
-  
-  const systemInstruction = `
-    You are an expert SAT tutor and English language educator. Your task is to create contextual example sentences for each given vocabulary word.
-
-    INPUT WORDS: ${wordsList}
-
-    REQUIREMENTS:
-    1. For EACH word, you MUST provide:
-       - The term itself
-       - ONE original sentence that demonstrates the word's meaning through context
-
-    2. SENTENCE RULES (CRITICAL):
-       - Each sentence must NATURALLY incorporate the vocabulary word
-       - The word's meaning MUST be clear from the context of the sentence
-       - Do NOT just say "The word X means Y" — show it through action, description, or situation
-       - Sentences should be realistic, educational, and engaging
-       - Length: 5-12 words per sentence
-       - Use different contexts for different words
-       - Sentences must be grammatically correct
-       - Avoid forced or awkward constructions
-
-    Format the output as a JSON array of objects, each with 'term' and 'sentence' keys.
-  `;
-
-  try {
-    const result = await groq.chat.completions.create({
-      model: 'groq/compound',
+export async function generateSentencesForWords(words: string[]) {
+  const { data } = await axios.post("https://api.mistral.ai/v1/chat/completions", {
+      model: "mistral-large-latest",
+      response_format: { type: "json_object" },
       messages: [
-        { role: 'system', content: systemInstruction },
-        { role: 'user', content: "Generate sentences for each word now." }
+        {
+          role: "system",
+          content: `Create one sentence for each word: ${words.join(", ")}.
+Return only JSON:
+{"terms":[{"term":"","sentence":""}]}`,
+        },
       ],
-      temperature: 0.7,
-      response_format: { type: "json_object" }
-    });
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${env.MISTRAL_API_KEY}`,
+      },
+    }
+  );
 
-    
-    const data = JSON.parse(result.choices[0].message.content || '{}');
-    
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (!Array.isArray(data) && words.length === 1) {
-      return data;
-    }
-    
-    if (data.terms && Array.isArray(data.terms)) {
-      return data.terms;
-    }
-
-    if (data.vocabulary && Array.isArray(data.vocabulary)) {
-      return data.vocabulary;
-    }
-    
-    return [];
-  } catch (error: any) {
-    if (error?.response?.status === 429) {
-      await senMessage();
-    }
-    throw error;
-  }
+  return JSON.parse(data.choices[0].message.content).terms;
 }
 
-export async function generatePracticeQuestionsAI(
-  params: GeneratePracticeParams
-): Promise<PracticeQuestion[]> {
-  const { words } = params;
-  console.log(words);
-  
-  
-  const wordsString = words.join(', ');
-  
-  const systemPrompt = `You are an English language teacher. Create fill-in-the-blank practice questions.
-Response format: JSON array of objects with fields:
-- sentence: string (a sentence with a blank like "____")
-- correctWord: string (the missing word)
-- options: string[] (array of 4 words: 1 correct + 3 from the given words list)
-- explanation: string (why this word fits here)
-- wordDefinition: string (definition of the correct word in simple Uzbek)
-
-Important: The correct word and all options MUST be selected from the provided words list.`;
-
-  const userPrompt = `Create for each word exist in list fill-in-the-blank practice questions using these words: ${wordsString}
-Each question should have a sentence with a blank (_____), and the missing word should be from the list.
-The 3 wrong options should also be from the same word list.
-Make sure each word is used naturally in context.`;
-
-  try {
-    const result = await groq.chat.completions.create({
-      model: 'groq/compound',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
+export async function generatePracticeQuestionsAI({
+  words,
+}: GeneratePracticeParams): Promise<PracticeQuestion[]> {
+  const { data } = await axios.post(
+    "https://api.mistral.ai/v1/chat/completions",
+    {
+      model: "mistral-large-latest",
       temperature: 0.7,
-      max_tokens: 8192,
-      response_format: { type: "json_object" }
-    });
-    
-    const response = JSON.parse(result.choices[0].message.content || '{}');
-    if (Array.isArray(response)) {
-      return response;
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content: `You are an English teacher.
+
+Create one fill-in-the-blank question for each word.
+
+Return ONLY this JSON format:
+{
+  "questions": [
+    {
+      "sentence": "_____ finished the project on time.",
+      "correctWord": "",
+      "options": ["", "", "", ""], including my words in the options
+      "explanation": "",
+      "wordDefinition": ""
     }
-    if (response.questions && Array.isArray(response.questions)) {
-      return response.questions;
+  ]
+}`,
+        },
+        {
+          role: "user",
+          content: `Words: ${words.join(", ")}
+
+Rules:
+- Create one question for every word.
+- The correct answer and all options must come only from the given words.
+- Return only valid JSON.`,
+        },
+      ],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        "Content-Type": "application/json",
+      },
     }
-    const possibleArrays = Object.values(response).filter(v => Array.isArray(v));
-    if (possibleArrays.length > 0) {
-      return possibleArrays[0] as PracticeQuestion[];
-    }
-    
-    throw new Error('Invalid response format from API');
-    
-  } catch (error: any) {
-    if (error?.response?.status === 429) {
-      await senMessage();
-    }
-    console.error('Error generating practice questions:', error);
-    throw new Error('Failed to generate practice questions');
-  }
+  );
+
+  return JSON.parse(data.choices[0].message.content).questions;
 }
 
 export async function createEmbedding(text: string): Promise<number[]> {

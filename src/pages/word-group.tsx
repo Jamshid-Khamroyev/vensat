@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppUser, WordRecord } from "../types";
 import api from "../services/api";
 import { useUserStore } from "../states/user.state";
+import { Info } from "lucide-react";
 import { useWordState } from "../states/word.state";
 
 type Mode = "flashcard" | "practice";
@@ -111,7 +112,9 @@ const WordGroupView = () => {
     
     setIsLoading(true);
     try {
-      const response = await api.get(`/word/practice/${groupIdFromProps}`);
+      const response = await api.get(`/api/word/practice/${groupIdFromProps}`);
+      console.log(response);
+      
       if (response.data && response.data.data) {
         setPracticeQuestions(response.data.data.questions);
         setCurrentQuestionIndex(0);
@@ -599,12 +602,38 @@ const WordGroupView = () => {
                   </div>
 
                   {showResult && (
-                    <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                    <div className="mb-6 md:p-4 bg-blue-50 rounded-xl border border-blue-100">
                       <div className="flex items-start gap-2">
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900 mb-1">Explanation:</p>
-                          <p className="text-sm text-slate-800">{practiceQuestions[currentQuestionIndex].explanation}</p>
-                          <p className="text-xs text-slate-600 mt-1">Definition: {practiceQuestions[currentQuestionIndex].wordDefinition}</p>
+                        <div className="flex-1 md:rounded-xl border border-slate-200 bg-slate-50 md:p-4 p-2 space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+                              <Info className="h-5 w-5" />
+                            </div>
+
+                            <div className="flex-1">
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Explanation
+                              </h3>
+                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                                {practiceQuestions[currentQuestionIndex].explanation}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 border-t border-slate-200 pt-4">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+                              <BookOpen className="h-5 w-5" />
+                            </div>
+
+                            <div className="flex-1">
+                              <h3 className="text-sm font-semibold text-slate-900">
+                                Definition
+                              </h3>
+                              <p className="mt-1 text-sm leading-6 text-slate-600">
+                                {practiceQuestions[currentQuestionIndex].wordDefinition}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

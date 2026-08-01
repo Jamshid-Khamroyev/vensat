@@ -9,9 +9,10 @@ router.get('/:groupId', authenticateToken, async (req: Request, res: Response) =
   try {
     const { groupId } = req.params;
     const userId = (req as any).user.userId;
+    console.log(userId, groupId);
 
     const practice = await Practice.findOne({ userId, groupId });
-
+    console.log(practice);
     if (!practice) {
       return res.status(404).json({ success: false, message: 'Practice not found' });
     }
