@@ -1,266 +1,235 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { BookOpen, LogOut, LayoutDashboard, Library, Newspaper, BarChart3, Menu, X, FileQuestion, MessageSquareQuote } from "lucide-react";
+import { LogOut, LayoutDashboard, Languages, BookOpen, FileQuestion, BarChart3, MessageSquareQuote, FilePlus2, Database, Users as UsersIcon, Sun, Moon, MoreVertical } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import {  useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "../states/user.state";
-import logo from "../public/image.png";
+import { useThemeStore } from "../states/theme.state";
+import type { LucideIcon } from "lucide-react";
 
-let navItems;
+type NavItem = { key: string; label: string; short: string; icon: LucideIcon };
 
+const USER_ITEMS: NavItem[] = [
+    { key: 'dashboard', label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
+    { key: 'words', label: 'Words', short: 'Words', icon: Languages },
+    { key: 'stories', label: 'Stories', short: 'Stories', icon: BookOpen },
+    { key: 'mock-test', label: 'Mock Test', short: 'Mock', icon: FileQuestion },
+    { key: 'profile', label: 'Analyze', short: 'Analyze', icon: BarChart3 },
+];
 
-const Navbar = () => {
-    const currentPath = window.location.pathname.split("/")[1];
-    const { user, logout } = useUserStore()
-    const navigate = useNavigate()
-    const [open, setOpen] = useState(false);
-    const [mobileMenu, setMobileMenu] = useState(false);
+const ADMIN_ITEMS: NavItem[] = [
+    { key: 'dashboard', label: 'Dashboard', short: 'Home', icon: LayoutDashboard },
+    { key: 'mock-test', label: 'Mock Test', short: 'Mock', icon: FileQuestion },
+    { key: 'create', label: 'Import', short: 'Import', icon: FilePlus2 },
+    { key: 'sources', label: 'Sources', short: 'Sources', icon: Database },
+];
+
+const OWNER_ITEMS: NavItem[] = [
+    { key: 'dashboard', label: 'Users', short: 'Users', icon: UsersIcon },
+    { key: 'mock-test', label: 'Mock Test', short: 'Mock', icon: FileQuestion },
+];
+
+const FEEDBACK_ITEM: NavItem = { key: 'feedback', label: 'Feedback', short: 'Feedback', icon: MessageSquareQuote };
+
+export const getNavItems = (role?: string): NavItem[] =>
+    role === 'owner' ? OWNER_ITEMS : role === 'admin' ? ADMIN_ITEMS : USER_ITEMS;
+
+/** Screens that own the whole viewport and must not show app navigation. */
+export const useIsChromeless = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
-    const isTesting = searchParams.get('mode') === 'testing';
-    
-    if(user?.role === "owner" || user?.role === 'admin'){
-        navItems = [
-                { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
-                { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
-            ] as const;
-    } else {
-        navItems = [
-        { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'from-blue-500 to-cyan-500' },
-        { key: 'words', label: "Words", icon: Library, color: 'from-emerald-500 to-teal-500' },
-        { key: 'stories', label: 'Stories', icon: Newspaper, color: 'from-purple-500 to-pink-500' }, // Comprehending
-        //   { key: 'textbooks', label: 'TextBooks', icon: GraduationCap, color: 'from-indigo-500 to-blue-500' },
-        { key: 'mock-test', label: 'Mock Test', icon: FileQuestion, color: 'from-rose-500 to-orange-500' },
-        { key: 'profile', label: 'Analize', icon: BarChart3, color: 'from-orange-500 to-red-500' },
-        { key: 'feedback', label: 'Feedback', icon: MessageSquareQuote, color: 'from-cyan-500 to-purple-500' },
-        ] as const;
-    }
+    return location.pathname === '/' || location.pathname.startsWith('/testing') || searchParams.get('mode') === 'testing';
+};
+
+export const Logo = ({ onClick }: { onClick?: () => void }) => (
+    <div className="flex items-center gap-2.5 cursor-pointer shrink-0 select-none" onClick={onClick}>
+        <span className="w-8 h-8 rounded-md bg-foreground text-background flex items-center justify-center font-serif font-black text-lg leading-none">V</span>
+        <span className="font-extrabold text-[17px] tracking-tight text-foreground">VenSAT</span>
+    </div>
+);
+
+export const ThemeToggle = ({ className = "" }: { className?: string }) => {
+    const { theme, toggleTheme } = useThemeStore();
+    const isDark = theme === 'dark';
+    return (
+        <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+            className={`w-10 h-10 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors ${className}`}
+        >
+            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </button>
+    );
+};
+
+const Navbar = () => {
+    const location = useLocation();
+    const currentPath = location.pathname.split("/")[1];
+    const { user, logout } = useUserStore();
+    const navigate = useNavigate();
+    const [open, setOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const chromeless = useIsChromeless();
+
+    const navItems = user?.role === 'user' || !user?.role ? [...USER_ITEMS, FEEDBACK_ITEM] : getNavItems(user?.role);
+
+    useEffect(() => setMenuOpen(false), [location.pathname]);
 
     const handleLogout = useCallback(() => {
         logout();
-        localStorage.removeItem('aero_token')
+        localStorage.removeItem('aero_token');
         navigate('/');
         setOpen(false);
-        setMobileMenu(false);
-    }, []);
-
-    const handleNavigation = useCallback((key: string) => {
-        navigate(key as any);
-        setMobileMenu(false);
     }, []);
 
     const handleLogoClick = useCallback(() => {
-        if (user && !isTesting) {
-            navigate('/dashboard');
-        }
-    }, [user, isTesting]);
+        if (user && !chromeless) navigate('/dashboard');
+    }, [user, chromeless]);
+
+    if (location.pathname === '/') return null;
 
     return (
         <>
-            <header className="relative h-16 px-4 sm:px-8 lg:px-12 bg-white/80 backdrop-blur-xl border-b border-slate-200/50 flex items-center justify-between sticky top-0 z-50 shadow-sm">
-                {/* Logo */}
-                <div 
-                    className="flex items-center gap-3 cursor-pointer shrink-0"
-                    onClick={handleLogoClick}
-                >
-                    <div className="flex items-center gap-2.5">
-                        <img src={logo} alt="project logo" className='md:h-12 h-8' />
-                    </div>
-                </div>
+            <header className="h-16 px-4 sm:px-8 lg:px-12 bg-background/90 backdrop-blur-xl border-b border-border flex items-center justify-between sticky top-0 z-50">
+                <Logo onClick={handleLogoClick} />
 
-                {/* Desktop Navigation */}
-                {!isTesting && (
-                    <nav className="hidden md:flex items-center gap-1 bg-slate-100/50 backdrop-blur-sm rounded-2xl p-1 border border-slate-200/50">
-                        {navItems?.map((item) => {
+                {user && !chromeless && (
+                    <nav className="hidden md:flex items-center gap-1">
+                        {navItems.map((item) => {
                             const isActive = currentPath === item.key;
                             const Icon = item.icon;
                             return (
                                 <button
                                     key={item.key}
-                                    onClick={() => handleNavigation(item.key)}
-                                    className={`relative group flex items-center gap-2 px-4 text py-2 rounded-xl text-sm font-semibold transition-all duration-300 overflow-hidden ${
+                                    onClick={() => navigate(`/${item.key}`)}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    title={item.label}
+                                    className={`flex items-center gap-2 px-2.5 lg:px-3.5 py-2 rounded-md text-sm whitespace-nowrap transition-colors ${
                                         isActive
-                                            ? 'text-white shadow-lg sha dow-blue-500/25'
-                                            : 'text-slate-500 hover:text-slate-700'
+                                            ? 'bg-accent text-accent-foreground font-extrabold'
+                                            : 'font-semibold text-muted-foreground hover:text-foreground hover:bg-muted'
                                     }`}
                                 >
-                                    {isActive && (
-                                        <motion.div
-                                            layoutId="activeNav"
-                                            className={`absolute inset-0 bg-gradient-to-r ${item.color}`}
-                                            initial={false}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        />
-                                    )}
-                                    <Icon className={`relative z-10 w-4 h-4 transition-transform duration-300 group-hover:scale-110 ${
-                                        isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'
-                                    }`} />
-                                    <span className="relative z-10">{item.label}</span>
+                                    <Icon className={`w-4 h-4 ${isActive ? 'text-primary' : ''}`} />
+                                    <span className="hidden lg:inline">{item.label}</span>
                                 </button>
                             );
                         })}
-                        
-                        <div className="w-px h-6 bg-gradient-to-b from-transparent via-slate-300 to-transparent mx-2" />
-
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setOpen(true)}
-                            className="relative group flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:text-red-600 transition-all duration-300 overflow-hidden"
-                        >
-                            <LogOut className="relative z-10 w-4 h-4 transition-transform duration-300 group-hover:scale-110" />
-                            <span className="relative z-10 hidden lg:inline">Sign Out</span>
-                        </motion.button>
                     </nav>
                 )}
 
-                {/* Mobile Menu Toggle */}
-                {user && !isTesting && (
-                    <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => setMobileMenu(!mobileMenu)}
-                        className="md:hidden relative w-10 h-10 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-md"
-                    >
-                        <AnimatePresence mode="wait">
-                            {mobileMenu ? (
-                                <motion.div
-                                    key="close"
-                                    initial={{ rotate: -90, opacity: 0 }}
-                                    animate={{ rotate: 0, opacity: 1 }}
-                                    exit={{ rotate: 90, opacity: 0 }}
+                <div className="flex items-center gap-1">
+                    <ThemeToggle />
+                    {user && !chromeless && (
+                        <>
+                            <button
+                                onClick={() => setOpen(true)}
+                                title="Sign Out"
+                                className="hidden md:flex items-center gap-2 px-3 h-10 rounded-md whitespace-nowrap text-sm font-semibold text-muted-foreground hover:text-destructive hover:bg-muted transition-colors"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                <span className="hidden xl:inline">Sign Out</span>
+                            </button>
+                            <div className="relative md:hidden">
+                                <button
+                                    onClick={() => setMenuOpen((v) => !v)}
+                                    aria-label="More"
+                                    aria-expanded={menuOpen}
+                                    className="w-10 h-10 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
                                 >
-                                    <X className="w-5 h-5 text-slate-600" />
-                                </motion.div>
-                            ) : (
-                                <motion.div
-                                    key="menu"
-                                    initial={{ rotate: 90, opacity: 0 }}
-                                    animate={{ rotate: 0, opacity: 1 }}
-                                    exit={{ rotate: -90, opacity: 0 }}
-                                >
-                                    <Menu className="w-5 h-5 text-slate-600" />
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </motion.button>
-                )}
+                                    <MoreVertical className="w-5 h-5" />
+                                </button>
+                                <AnimatePresence>
+                                    {menuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                                                transition={{ duration: 0.12 }}
+                                                className="absolute right-0 top-12 z-50 w-52 rounded-lg border border-border bg-popover py-1.5 shadow-xl origin-top-right"
+                                            >
+                                                {(user.role === 'user' || !user.role) && (
+                                                    <button onClick={() => navigate('/feedback')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-foreground hover:bg-muted">
+                                                        <MessageSquareQuote className="w-5 h-5 text-muted-foreground" /> Feedback
+                                                    </button>
+                                                )}
+                                                <button onClick={() => { setMenuOpen(false); setOpen(true); }} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-destructive hover:bg-muted">
+                                                    <LogOut className="w-5 h-5" /> Sign Out
+                                                </button>
+                                            </motion.div>
+                                        </>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </>
+                    )}
+                </div>
             </header>
 
-            {/* Mobile Navigation Sheet */}
-            <AnimatePresence>
-                {mobileMenu && user && !isTesting && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="md:hidden fixed inset-x-0 top-16 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 shadow-2xl"
-                    >
-                        <div className="p-1 space-y-2">
-                            {navItems.map((item, index) => {
-                                const isActive = currentPath === item.key;
-                                const Icon = item.icon;
-                                return (
-                                    <motion.button
-                                        key={item.key}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        onClick={() => handleNavigation(item.key)}
-                                        className={`w-full relative group flex items-center gap-3 px-4 py-3 rounded-sm text-sm font-semibold transition-all duration-300 overflow-hidden ${
-                                            isActive
-                                                ? 'text-white shadow-lg'
-                                                : 'text-slate-600 hover:text-slate-800'
-                                        }`}
-                                    >
-                                        {isActive && (
-                                            <motion.div
-                                                layoutId="mobileActiveNav"
-                                                className={`absolute inset-0 bg-gradient-to-r ${item.color}`}
-                                                transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                            />
-                                        )}
-                                        <Icon className={`relative z-10 w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${
-                                            isActive ? 'text-white' : 'text-slate-400'
-                                        }`} />
-                                        <span className="relative z-10">{item.label}</span>
-                                        {isActive && (
-                                            <motion.div 
-                                                className="relative z-10 ml-auto w-1.5 h-1.5 bg-white rounded-full"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                            />
-                                        )}
-                                    </motion.button>
-                                );
-                            })}
-                            
-                            <motion.div 
-                                className="pt-3 border-t border-slate-500/90 mt-3"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ delay: 0.2 }}
-                            >
-                                <button
-                                    onClick={() => setOpen(true)}
-                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-slate-500 hover:text-red-600 hover:bg-red-50/50 transition-all duration-300"
-                                >
-                                    <LogOut className="w-5 h-5" />
-                                    <span>Sign Out</span>
-                                </button>
-                            </motion.div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Logout Confirmation Modal */}
-           <Dialog open={open} onOpenChange={setOpen}>
-                <DialogContent className="sm:max-w-md overflow-hidden md:p-2">
-                    <div className="relative">
-                        <div className="absolute max-md:hidden -top-2 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-cyan-500 to-blue-500" />
-
-                        <DialogHeader className="md:p-6 p-1 pb-2">
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="w-full h-28 flex items-center justify-center p-1">
-                                    <img
-                                        src={logo}
-                                        alt="Project Logo"
-                                        className="w-full h-full object-contain"
-                                    />
-                                </div>
-
-                            </div>
-
-                                <DialogTitle className="text-xl font-bold">
-                                    Confirm Logout
-                                </DialogTitle>
-                            <DialogDescription className="text-slate-600">
-                                Are you sure you want to log out? You'll need to sign in again to access your account.
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <DialogFooter className="md:p-6 pt-2 gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => setOpen(false)}
-                                className="flex-1 border-slate-200 hover:bg-slate-50 hover:border-slate-300 p-2 transition-all duration-300"
-                            >
-                                Cancel
-                            </Button>
-
-                            <Button
-                                variant="destructive"
-                                onClick={handleLogout}
-                                className="flex-1 bg-gradient-to-r text-white from-red-600 to-red-500 p-2 hover:from-red-700 hover:to-red-600 shadow-lg shadow-red-500/25 transition-all duration-300"
-                            >
-                                Logout
-                            </Button>
-                        </DialogFooter>
-                    </div>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <span className="w-10 h-10 rounded-md bg-accent text-primary flex items-center justify-center mb-2">
+                            <LogOut className="w-5 h-5" />
+                        </span>
+                        <DialogTitle className="font-serif text-2xl font-extrabold">Confirm Logout</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to log out? You'll need to sign in again to access your account.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="ghost" onClick={() => setOpen(false)} className="flex-1">Cancel</Button>
+                        <Button variant="destructive" onClick={handleLogout} className="flex-1">Logout</Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
+        </>
+    );
+};
+
+/** Android-style navigation bar, shown below md. */
+export const BottomNav = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { user } = useUserStore();
+    const chromeless = useIsChromeless();
+    if (!user || chromeless) return null;
+
+    const currentPath = location.pathname.split("/")[1];
+    const items = getNavItems(user.role);
+
+    return (
+        <>
+            <div aria-hidden className="md:hidden h-[calc(80px+env(safe-area-inset-bottom))]" />
+            <nav className="md:hidden fixed inset-x-0 bottom-0 z-50 bg-secondary border-t border-border pb-[env(safe-area-inset-bottom)]">
+                <ul className="flex h-20 items-start pt-3 px-2">
+                    {items.map((item) => {
+                        const isActive = currentPath === item.key;
+                        const Icon = item.icon;
+                        return (
+                            <li key={item.key} className="flex-1">
+                                <button
+                                    onClick={() => navigate(`/${item.key}`)}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className="w-full flex flex-col items-center gap-1"
+                                >
+                                    <span className={`h-8 w-16 rounded-full flex items-center justify-center transition-colors ${isActive ? 'bg-accent' : ''}`}>
+                                        <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                    </span>
+                                    <span className={`text-xs ${isActive ? 'font-extrabold text-foreground' : 'font-semibold text-muted-foreground'}`}>
+                                        {item.short}
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            </nav>
         </>
     );
 };

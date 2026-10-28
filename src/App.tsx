@@ -6,7 +6,7 @@ import {
 import { motion } from 'framer-motion';
 import { GroupWord } from './types';
 import PasteWord from './components/paste-word';
-import Navbar from './components/navbar';
+import Navbar, { BottomNav } from './components/navbar';
 import TestingPage from './pages/testing';
 import api from "./services/api"
 import HistoryDetail from './components/history';
@@ -28,6 +28,7 @@ const Stories = lazy(() => import('./pages/stories'));
 const Profile = lazy(() => import('./pages/profile'));
 const Results = lazy(() => import('./components/results'));
 const WordGroupView = lazy(() => import('./pages/word-group'));
+const Sources = lazy(() => import('./pages/sources'));
 
 // --- App ---
 export default function App() {
@@ -38,7 +39,7 @@ export default function App() {
   const [userWords, setUserWords] = useState<GroupWord[]>([]);
   
 
-  const loadingTsx = <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-blue-600" /></div>
+  const loadingTsx = <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>
 
    // Restore from URL params (legacy support)
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function App() {
   if (loading) return <div className="h-screen flex items-center justify-center"><RotateCcw className="animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen flex flex-col bg-bluebook-bg font-sans selection:bg-blue-100">
+    <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
       {/* Navbar - using legacy view for navbar logic */}
       <Navbar />
 
@@ -87,11 +88,18 @@ export default function App() {
           } />
 
           {user && user?.role === "admin" ? (
-            <Route path="/create" element={
-              <Suspense fallback={loadingTsx}>
-                <ManualTest />
-              </Suspense>
-            } />
+            <>
+              <Route path="/create" element={
+                <Suspense fallback={loadingTsx}>
+                  <ManualTest />
+                </Suspense>
+              } />
+              <Route path="/sources" element={
+                <Suspense fallback={loadingTsx}>
+                  <Sources />
+                </Suspense>
+              } />
+            </>
           ) : (
             <>
              <Route path="/ai-generator" element={
@@ -165,6 +173,7 @@ export default function App() {
           } />
         </Routes>
       </main>
+      <BottomNav />
     </div>
   );
 }

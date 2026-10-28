@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useWordState } from '../states/word.state';
@@ -8,6 +9,13 @@ import { LayoutDashboard, ClipboardCheck, CirclePlay } from "lucide-react";
 const Results = () => {
    const { result: data } = useWordState()
    const navigate = useNavigate()
+
+   // The result only lives in memory; a refresh leaves nothing to show.
+   useEffect(() => {
+      if (!data) navigate('/dashboard', { replace: true })
+   }, [data])
+
+   if (!data) return null
 
    return (
       <motion.div 

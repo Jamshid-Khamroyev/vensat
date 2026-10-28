@@ -105,9 +105,8 @@ const StoryReading = ({ userWords, setUserWords }: StoryReadingProps) => {
     setTranslationResult(null);
     
     try {
-      const { data } = await api.post('/api/ai/translate', { text: term });
-      const translatedArray = data.data?.data?.translations?.translatedText;
-      const finalResult = translatedArray?.[0];
+      const { data } = await api.post('/api/ai/translate', { words: [term] });
+      const finalResult = data.data?.[0]?.definition;
       
       if (!finalResult) throw new Error('Translation failed');
 

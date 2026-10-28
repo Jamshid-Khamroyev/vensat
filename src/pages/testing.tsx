@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { X, Minimize2, Maximize2, AlarmClock, Flag, Loader2, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Clock } from "lucide-react";
+import { X, Minimize2, Maximize2, AlarmClock, Flag, Loader2, Strikethrough, ChevronRight, ChevronLeft, Grid3x3, Eye, EyeOff, Clock, NotebookPen } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner"; 
@@ -23,6 +23,7 @@ const TestingPage = () => {
   const [userAnswers, setUserAnswers] = useState<{ questionId: string; selectedIndex: number }[]>([]);
   const [showNotes, setShowNotes] = useState(false);
   const [tempNote, setTempNote] = useState("");
+  const [notes, setNotes] = useState<Record<number, string>>({});
   const [isFinishing, setIsFinishing] = useState(false);
   const [isTestDisabled, setIsTestDisabled] = useState(false);
   const [showNavigator, setShowNavigator] = useState(false);
@@ -260,14 +261,24 @@ const TestingPage = () => {
           </button>
         </div>
         
-        <button onClick={toggleFullscreen} className="p-1 rounded text-slate-500">
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => { setTempNote(notes[currentQuestionIndex] || ""); setShowNotes(true); }}
+            aria-label="Notes"
+            title="Notes"
+            className={`p-1.5 rounded ${notes[currentQuestionIndex] ? "text-primary" : "text-slate-500"}`}
+          >
+            <NotebookPen className="w-4 h-4" />
+          </button>
+          <button onClick={toggleFullscreen} aria-label="Fullscreen" className="p-1.5 rounded text-slate-500">
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        </div>
       </div>
 
       <div className="border-b border-slate-300 h-px" />
 
-      {showNotes && !isTestDisabled && <TestNote setShowNotes={setShowNotes} currentQuestionIndex={currentQuestionIndex} tempNote={tempNote} setTempNote={setTempNote} currentNote={""} isTestDisabled={isTestDisabled} setNotes={() => {}} />}
+      {showNotes && !isTestDisabled && <TestNote setShowNotes={setShowNotes} currentQuestionIndex={currentQuestionIndex} tempNote={tempNote} setTempNote={setTempNote} currentNote={notes[currentQuestionIndex] || null} isTestDisabled={isTestDisabled} setNotes={setNotes} />}
 
       {(isTestDisabled && isFinishing) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

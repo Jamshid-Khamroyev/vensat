@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import api from '../services/api';
 import { useUserStore } from '../states/user.state';
 import { useNavigate } from 'react-router-dom';
-import image from '../public/image.png';
+import { Logo, ThemeToggle } from '../components/navbar';
 
 type Lang = 'uz' | 'ru' | 'en';
 
@@ -707,21 +707,22 @@ const LandingPage = () => {
     }, [user, navigate]);
 
     return (
-        <div className="min-h-screen bg-white font-sans px-1" style={{ fontFamily: "'Sora', 'Plus Jakarta Sans', sans-serif" }}>
-            <header className="fixed top-0 left-0 right-0 z-50 h-16 px-2 lg:px-12 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
+        <div className="min-h-screen bg-background font-sans px-1">
+            <header className="fixed top-0 left-0 right-0 z-50 h-16 px-2 lg:px-12 bg-background/95 backdrop-blur border-b border-border">
                 <div className="h-full flex items-center justify-between max-w-7xl mx-auto">
-                    <div className="flex items-center gap-2.5"><img src={image} alt="project logo" className='md:h-12 h-8' /></div>
+                    <Logo />
                     <nav className="hidden md:flex items-center gap-8">
                         {t.nav.map((n: string) => (<a key={n} href="#" className="text-sm font-medium text-gray-500 hover:text-blue-950 transition-colors">{n}</a>))}
                     </nav>
                     <div className="flex items-center gap-2">
+                        <ThemeToggle className="max-sm:hidden" />
                         <div className=" sm:flex items-center gap-1 mr-1 bg-gray-100 rounded-lg p-0.5">
                             {(['uz', 'ru', 'en'] as Lang[]).map((l) => (
                                 <button key={l} onClick={() => setLang(l)} className={`px-2 py-1 text-xs font-bold rounded-md transition-colors cursor-pointer ${lang === l ? 'bg-blue-950 text-white' : 'text-gray-500 hover:text-blue-950'}`}>{l.toUpperCase()}</button>
                             ))}
                         </div>
-                        <button onClick={() => openAuthModal('login')} className="md:px-4 px-2 cursor-pointer py-2 text-sm text-blue-950 border border-blue-950 hover:bg-blue-950 hover:text-white rounded-lg transition-colors">{t.login}</button>
-                        <button onClick={() => openAuthModal('register')} className="md:px-4 max-md:hidden px-2 cursor-pointer py-2 text-sm bg-blue-950 text-white rounded-lg hover:bg-white hover:text-blue-950 border hover:border-blue-950 transition-colors">{t.start}</button>
+                        <button onClick={() => openAuthModal('login')} className="md:px-4 px-2 cursor-pointer py-2 text-sm text-blue-950 border border-blue-950 hover:bg-blue-950 hover:text-white rounded-md font-bold uppercase tracking-wide text-xs transition-colors">{t.login}</button>
+                        <button onClick={() => openAuthModal('register')} className="md:px-4 max-md:hidden px-2 cursor-pointer py-2 text-sm bg-blue-950 text-white rounded-lg hover:bg-white hover:text-blue-950 border hover:border-blue-950 rounded-md font-bold uppercase tracking-wide text-xs transition-colors">{t.start}</button>
                     </div>
                 </div>
             </header>
@@ -1091,7 +1092,7 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto px-2 lg:px-12">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
                         <div className="col-span-2 md:col-span-1">
-                            <div className="flex items-center gap-2.5 mb-4"><img src={image} alt="project logo" className='md:h-12 h-8' /></div>
+                            <div className="mb-4"><Logo /></div>
                             <p className="text-gray-500 text-sm leading-relaxed">{t.footer.tagline}</p>
                         </div>
                         {t.footer.columns.map((col: any) => (

@@ -1,3 +1,4 @@
+import type { Dispatch, SetStateAction } from "react"
 import { X } from "lucide-react"
 
 interface TestNoteProps {
@@ -7,7 +8,7 @@ interface TestNoteProps {
     setTempNote: (note: string) => void
     currentNote: string | null
     isTestDisabled: boolean
-    setNotes: (notes: Record<number, string>) => void
+    setNotes: Dispatch<SetStateAction<Record<number, string>>>
 }
 
 const TestNote = ({ setShowNotes, currentQuestionIndex, tempNote, setTempNote, currentNote, isTestDisabled, setNotes }: TestNoteProps) => {
@@ -39,7 +40,7 @@ const TestNote = ({ setShowNotes, currentQuestionIndex, tempNote, setTempNote, c
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl max-w-lg w-full p-4">
+        <div className="bg-card rounded-xl max-w-lg w-full p-4">
             <div className="flex justify-between items-center mb-3">
                 <h3 className="font-semibold text-slate-900">Notes for Question {currentQuestionIndex + 1}</h3>
                 <button onClick={() => setShowNotes(false)} className="p-1">
@@ -47,7 +48,7 @@ const TestNote = ({ setShowNotes, currentQuestionIndex, tempNote, setTempNote, c
                 </button>
             </div>
             <textarea 
-                value={tempNote || currentNote || ""}
+                value={tempNote}
                 onChange={(e) => setTempNote(e.target.value)}
                 placeholder="Write your notes here..."
                 className="w-full h-32 p-3 border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
@@ -55,7 +56,7 @@ const TestNote = ({ setShowNotes, currentQuestionIndex, tempNote, setTempNote, c
             />
             <div className="flex gap-2 mt-3">
                 <button onClick={saveNote} disabled={isTestDisabled}
-                    className="flex-1 bg-blue-900 text-white py-2 rounded-lg text-sm font-medium disabled:opacity-50">
+                    className="flex-1 bg-primary text-primary-foreground py-2 rounded-md text-sm font-extrabold uppercase tracking-wide disabled:opacity-50">
                     Save Note
                 </button>
                 {currentNote && (

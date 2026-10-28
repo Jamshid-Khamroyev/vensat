@@ -80,7 +80,7 @@ const MyStoriesTab = ({ userId }: { userId: string }) => {
     const handleDelete = async (id: string) => {
         if (!confirm("Delete this story?")) return;
         try {
-            await api.delete(`/stories/${id}`);
+            await api.delete(`/api/stories/${id}`);
             setStories(stories.filter(s => s._id !== id));
         } catch (e) { 
             alert("Delete failed."); 

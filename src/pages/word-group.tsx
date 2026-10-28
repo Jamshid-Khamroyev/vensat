@@ -175,7 +175,7 @@ const WordGroupView = () => {
     
     setIsDeleting(true);
     try {
-      await api.delete(`/word/practice/${groupIdFromProps}`);
+      await api.delete(`/api/word/practice/${groupIdFromProps}`);
       setPracticeQuestions([]);
       setCurrentQuestionIndex(0);
       setSelectedAnswer(null);
