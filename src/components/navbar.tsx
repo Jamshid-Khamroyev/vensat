@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useUserStore } from "../states/user.state";
 import { useThemeStore } from "../states/theme.state";
 import type { LucideIcon } from "lucide-react";
+import logo from "../public/image.png";
 
 type NavItem = { key: string; label: string; short: string; icon: LucideIcon };
 
@@ -44,8 +45,7 @@ export const useIsChromeless = () => {
 
 export const Logo = ({ onClick }: { onClick?: () => void }) => (
     <div className="flex items-center gap-2.5 cursor-pointer shrink-0 select-none" onClick={onClick}>
-        <span className="w-8 h-8 rounded-md bg-foreground text-background flex items-center justify-center font-serif font-black text-lg leading-none">V</span>
-        <span className="font-extrabold text-[17px] tracking-tight text-foreground">VenSAT</span>
+        <img src={logo} alt="VenSAT logo" className="md:h-12 h-8" />
     </div>
 );
 
@@ -174,9 +174,9 @@ const Navbar = () => {
             <Dialog open={open} onOpenChange={setOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <span className="w-10 h-10 rounded-md bg-accent text-primary flex items-center justify-center mb-2">
-                            <LogOut className="w-5 h-5" />
-                        </span>
+                        <div className="w-full h-28 flex items-center justify-center p-1 mb-2">
+                            <img src={logo} alt="VenSAT logo" className="w-full h-full object-contain" />
+                        </div>
                         <DialogTitle className="font-serif text-2xl font-extrabold">Confirm Logout</DialogTitle>
                         <DialogDescription>
                             Are you sure you want to log out? You'll need to sign in again to access your account.

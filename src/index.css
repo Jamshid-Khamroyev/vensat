@@ -9,7 +9,7 @@
 /* ============================================================
    VenSAT design tokens — dark green · ivory · yellow
    Light: ivory surfaces, green-black ink, dark green primary.
-   Dark: neutral charcoal surfaces, ivory ink, yellow primary.
+   Dark: neutral charcoal surfaces, ivory ink, soft sage primary.
    ============================================================ */
 
 @theme {
@@ -276,9 +276,9 @@
   --ink: #F3EFE2;
   --ink-secondary: #C4C1B5;
   --ink-muted: #8F8E86;
-  --ink-accent: #F2C94C;
+  --ink-accent: #A3C2A8;
   --ink-on-accent: #121312;
-  --accent-soft: #34301B;
+  --accent-soft: #26332A;
   --destructive: #F08072;
   --color-gray-50: #1B1C1B;
   --color-gray-100: #222422;
@@ -335,39 +335,39 @@
   --color-stone-800: #DDD9CC;
   --color-stone-900: #F3EFE2;
   --color-stone-950: #FAF7EE;
-  --color-blue-50: #26231A;
-  --color-blue-100: #302C1C;
-  --color-blue-200: #3F3820;
-  --color-blue-300: #6B5D2A;
-  --color-blue-400: #B3953A;
-  --color-blue-500: #DDB646;
-  --color-blue-600: #F2C94C;
-  --color-blue-700: #F2C94C;
-  --color-blue-800: #F5D46E;
-  --color-blue-900: #F7DE90;
-  --color-blue-950: #F2C94C;
-  --color-indigo-50: #26231A;
-  --color-indigo-100: #302C1C;
-  --color-indigo-200: #3F3820;
-  --color-indigo-300: #6B5D2A;
-  --color-indigo-400: #B3953A;
-  --color-indigo-500: #DDB646;
-  --color-indigo-600: #F2C94C;
-  --color-indigo-700: #F2C94C;
-  --color-indigo-800: #F5D46E;
-  --color-indigo-900: #F7DE90;
-  --color-indigo-950: #F2C94C;
-  --color-sky-50: #26231A;
-  --color-sky-100: #302C1C;
-  --color-sky-200: #3F3820;
-  --color-sky-300: #6B5D2A;
-  --color-sky-400: #B3953A;
-  --color-sky-500: #DDB646;
-  --color-sky-600: #F2C94C;
-  --color-sky-700: #F2C94C;
-  --color-sky-800: #F5D46E;
-  --color-sky-900: #F7DE90;
-  --color-sky-950: #F2C94C;
+  --color-blue-50: #1A211C;
+  --color-blue-100: #1F2A22;
+  --color-blue-200: #2A372D;
+  --color-blue-300: #3E5244;
+  --color-blue-400: #5F7D66;
+  --color-blue-500: #84A58B;
+  --color-blue-600: #A3C2A8;
+  --color-blue-700: #A3C2A8;
+  --color-blue-800: #BDD3C0;
+  --color-blue-900: #D3E2D5;
+  --color-blue-950: #A3C2A8;
+  --color-indigo-50: #1A211C;
+  --color-indigo-100: #1F2A22;
+  --color-indigo-200: #2A372D;
+  --color-indigo-300: #3E5244;
+  --color-indigo-400: #5F7D66;
+  --color-indigo-500: #84A58B;
+  --color-indigo-600: #A3C2A8;
+  --color-indigo-700: #A3C2A8;
+  --color-indigo-800: #BDD3C0;
+  --color-indigo-900: #D3E2D5;
+  --color-indigo-950: #A3C2A8;
+  --color-sky-50: #1A211C;
+  --color-sky-100: #1F2A22;
+  --color-sky-200: #2A372D;
+  --color-sky-300: #3E5244;
+  --color-sky-400: #5F7D66;
+  --color-sky-500: #84A58B;
+  --color-sky-600: #A3C2A8;
+  --color-sky-700: #A3C2A8;
+  --color-sky-800: #BDD3C0;
+  --color-sky-900: #D3E2D5;
+  --color-sky-950: #A3C2A8;
   --color-red-50: color-mix(in oklab, var(--hue-red-900) 22%, var(--surface));
   --color-red-100: color-mix(in oklab, var(--hue-red-900) 32%, var(--surface));
   --color-red-200: color-mix(in oklab, var(--hue-red-800) 45%, var(--surface));
